@@ -4,99 +4,439 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CardVault</title>
-    <style>
-        :root {
-            color-scheme: dark;
-            --bg: #061014;
-            --surface: #0b1c22;
-            --surface-soft: #0f2830;
-            --surface-strong: #12343c;
-            --border: #1e5260;
-            --text: #d7fbff;
-            --muted: #7ab7c4;
-            --cyan: #42e8ff;
-            --cyan-strong: #00c7e6;
-        }
-        * { box-sizing: border-box; margin: 0; }
-        body {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 32px;
-            background: var(--bg);
-            color: var(--text);
-            font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-            padding: 24px;
-        }
-        h1 {
-            color: var(--cyan);
-            font-size: 40px;
-            font-weight: 760;
-        }
-        .apps {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .card {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            width: 260px;
-            padding: 32px 24px;
-            border: 1px solid var(--border);
-            background: linear-gradient(180deg, var(--surface-soft), var(--surface));
-            text-decoration: none;
-            color: var(--text);
-            border-radius: 12px;
-            transition: border-color .15s, transform .15s;
-        }
-        .card:hover {
-            border-color: var(--cyan);
-            transform: translateY(-4px);
-        }
-        .card svg {
-            width: 48px;
-            height: 48px;
-            color: var(--cyan);
-        }
-        .card h2 {
-            font-size: 20px;
-            font-weight: 640;
-        }
-        .card p {
-            color: var(--muted);
-            text-align: center;
-            font-size: 14px;
-            line-height: 1.4;
-        }
-    </style>
+    <link rel="stylesheet" href="static/css/app.css">
 </head>
 <body>
-    <h1>CardVault</h1>
-    <div class="apps">
-        <a class="card" href="products/">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <path d="m8 14 2.5-2.5L14 15l2-2 3 3"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-            </svg>
-            <h2>Productos</h2>
-            <p>Catálogo de productos con imágenes, precios y gestión</p>
-        </a>
-        <a class="card" href="inventory/">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-                <line x1="12" y1="22.08" x2="12" y2="12"/>
-            </svg>
-            <h2>Inventario</h2>
-            <p>Control de inventario, entradas, salidas y stock</p>
-        </a>
+    <main class="app-shell">
+        <header class="topbar">
+            <div>
+                <h1>CardVault</h1>
+                <p id="resultSummary">Gesti&oacute;n de productos e inventario</p>
+                <div id="authPanel"></div>
+            </div>
+            <form class="search" id="searchForm">
+                <label for="searchInput">Buscar</label>
+                <div class="search-row">
+                    <input id="searchInput" name="q" type="search" autocomplete="off" placeholder="C&oacute;digo, colecci&oacute;n o producto">
+                    <button type="submit" aria-label="Buscar">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m21 21-4.3-4.3"></path>
+                            <circle cx="11" cy="11" r="7"></circle>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </header>
+
+        <nav class="tabs" id="mainTabs">
+            <button class="tab" data-tab="products">Productos</button>
+            <button class="tab active" data-tab="inventory">Inventario</button>
+            <button class="tab" data-tab="purchases">Compras</button>
+        </nav>
+
+        <!-- Products tab -->
+        <section class="tab-content" id="tabProducts">
+            <div class="toolbar">
+                <div class="density-note">
+                    <span id="layoutSummary">Ajustando tarjetas</span>
+                    <span id="scrollStatus" class="scroll-note">Scroll para cargar m&aacute;s</span>
+                </div>
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                    <label class="filter-check">
+                        Manual
+                        <select id="filterManual">
+                            <option value="">Todos</option>
+                            <option value="1">S&iacute;</option>
+                            <option value="0">No</option>
+                        </select>
+                    </label>
+                    <label class="filter-check">
+                        Verificado
+                        <select id="filterVerified">
+                            <option value="">Todos</option>
+                            <option value="1">S&iacute;</option>
+                            <option value="0">No</option>
+                        </select>
+                    </label>
+                    <button id="addProductBtn" class="btn-primary">+ Nuevo producto</button>
+                </div>
+            </div>
+            <section class="catalog-wrap" aria-live="polite">
+                <div class="product-grid" id="productGrid"></div>
+                <div class="empty-state" id="emptyState" hidden>No hay productos para esta consulta.</div>
+                <div class="load-sentinel" id="loadSentinel" aria-hidden="true"></div>
+            </section>
+        </section>
+
+        <!-- Inventory tab -->
+        <section class="tab-content active" id="tabInventory">
+            <div class="toolbar">
+                <div class="density-note">
+                    <span id="invSummary">Cargando...</span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <label id="showAllLabel" style="display:none;font-size:13px;cursor:pointer">
+                        <input type="checkbox" id="showAllInv"> Ver todos
+                    </label>
+                    <button id="addInventoryBtn" class="btn-primary">+ A&ntilde;adir a inventario</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Colecci&oacute;n</th>
+                            <th>Idioma</th>
+                            <th>Estado</th>
+                            <th>Stock</th>
+                            <th title="Sellado">S</th>
+                            <th title="Publicado Instagram">IG</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryBody"></tbody>
+                </table>
+                <div class="empty-state" id="invEmpty" hidden>No hay productos en inventario.</div>
+            </div>
+            <div class="load-sentinel" id="invSentinel"></div>
+        </section>
+
+        <!-- Purchases tab -->
+        <section class="tab-content" id="tabPurchases">
+            <div class="toolbar">
+                <div class="density-note">
+                    <span id="purSummary">Cargando...</span>
+                </div>
+                <div>
+                    <button id="addPurchaseBtn" class="btn-primary">+ Nueva compra</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tienda</th>
+                            <th>Total</th>
+                            <th>Gastos env&iacute;o</th>
+                            <th>Moneda</th>
+                            <th>Items</th>
+                        </tr>
+                    </thead>
+                    <tbody id="purchasesBody"></tbody>
+                </table>
+                <div class="empty-state" id="purEmpty" hidden>No hay compras.</div>
+            </div>
+            <div class="load-sentinel" id="purSentinel"></div>
+        </section>
+    </main>
+
+    <!-- Product detail modal -->
+    <div id="productModal" class="modal" hidden>
+        <div class="modal-backdrop" id="modalBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true">
+            <h2 id="modalTitle">Acciones producto</h2>
+            <div id="modalDetail"></div>
+            <form id="productForm">
+                <input type="hidden" id="modalProductId">
+                <div class="field-inline">
+                    <div class="field" style="flex:1">
+                        <label for="imageUrl">URL imagen</label>
+                        <input id="imageUrl" type="url" placeholder="https://.../image.jpg">
+                    </div>
+                    <div class="field" style="flex:0 0 auto; min-width:140px">
+                        <label for="imageLanguage">Idioma</label>
+                        <select id="imageLanguage">
+                            <option value="">(sin idioma)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="checkbox-label">
+                        <input id="isVerified" type="checkbox">
+                        Verificado
+                    </label>
+                </div>
+                <div class="field">
+                    <label for="priceUrl">URL precio / tracking</label>
+                    <input id="priceUrl" type="url" placeholder="https://...">
+                </div>
+                <div class="actions">
+                    <button type="submit">Guardar</button>
+                    <button type="button" id="modalCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
     </div>
+
+    <!-- Create product modal -->
+    <div id="createProductModal" class="modal" hidden>
+        <div class="modal-backdrop" id="createBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true">
+            <h2>Nuevo producto</h2>
+            <form id="createProductForm">
+                <div class="field">
+                    <label for="newColCode">C&oacute;digo de colecci&oacute;n</label>
+                    <input id="newColCode" type="text" placeholder="swsh12, base1, ..." required>
+                    <div id="colSuggestions" class="suggestions" style="display:none"></div>
+                </div>
+                <div id="newColFields">
+                    <div class="field">
+                        <label for="newColName">Nombre de colecci&oacute;n (si no existe)</label>
+                        <input id="newColName" type="text" placeholder="Sword &amp; Shield...">
+                    </div>
+                    <div class="field">
+                        <label for="newColLang">Idioma del nombre</label>
+                        <select id="newColLang">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="newCardType">Tipo de carta</label>
+                        <select id="newCardType">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="newProductNumber">N&uacute;mero de producto</label>
+                    <input id="newProductNumber" type="text" placeholder="001">
+                </div>
+                <div class="field">
+                    <label class="checkbox-label">
+                        <input id="newForceDownload" type="checkbox">
+                        Force download
+                    </label>
+                </div>
+                <div class="actions">
+                    <button type="submit">Crear producto</button>
+                    <button type="button" id="createCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Purchase modal -->
+    <div id="purchaseModal" class="modal" hidden>
+        <div class="modal-backdrop" id="purBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true">
+            <h2 id="purModalTitle">Nueva compra</h2>
+            <form id="purchaseForm">
+                <input type="hidden" id="modalPurchaseId">
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label for="purDate">Fecha</label>
+                        <input id="purDate" type="date" required>
+                    </div>
+                    <div class="field" style="flex:2">
+                        <label for="purEntity">Tienda / entidad</label>
+                        <select id="purEntity" required>
+                            <option value="">Seleccionar...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label for="purTotal">Total</label>
+                        <input id="purTotal" type="number" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label for="purShipping">Gastos env&iacute;o</label>
+                        <input id="purShipping" type="number" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="field" style="flex:0 0 auto; min-width:100px">
+                        <label for="purCurrency">Moneda</label>
+                        <select id="purCurrency">
+                            <option value="EUR">EUR</option>
+                            <option value="USD">USD</option>
+                            <option value="GBP">GBP</option>
+                            <option value="JPY">JPY</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="purRef">Referencia externa</label>
+                    <input id="purRef" type="text" placeholder="N&ordm; de pedido, factura...">
+                </div>
+                <div class="field">
+                    <label for="purNotes">Notas</label>
+                    <input id="purNotes" type="text" placeholder="Observaciones">
+                </div>
+                <h3>Items de la compra</h3>
+                <div class="items-table-wrap">
+                    <table id="purchaseItemsTable">
+                        <thead>
+                            <tr>
+                                <th style="width:55%">Producto</th>
+                                <th style="width:12%">Cantidad</th>
+                                <th style="width:15%">Precio ud.</th>
+                                <th style="width:15%">Total</th>
+                                <th style="width:3%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="purchaseItemsBody">
+                            <tr class="empty-row"><td colspan="5" class="empty-state">Sin items</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-bottom:12px">
+                    <button type="button" id="addItemBtn" class="btn-secondary">+ A&ntilde;adir item</button>
+                </div>
+                <div class="actions">
+                    <button type="submit">Guardar compra</button>
+                    <button type="button" id="purCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Inventory entry modal -->
+    <div id="entryModal" class="modal" hidden>
+        <div class="modal-backdrop" id="entryBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:min(520px,calc(100%-40px))">
+            <h2 id="entryTitle">Editar inventario</h2>
+            <form id="entryForm">
+                <input type="hidden" id="modalInventoryId">
+                <div class="field">
+                    <label>Producto</label>
+                    <div id="entryProductDisplay" style="padding:8px 10px; border:1px solid var(--border); border-radius:4px; color:var(--text);"></div>
+                </div>
+                <div class="field">
+                    <label>Colecci&oacute;n</label>
+                    <div id="entryCollectionDisplay" style="padding:8px 10px; border:1px solid var(--border); border-radius:4px; color:var(--text);"></div>
+                </div>
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label for="entryQuantity">Cantidad</label>
+                        <input id="entryQuantity" type="number" min="1" step="1" value="1">
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label for="entryLang">Idioma</label>
+                        <select id="entryLang">
+                            <option value="">(sin idioma)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label for="entryCondition">Estado</label>
+                        <select id="entryCondition">
+                            <option value="">(sin estado)</option>
+                        </select>
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label>Compra</label>
+                        <div id="entryPurchaseDisplay" style="padding:8px 10px; border:1px solid var(--border); border-radius:4px; color:var(--muted); font-size:14px;"></div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label class="checkbox-label">
+                            <input id="entrySealed" type="checkbox">
+                            Sellado
+                        </label>
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label class="checkbox-label">
+                            <input id="entryInstagram" type="checkbox">
+                            Publicado Instagram
+                        </label>
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="entryNote">Notas</label>
+                    <input id="entryNote" type="text" placeholder="Notas internas">
+                </div>
+                <div class="actions">
+                    <button type="submit">Guardar</button>
+                    <button type="button" id="entryCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add inventory modal -->
+    <div id="addInvModal" class="modal" hidden>
+        <div class="modal-backdrop" id="addInvBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:min(520px,calc(100%-40px))">
+            <h2>Nuevo inventario</h2>
+            <form id="addInvForm">
+                <div class="field">
+                    <label for="addInvProduct">Producto</label>
+                    <input id="addInvProduct" type="text" placeholder="Buscar producto..." autocomplete="off" required>
+                    <div id="addInvSuggestions" class="suggestions" style="display:none"></div>
+                </div>
+                <div class="field">
+                    <label for="addInvQty">Cantidad</label>
+                    <input id="addInvQty" type="number" min="1" step="1" value="1">
+                </div>
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label for="addInvLang">Idioma</label>
+                        <select id="addInvLang">
+                            <option value="">(sin idioma)</option>
+                        </select>
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label for="addInvCondition">Estado</label>
+                        <select id="addInvCondition">
+                            <option value="">(sin estado)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label class="checkbox-label">
+                            <input id="addInvSealed" type="checkbox">
+                            Sellado
+                        </label>
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label class="checkbox-label">
+                            <input id="addInvInstagram" type="checkbox">
+                            Publicado Instagram
+                        </label>
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="addInvPurchase">Compra de referencia</label>
+                    <input id="addInvPurchase" type="text" placeholder="Buscar por fecha..." autocomplete="off">
+                    <div id="addInvPurchaseSuggestions" class="suggestions" style="display:none"></div>
+                </div>
+                <div class="field">
+                    <label for="addInvNotes">Notas</label>
+                    <input id="addInvNotes" type="text" placeholder="Notas internas">
+                </div>
+                <div class="actions">
+                    <button type="submit">Guardar</button>
+                    <button type="button" id="addInvCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Login modal -->
+    <div id="loginModal" class="modal" hidden>
+        <div class="modal-backdrop" id="loginBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true">
+            <h2>Iniciar sesi&oacute;n</h2>
+            <form id="loginForm">
+                <div class="field">
+                    <label for="loginUsername">Usuario o email</label>
+                    <input id="loginUsername" name="username" type="text" autocomplete="username">
+                </div>
+                <div class="field">
+                    <label for="loginPassword">Contrase&ntilde;a</label>
+                    <input id="loginPassword" name="password" type="password" autocomplete="current-password">
+                </div>
+                <div class="actions">
+                    <button type="submit">Entrar</button>
+                    <button type="button" id="loginCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="static/js/app.js"></script>
 </body>
 </html>

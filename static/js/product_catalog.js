@@ -44,12 +44,13 @@ function handleUnauthorized() {
     updateAuthUI();
 }
 
-async function loadCurrentUser() {
+let currentUserRoles = [];
+
+function loadCurrentUser() {
     const authPanelEl = document.getElementById('authPanel');
     if (!authPanelEl) return;
     const token = window.localStorage.getItem(TOKEN_KEY);
     if (!token) {
-        // create login button programmatically to avoid timing issues
         authPanelEl.innerHTML = '';
         const btn = document.createElement('button');
         btn.id = 'loginToggle';
@@ -64,6 +65,7 @@ async function loadCurrentUser() {
         const resp = await apiFetch(apiUrl('auth/me'));
         if (!resp.ok) {
             window.localStorage.removeItem(TOKEN_KEY);
+            currentUserRoles = [];
             authPanelEl.innerHTML = '';
             const btn2 = document.createElement('button');
             btn2.id = 'loginToggle';
@@ -75,10 +77,15 @@ async function loadCurrentUser() {
         }
 
         const user = await resp.json();
+        currentUserRoles = user.roles || [];
         authPanelEl.innerHTML = `<span id="userDisplay">${escapeHtml(user.display_name || user.username)}</span> <button id="logoutButton">Cerrar sesión</button>`;
         document.getElementById('logoutButton').addEventListener('click', logout);
+        appStarted = true;
+        applyRoleUI();
+        loadProducts();
     } catch (err) {
         console.error('Error loading current user', err);
+        currentUserRoles = [];
         authPanelEl.innerHTML = '';
         const btn3 = document.createElement('button');
         btn3.id = 'loginToggle';
@@ -87,6 +94,42 @@ async function loadCurrentUser() {
         btn3.addEventListener('click', showLoginModal);
         authPanelEl.appendChild(btn3);
     }
+}
+
+function hasRole(role) {
+    return currentUserRoles.includes(role) || currentUserRoles.includes('admin');
+}
+
+function applyRoleUI() {
+    const validRoles = ['product_read', 'product_write', 'inventory_manage', 'admin'];
+    const hasAny = validRoles.some(r => currentUserRoles.includes(r));
+
+    const noPermMsg = document.getElementById('noPermission');
+    if (!hasAny && appStarted) {
+        const catalog = document.querySelector('.catalog-wrap');
+        const toolbar = document.querySelector('.toolbar');
+        if (catalog) catalog.style.display = 'none';
+        if (toolbar) toolbar.style.display = 'none';
+        if (!noPermMsg) {
+            const msg = document.createElement('div');
+            msg.id = 'noPermission';
+            msg.style.cssText = 'padding:60px 20px;text-align:center;color:var(--muted);font-size:18px;';
+            msg.textContent = 'No tienes permisos asignados. Contacta con el administrador.';
+            document.querySelector('.app-shell').appendChild(msg);
+        }
+        document.getElementById('resultSummary').textContent = 'Sin acceso';
+        return;
+    }
+    if (noPermMsg) noPermMsg.remove();
+    const catalog = document.querySelector('.catalog-wrap');
+    const toolbar = document.querySelector('.toolbar');
+    if (catalog) catalog.style.display = '';
+    if (toolbar) toolbar.style.display = '';
+
+    const addBtn = document.getElementById('addProductBtn');
+    if (addBtn) addBtn.style.display = hasRole('product_write') ? '' : 'none';
+    const createModal = document.getElementById('createProductModal');
+    if (createModal && !hasRole('product_write')) createModal.hidden = true;
 }
 
 function showLoginModal() {
@@ -134,11 +177,10 @@ async function loginSubmit(ev) {
         const body = await resp.json();
         window.localStorage.setItem(TOKEN_KEY, body.token);
         appStarted = true;
+        currentUserRoles = (body.user && body.user.roles) || [];
         hideLoginModal();
+        applyRoleUI();
         await loadCurrentUser();
-        // After login, continue loading products without resetting the existing
-        // grid so we don't lose the scroll position in an infinite-scroll list.
-        loadProducts();
     } catch (err) {
         console.error('Login error', err);
         alert('Login error');
@@ -152,6 +194,7 @@ async function logout() {
         console.error('Logout error', err);
     } finally {
         window.localStorage.removeItem(TOKEN_KEY);
+        currentUserRoles = [];
         appStarted = false;
         updateAuthUI();
     }
@@ -632,12 +675,7 @@ window.addEventListener("resize", () => {
 
 updatePageSizeFromViewport();
 
-// ensure we don't perform any automatic API requests until the user logs in
-// (explicit requirement). Clear any existing token left in storage so the
-// page doesn't attempt background validation.
-window.localStorage.removeItem(TOKEN_KEY);
-
-// initialize auth UI (renders login button)
+// initialize auth UI — if token exists, try to restore session
 updateAuthUI();
 
 // Modal logic
@@ -839,6 +877,7 @@ async function handleProductFormSubmit(ev) {
 
 productForm.addEventListener('submit', (ev) => {
     ev.preventDefault();
+    if (!hasRole('product_write')) { alert('No tienes permisos para editar productos'); return; }
     handleProductFormSubmit(ev);
 });
 
@@ -1142,7 +1181,10 @@ const newProductNumber = document.getElementById('newProductNumber');
 const newForceDownload = document.getElementById('newForceDownload');
 const colSuggestions = document.getElementById('colSuggestions');
 
-document.getElementById('addProductBtn').addEventListener('click', openCreateModal);
+document.getElementById('addProductBtn').addEventListener('click', () => {
+    if (!hasRole('product_write')) return;
+    openCreateModal();
+});
 createBackdrop.addEventListener('click', closeCreateModal);
 createCancel.addEventListener('click', closeCreateModal);
 

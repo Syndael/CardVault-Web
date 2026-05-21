@@ -28,6 +28,8 @@ function handleUnauthorized() {
     updateAuthUI();
 }
 
+let currentUserRoles = [];
+
 async function loadCurrentUser() {
     const el = document.getElementById('authPanel');
     if (!el) return;
@@ -44,6 +46,7 @@ async function loadCurrentUser() {
         const resp = await apiFetch(apiUrl('auth/me'));
         if (!resp.ok) {
             window.localStorage.removeItem(TOKEN_KEY);
+            currentUserRoles = [];
             el.innerHTML = '';
             const b = document.createElement('button');
             b.id = 'loginToggle'; b.type = 'button'; b.textContent = 'Iniciar sesion';
@@ -52,16 +55,63 @@ async function loadCurrentUser() {
             return;
         }
         const user = await resp.json();
+        currentUserRoles = user.roles || [];
         el.innerHTML = `<span id="userDisplay">${esc(user.display_name || user.username)}</span> <button id="logoutButton">Cerrar sesion</button>`;
         document.getElementById('logoutButton').addEventListener('click', logout);
+        appStarted = true;
+        applyRoleUI();
+        loadTab(currentTab);
     } catch (err) {
         console.error(err);
+        currentUserRoles = [];
         el.innerHTML = '';
         const b = document.createElement('button');
         b.id = 'loginToggle'; b.type = 'button'; b.textContent = 'Iniciar sesion';
         b.addEventListener('click', showLoginModal);
         el.appendChild(b);
     }
+}
+
+function hasRole(role) {
+    return currentUserRoles.includes(role) || currentUserRoles.includes('admin');
+}
+
+function applyRoleUI() {
+    const validRoles = ['product_read', 'product_write', 'inventory_manage', 'admin'];
+    const hasAny = validRoles.some(r => currentUserRoles.includes(r));
+
+    const noPermMsg = document.getElementById('noPermission');
+    if (!hasAny && appStarted) {
+        const tabs = document.getElementById('mainTabs');
+        const tabContents = document.querySelectorAll('.tab-content');
+        if (tabs) tabs.style.display = 'none';
+        tabContents.forEach(t => t.style.display = 'none');
+        const toolbar = document.querySelector('.toolbar');
+        if (toolbar) toolbar.style.display = 'none';
+        if (!noPermMsg) {
+            const msg = document.createElement('div');
+            msg.id = 'noPermission';
+            msg.style.cssText = 'padding:60px 20px;text-align:center;color:var(--muted);font-size:18px;';
+            msg.textContent = 'No tienes permisos asignados. Contacta con el administrador.';
+            document.querySelector('.app-shell').appendChild(msg);
+        }
+        document.getElementById('resultSummary').textContent = 'Sin acceso';
+        return;
+    }
+    if (noPermMsg) noPermMsg.remove();
+    const tabs = document.getElementById('mainTabs');
+    const tabContents = document.querySelectorAll('.tab-content');
+    if (tabs) tabs.style.display = '';
+    tabContents.forEach(t => t.style.display = '');
+    const toolbar = document.querySelector('.toolbar');
+    if (toolbar) toolbar.style.display = '';
+
+    const addInvBtn = document.getElementById('addInventoryBtn');
+    if (addInvBtn) addInvBtn.style.display = hasRole('inventory_manage') ? '' : 'none';
+    const addPurBtn = document.getElementById('addPurchaseBtn');
+    if (addPurBtn) addPurBtn.style.display = hasRole('inventory_manage') ? '' : 'none';
+    const showAllLabel = document.getElementById('showAllLabel');
+    if (showAllLabel) showAllLabel.style.display = currentUserRoles.includes('admin') ? '' : 'none';
 }
 
 function showLoginModal() {
@@ -92,15 +142,17 @@ async function loginSubmit(ev) {
         const body = await resp.json();
         window.localStorage.setItem(TOKEN_KEY, body.token);
         appStarted = true;
+        currentUserRoles = (body.user && body.user.roles) || [];
         hideLoginModal();
+        applyRoleUI();
         await loadCurrentUser();
-        loadTab(currentTab);
     } catch (err) { console.error(err); alert('Error de login'); }
 }
 
 async function logout() {
     try { await apiFetch(apiUrl('auth/logout'), {method: 'POST'}); } catch (e) {}
     window.localStorage.removeItem(TOKEN_KEY);
+    currentUserRoles = [];
     appStarted = false;
     updateAuthUI();
 }
@@ -206,7 +258,10 @@ async function loadInventory({reset = false} = {}) {
     if (reset) { s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true; invBody.innerHTML = ''; invEmpty.hidden = true; renderInvLoading(); }
     s.loading = true;
     try {
-        const resp = await apiFetch(apiUrl('inventory', {page: s.page, per_page: s.perPage, q: s.q}));
+        const params = {page: s.page, per_page: s.perPage, q: s.q};
+        const showAllCb = document.getElementById('showAllInv');
+        if (showAllCb && showAllCb.checked) params.all = 'true';
+        const resp = await apiFetch(apiUrl('inventory', params));
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
         if (reset) invBody.innerHTML = '';
@@ -956,5 +1011,8 @@ window.addEventListener('scroll', () => {
     if (lb) lb.addEventListener('click', hideLoginModal);
 })();
 
-window.localStorage.removeItem(TOKEN_KEY);
+document.getElementById('showAllInv').addEventListener('change', () => {
+    loadInventory({reset: true});
+});
+
 updateAuthUI();
