@@ -43,13 +43,20 @@
                     <label id="showAllLabel" style="display:none;font-size:13px;cursor:pointer">
                         <input type="checkbox" id="showAllInv"> Ver todos
                     </label>
+                    <div class="view-toggle" style="display:flex;gap:2px;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+                        <button type="button" class="view-btn active" data-view="list" title="Vista lista" style="padding:4px 8px;border:none;background:var(--card-bg);cursor:pointer;font-size:13px">☰</button>
+                        <button type="button" class="view-btn" data-view="cards-sm" title="Vista tarjetas pequeñas" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▦</button>
+                        <button type="button" class="view-btn" data-view="cards-lg" title="Vista tarjetas grandes" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▣</button>
+                    </div>
                     <button id="addInventoryBtn" class="btn-primary">+ Añadir a inventario</button>
                 </div>
             </div>
-            <div class="table-wrap">
+            <div class="table-wrap" id="invTableView">
                 <table>
                     <thead>
                         <tr>
+                            <th class="inv-img-header">Prod</th>
+                            <th class="inv-img-header">Inv</th>
                             <th>Producto</th>
                             <th>Colección</th>
                             <th>Idioma</th>
@@ -160,9 +167,14 @@
                         </table>
                     </div>
                     <div style="margin-bottom:12px">
-                        <button type="button" id="addItemBtn" class="btn-secondary">+ Añadir item</button>
+                        <button type="button" id="addItemBtn" class="btn-secondary">+ A&ntilde;adir item</button>
                     </div>
-
+                    <h3>Fotos</h3>
+                    <div class="field">
+                        <div id="purPhotos" class="file-grid"></div>
+                        <input type="file" id="purPhotoInput" accept="image/*" hidden>
+                        <button type="button" id="purUploadBtn" class="btn-secondary">+ Subir foto</button>
+                    </div>
                     <div class="actions">
                         <button type="submit">Guardar compra</button>
                         <button type="button" id="purCancel">Cancelar</button>
@@ -180,11 +192,11 @@
                     <input type="hidden" id="modalInventoryId">
                     <div class="field">
                         <label>Producto</label>
-                        <div id="entryProductDisplay" style="padding:8px 10px; border:1px solid var(--border); border-radius:4px; color:var(--text);"></div>
+                        <div id="entryProductDisplay" class="readonly-field"></div>
                     </div>
                     <div class="field">
                         <label>Colección</label>
-                        <div id="entryCollectionDisplay" style="padding:8px 10px; border:1px solid var(--border); border-radius:4px; color:var(--text);"></div>
+                        <div id="entryCollectionDisplay" class="readonly-field"></div>
                     </div>
                     <div class="form-row">
                         <div class="field" style="flex:1">
@@ -206,8 +218,11 @@
                             </select>
                         </div>
                         <div class="field" style="flex:1">
-                            <label>Compra</label>
-                            <div id="entryPurchaseDisplay" style="padding:8px 10px; border:1px solid var(--border); border-radius:4px; color:var(--muted); font-size:14px;"></div>
+                            <label for="entryPurchase">Compra</label>
+                            <div style="position:relative">
+                                <input id="entryPurchase" type="text" placeholder="Buscar compra..." autocomplete="off" style="width:100%;box-sizing:border-box">
+                                <div id="entryPurchaseSuggestions" class="suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:var(--card-bg,#fff);border:1px solid var(--border,#ccc);max-height:200px;overflow-y:auto"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="form-row">
@@ -227,6 +242,12 @@
                     <div class="field">
                         <label for="entryNote">Notas</label>
                         <input id="entryNote" type="text" placeholder="Notas internas">
+                    </div>
+                    <div class="field">
+                        <label>Fotos</label>
+                        <div id="entryPhotos" class="file-grid"></div>
+                        <input type="file" id="entryPhotoInput" accept="image/*" hidden>
+                        <button type="button" id="entryUploadBtn" class="btn-secondary">+ Subir foto</button>
                     </div>
                     <div class="actions">
                         <button type="submit">Guardar</button>

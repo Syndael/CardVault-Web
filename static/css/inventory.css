@@ -467,9 +467,68 @@ tr:hover td {
     cursor: pointer;
 }
 
+.readonly-field {
+    padding: 6px 0;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.4;
+    min-height: 20px;
+}
+
 @media (max-width: 820px) {
     .topbar {
         grid-template-columns: 1fr;
         align-items: stretch;
     }
+}
+
+.hidden { display: none !important; }
+
+.inv-img-header,
+.inv-img-cell {
+    display: none;
+}
+
+.view-cards-sm .inv-img-header,
+.view-cards-sm .inv-img-cell,
+.view-cards-lg .inv-img-header,
+.view-cards-lg .inv-img-cell {
+    display: table-cell;
+}
+
+.view-cards-sm .inv-img-cell {
+    width: 1%;
+    padding: 4px;
+    vertical-align: middle;
+}
+
+.view-cards-lg .inv-img-cell {
+    width: 1%;
+    padding: 4px;
+    vertical-align: middle;
+}
+
+.inv-img-thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #07151a;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+}
+
+.view-cards-sm .inv-img-thumb {
+    height: 100px;
+}
+
+.view-cards-lg .inv-img-thumb {
+    height: 500px;
+}
+
+.inv-img-thumb img {
+    height: 100%;
+    width: auto;
+    object-fit: contain;
+    display: block;
 }

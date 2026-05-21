@@ -385,8 +385,8 @@ svg {
 .trans-add {
     display:flex; gap:8px; align-items:center; margin-bottom:10px;
 }
-.trans-add select { flex:0 0 auto; min-width:120px; padding:6px 8px; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:4px; font-size:14px; }
-.trans-add input[type="text"] { flex:1; padding:6px 8px; border:1px solid var(--border); background:transparent; color:var(--text); border-radius:4px; font-size:14px; }
+.trans-add select { flex:0 1 auto; min-width:0; max-width:140px; padding:6px 8px; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:4px; font-size:14px; }
+.trans-add input[type="text"] { flex:1; min-width:60px; padding:6px 8px; border:1px solid var(--border); background:transparent; color:var(--text); border-radius:4px; font-size:14px; }
 .trans-add .btn-secondary {
     flex:0 0 auto; padding:6px 12px; border:1px solid var(--border); border-radius:4px;
     background:transparent; color:var(--cyan); cursor:pointer; font-size:16px; font-weight:640;

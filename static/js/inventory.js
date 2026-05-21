@@ -13,6 +13,7 @@ let appStarted = false;
 async function apiFetch(url, options = {}) {
     options = options || {};
     options.headers = options.headers || {};
+    options.cache = 'no-store';
     const token = window.localStorage.getItem(TOKEN_KEY);
     if (token) options.headers['Authorization'] = `Bearer ${token}`;
     if (!options.headers['Accept']) options.headers['Accept'] = 'application/json';
@@ -166,6 +167,31 @@ function apiUrl(path, params = null) {
     return url.toString();
 }
 
+function assetUrl(path) {
+    return new URL(path, apiOrigin).toString();
+}
+
+async function fetchAndSetImage(imgEl) {
+    const url = imgEl.getAttribute('data-src');
+    if (!url) return;
+    try {
+        const resp = await apiFetch(url, {
+            method: 'GET', headers: {'Accept': 'image/*'}, cache: 'no-store'
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const blob = await resp.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        imgEl.src = objectUrl;
+    } catch (err) { console.error('Error loading image', url, err); }
+}
+
+function loadImages(root = document) {
+    root.querySelectorAll('img[data-src]:not([data-loaded])').forEach(img => {
+        img.setAttribute('data-loaded', '1');
+        fetchAndSetImage(img);
+    });
+}
+
 // --- Tab system ---
 let currentTab = 'inventory';
 document.querySelectorAll('#mainTabs .tab').forEach(tab => {
@@ -216,8 +242,26 @@ const invEmpty = document.getElementById('invEmpty');
 const invSummary = document.getElementById('invSummary');
 const invSentinel = document.getElementById('invSentinel');
 
+let invViewMode = 'list';
+
+document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-btn').forEach(b => {
+            b.style.background = 'transparent';
+            b.classList.remove('active');
+        });
+        btn.style.background = 'var(--card-bg)';
+        btn.classList.add('active');
+        invViewMode = btn.dataset.view;
+        const tw = document.getElementById('invTableView');
+        tw.className = 'table-wrap';
+        if (invViewMode !== 'list') tw.classList.add('view-' + invViewMode);
+        loadInventory({reset: true});
+    });
+});
+
 function renderInvLoading() {
-    invBody.innerHTML = `<tr><td colspan="7" class="loading-state">Cargando inventario...</td></tr>`;
+    invBody.innerHTML = `<tr><td colspan="9" class="loading-state">Cargando inventario...</td></tr>`;
     invEmpty.hidden = true;
 }
 function renderInvRow(item) {
@@ -232,6 +276,8 @@ function renderInvRow(item) {
     const sealedIcon = item.is_sealed ? '&#10003;' : '';
     const igIcon = item.posted_instagram ? '&#10003;' : '';
     return `<tr class="clickable-row" data-inv-id="${item.id}">
+        <td class="inv-img-cell">${invImageCell(item.product_image_url)}</td>
+        <td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td>
         <td><strong>${esc(prod.product_number || '-')}</strong>${nameHtml}</td>
         <td>${esc(col.code || col.name || '-')}</td>
         <td>${esc(lang.name || '')}</td>
@@ -241,10 +287,18 @@ function renderInvRow(item) {
         <td>${igIcon}</td>
     </tr>`;
 }
+function invImageCell(url) {
+    const placeholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+    if (!url) {
+        return `<div class="inv-img-thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg></div>`;
+    }
+    return `<div class="inv-img-thumb"><img class="product-thumb-img" src="${placeholder}" data-src="${esc(assetUrl(url))}" alt="" loading="lazy"></div>`;
+}
 function appendInv(items) {
     if (!items.length && state.inventory.loaded === 0) { invBody.innerHTML = ''; invEmpty.hidden = false; return; }
     invEmpty.hidden = true;
     invBody.insertAdjacentHTML('beforeend', items.map(renderInvRow).join(''));
+    loadImages(invBody);
 }
 function updateInvProgress() {
     const f = state.inventory.loaded ? 1 : 0;
@@ -255,7 +309,13 @@ async function loadInventory({reset = false} = {}) {
     if (!appStarted) return;
     const s = state.inventory;
     if (s.loading || (!s.hasNext && !reset)) return;
-    if (reset) { s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true; invBody.innerHTML = ''; invEmpty.hidden = true; renderInvLoading(); }
+    if (reset) {
+        s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true;
+        invBody.innerHTML = '';
+        document.getElementById('invTableView').hidden = false;
+        invEmpty.hidden = true;
+        renderInvLoading();
+    }
     s.loading = true;
     try {
         const params = {page: s.page, per_page: s.perPage, q: s.q};
@@ -299,12 +359,16 @@ async function openEntryModal(invId) {
     document.getElementById('entryNote').value = '';
     document.getElementById('entrySealed').checked = false;
     document.getElementById('entryInstagram').checked = false;
+    document.getElementById('entryPurchase').value = '';
+    entrySelectedPurchaseId = null;
+    closeEntryPurchaseSuggestions();
 
-    // Load languages and conditions for dropdowns
+    // Load languages, conditions and purchases
     try {
-        const [langResp, condResp] = await Promise.all([
+        const [langResp, condResp, purResp] = await Promise.all([
             apiFetch(apiUrl('languages', {per_page: 200})),
-            apiFetch(apiUrl('product-conditions', {per_page: 200}))
+            apiFetch(apiUrl('product-conditions', {per_page: 200})),
+            apiFetch(apiUrl('purchases', {per_page: 200}))
         ]);
         if (langResp.ok) {
             const data = await langResp.json();
@@ -328,6 +392,10 @@ async function openEntryModal(invId) {
                 sel.appendChild(opt);
             });
         }
+        if (purResp.ok) {
+            const data = await purResp.json();
+            entryPurchasesCache = data.items || [];
+        }
     } catch (e) { console.error(e); }
 
     // Load entry data
@@ -350,8 +418,12 @@ async function openEntryModal(invId) {
                 document.getElementById('entrySealed').checked = !!item.is_sealed;
                 document.getElementById('entryInstagram').checked = !!item.posted_instagram;
                 document.getElementById('entryNote').value = item.notes || '';
-                const purInfo = pur.id ? `${(pur.purchase_date || '').slice(0,10)} - ${(pur.entity && pur.entity.name) || ''}` : 'Sin compra';
-                document.getElementById('entryPurchaseDisplay').textContent = purInfo;
+                if (pur.id) {
+                    entrySelectedPurchaseId = pur.id;
+                    const purDate = (pur.purchase_date || '').slice(0,10);
+                    const purEntity = (pur.entity && pur.entity.name) || '';
+                    document.getElementById('entryPurchase').value = purDate ? `${purDate} - ${purEntity}` : purEntity || 'Compra #' + pur.id;
+                }
             }
         } catch (e) { console.error('Error loading inventory entry', e); }
     }
@@ -377,6 +449,7 @@ document.getElementById('entryForm').addEventListener('submit', async (ev) => {
             quantity: quantity,
             ...(languageId ? {language_id: parseInt(languageId)} : {language_id: null}),
             ...(conditionId ? {condition_id: parseInt(conditionId)} : {condition_id: null}),
+            purchase_id: entrySelectedPurchaseId,
             is_sealed: isSealed,
             posted_instagram: postedInstagram,
             ...(note ? {notes: note} : {notes: null})
@@ -405,6 +478,8 @@ let addInvProductCache = {};
 
 let addInvPurchasesCache = [];
 let addInvSelectedPurchaseId = null;
+let entryPurchasesCache = [];
+let entrySelectedPurchaseId = null;
 
 async function openAddInvModal() {
     document.getElementById('addInvProduct').value = '';
@@ -559,6 +634,59 @@ function showAddInvPurchaseSuggestions(items) {
 function closeAddInvPurchaseSuggestions() {
     addInvPurchaseSuggestions.style.display = 'none';
     addInvPurchaseSuggestions.innerHTML = '';
+}
+
+// Entry purchase autocomplete
+const entryPurchaseInput = document.getElementById('entryPurchase');
+const entryPurchaseSuggestions = document.getElementById('entryPurchaseSuggestions');
+
+let entryPurSearchTimeout;
+entryPurchaseInput.addEventListener('input', () => {
+    clearTimeout(entryPurSearchTimeout);
+    entrySelectedPurchaseId = null;
+    const q = entryPurchaseInput.value.trim().toLowerCase();
+    if (q.length < 1) { closeEntryPurchaseSuggestions(); return; }
+    entryPurSearchTimeout = setTimeout(() => searchEntryPurchases(q), 200);
+});
+
+entryPurchaseInput.addEventListener('blur', () => {
+    setTimeout(closeEntryPurchaseSuggestions, 200);
+});
+
+function searchEntryPurchases(q) {
+    const matching = entryPurchasesCache.filter(p => {
+        const date = (p.purchase_date || '').slice(0, 10);
+        const entity = (p.entity && p.entity.name) || '';
+        return date.includes(q) || entity.toLowerCase().includes(q);
+    });
+    if (matching.length === 0) { closeEntryPurchaseSuggestions(); return; }
+    showEntryPurchaseSuggestions(matching);
+}
+
+function showEntryPurchaseSuggestions(items) {
+    closeEntryPurchaseSuggestions();
+    const rect = entryPurchaseInput.getBoundingClientRect();
+    entryPurchaseSuggestions.style.display = 'block';
+    entryPurchaseSuggestions.style.top = (rect.bottom + window.scrollY) + 'px';
+    entryPurchaseSuggestions.style.left = (rect.left + window.scrollX) + 'px';
+    entryPurchaseSuggestions.style.width = rect.width + 'px';
+    entryPurchaseSuggestions.innerHTML = items.map(p =>
+        `<div class="suggestion-item" data-id="${p.id}" data-date="${(p.purchase_date || '').slice(0,10)}" data-entity="${esc((p.entity && p.entity.name) || '')}">${esc((p.purchase_date || '').slice(0,10))} - ${esc((p.entity && p.entity.name) || '?')}</div>`
+    ).join('');
+    entryPurchaseSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+        el.addEventListener('click', () => {
+            entryPurchaseInput.value = el.dataset.date + ' - ' + el.dataset.entity;
+            entrySelectedPurchaseId = parseInt(el.dataset.id);
+            closeEntryPurchaseSuggestions();
+        });
+    });
+}
+
+function closeEntryPurchaseSuggestions() {
+    if (entryPurchaseSuggestions) {
+        entryPurchaseSuggestions.style.display = 'none';
+        entryPurchaseSuggestions.innerHTML = '';
+    }
 }
 
 document.getElementById('addInvForm').addEventListener('submit', async (ev) => {

@@ -117,8 +117,6 @@ h1 {
 
 .density-note { min-height: 24px; }
 
-#addProductBtn, #addInventoryBtn, #addPurchaseBtn { display: none; }
-
 .btn-primary {
     padding: 10px 18px;
     border: 0;
@@ -528,13 +526,13 @@ tr:hover td { background: var(--surface-soft); }
 }
 
 .trans-add select {
-    flex: 0 0 auto; min-width: 120px; padding: 6px 8px;
+    flex: 0 1 auto; min-width: 0; max-width: 140px; padding: 6px 8px;
     border: 1px solid var(--border); background: var(--surface);
     color: var(--text); border-radius: 4px; font-size: 14px;
 }
 
 .trans-add input[type="text"] {
-    flex: 1; padding: 6px 8px;
+    flex: 1; min-width: 60px; padding: 6px 8px;
     border: 1px solid var(--border); background: transparent;
     color: var(--text); border-radius: 4px; font-size: 14px;
 }
@@ -593,6 +591,11 @@ tr:hover td { background: var(--surface-soft); }
 
 .empty-row td { padding: 0; }
 
+/* File grid */
+.file-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.file-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; }
+.file-thumb:hover { border-color: var(--cyan); }
+
 /* Auth */
 #authPanel { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
 #userDisplay { color: var(--cyan); font-size: 14px; }
@@ -608,7 +611,66 @@ tr:hover td { background: var(--surface-soft); }
     .product-grid { gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 }
 
+.readonly-field {
+    padding: 6px 0;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.4;
+    min-height: 20px;
+}
+
 @media (max-width: 520px) {
     .toolbar { flex-direction: column; align-items: stretch; }
     .product-grid { grid-template-columns: 1fr; }
+}
+
+.hidden { display: none !important; }
+
+.inv-img-header,
+.inv-img-cell {
+    display: none;
+}
+
+.view-cards-sm .inv-img-header,
+.view-cards-sm .inv-img-cell,
+.view-cards-lg .inv-img-header,
+.view-cards-lg .inv-img-cell {
+    display: table-cell;
+}
+
+.view-cards-sm .inv-img-cell {
+    width: 1%;
+    padding: 4px;
+    vertical-align: middle;
+}
+
+.view-cards-lg .inv-img-cell {
+    width: 1%;
+    padding: 4px;
+    vertical-align: middle;
+}
+
+.inv-img-thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #07151a;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+}
+
+.view-cards-sm .inv-img-thumb {
+    height: 100px;
+}
+
+.view-cards-lg .inv-img-thumb {
+    height: 500px;
+}
+
+.inv-img-thumb img {
+    height: 100%;
+    width: auto;
+    object-fit: contain;
+    display: block;
 }

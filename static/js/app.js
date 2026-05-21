@@ -18,6 +18,7 @@ let currentTab = 'inventory';
 async function apiFetch(url, options = {}) {
     options = options || {};
     options.headers = options.headers || {};
+    options.cache = 'no-store';
     const token = window.localStorage.getItem(TOKEN_KEY);
     if (token) {
         options.headers['Authorization'] = `Bearer ${token}`;
@@ -453,16 +454,8 @@ async function handleProductFormSubmit(ev) {
     const productId = Number(modalProductId.value);
     const imageUrl = imageUrlInput.value.trim();
     const priceUrl = priceUrlInput.value.trim();
-    const isVerified = document.getElementById('isVerified').checked;
     modalSaveButton.disabled = true;
     modalSaveButton.textContent = "Guardando...";
-    try {
-        const patchResp = await apiFetch(apiUrl(`products/${productId}`), {
-            method: 'PATCH', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({is_verified: isVerified})
-        });
-        if (!patchResp.ok) console.error('Error updating is_verified', patchResp.status);
-    } catch (err) { console.error('Error updating is_verified', err); }
     let success = true;
     try {
         if (imageUrl) {
@@ -550,10 +543,8 @@ async function loadProductDetails(productId) {
             const colName = (prod.collection && (prod.collection.name || prod.collection.code)) || '';
             const searchParts = [prodName, prod.product_number, colCode].filter(Boolean).join(' ');
             const searchQ = searchParts ? encodeURIComponent(searchParts) : '';
-            html += `<div class="detail-grid"><div><strong>Producto:</strong> ${esc(prodName || prod.product_number || '-')}</div><div><strong>N\u00famero:</strong> ${esc(prod.product_number || '-')}</div><div><strong>Colecci\u00f3n:</strong> ${esc(colName)} (${esc(colCode)})</div><div><strong>Force download:</strong> ${prod.force_download ? 'S\u00ed' : 'No'}</div><div><strong>Verificado:</strong> ${prod.is_verified ? 'S\u00ed' : 'No'}</div></div>`;
+            html += `<div class="detail-grid"><div><strong>Producto:</strong> ${esc(prodName || prod.product_number || '-')}</div><div><strong>N\u00famero:</strong> ${esc(prod.product_number || '-')}</div><div><strong>Colecci\u00f3n:</strong> ${esc(colName)} (${esc(colCode)})</div><div><strong>Force download:</strong> ${prod.force_download ? 'S\u00ed' : 'No'}</div><div><strong>Verificado:</strong> <label class="checkbox-label"><input type="checkbox" class="verified-check" data-product-id="${prod.id}" ${prod.is_verified ? 'checked' : ''}></label></div></div>`;
             html += searchQ ? `<div class="detail-actions"><a class="google-search-btn" href="https://www.google.com/search?q=${searchQ}" target="_blank" rel="noopener" title="Buscar en Google">Buscar en Google</a></div>` : '';
-            const vCheck = document.getElementById('isVerified');
-            if (vCheck) vCheck.checked = !!prod.is_verified;
         }
         html += `<h3>Traducciones (${translations.length})</h3><div class="trans-list" id="transList">`;
         if (translations.length === 0) html += '<div class="empty-state">Sin traducciones</div>';
@@ -568,9 +559,12 @@ async function loadProductDetails(productId) {
         html += `<h3>Ficheros (${files.length})</h3>`;
         if (files.length === 0) html += '<div class="empty-state">Sin ficheros</div>';
         html += '<ul class="files-list">';
+        const tokenF = window.localStorage.getItem(TOKEN_KEY) || '';
+        const qsF = tokenF ? `?token=${encodeURIComponent(tokenF)}` : '';
         for (const f of files) {
             const lang = f.language ? `(${esc(f.language.name)})` : '';
-            html += `<li class="detail-row"><a href="${esc(apiUrl(`product-catalog/files/${f.id}/content`))}" target="_blank">${esc(f.original_name || f.stored_name)}</a><span class="detail-meta">${lang}</span><button type="button" class="btn-delete-file" data-file-id="${f.id}" title="Eliminar fichero"><svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></li>`;
+            const fileUrl = apiUrl(`product-catalog/files/${f.id}/content`) + qsF;
+            html += `<li class="detail-row"><a href="${esc(fileUrl)}" target="_blank">${esc(f.original_name || f.stored_name)}</a><span class="detail-meta">${lang}</span><button type="button" class="btn-delete-file" data-file-id="${f.id}" title="Eliminar fichero"><svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></li>`;
         }
         html += '</ul>';
         html += `<h3>Price Trackers (${trackers.length})</h3>`;
@@ -582,6 +576,20 @@ async function loadProductDetails(productId) {
         }
         html += '</ul>';
         modalDetail.innerHTML = html;
+
+        const verifiedCheck = modalDetail.querySelector('.verified-check');
+        if (verifiedCheck) {
+            verifiedCheck.addEventListener('change', async function () {
+                const pid = this.dataset.productId;
+                const checked = this.checked;
+                const resp = await apiFetch(apiUrl(`products/${pid}`), {
+                    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_verified: checked})
+                });
+                if (!resp.ok) { this.checked = !checked; alert('Error al actualizar verificado'); }
+            });
+        }
+
         modalDetail.querySelectorAll('.btn-delete-file').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const fileId = btn.dataset.fileId;
@@ -853,8 +861,26 @@ const invEmpty = document.getElementById('invEmpty');
 const invSummary = document.getElementById('invSummary');
 const invSentinel = document.getElementById('invSentinel');
 
+let invViewMode = 'list';
+
+document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-btn').forEach(b => {
+            b.style.background = 'transparent';
+            b.classList.remove('active');
+        });
+        btn.style.background = 'var(--surface-strong)';
+        btn.classList.add('active');
+        invViewMode = btn.dataset.view;
+        const tw = document.getElementById('invTableView');
+        tw.className = 'table-wrap';
+        if (invViewMode !== 'list') tw.classList.add('view-' + invViewMode);
+        loadInventory({reset: true});
+    });
+});
+
 function renderInvLoading() {
-    invBody.innerHTML = `<tr><td colspan="7" class="loading-state">Cargando inventario...</td></tr>`;
+    invBody.innerHTML = `<tr><td colspan="9" class="loading-state">Cargando inventario...</td></tr>`;
     invEmpty.hidden = true;
 }
 
@@ -869,13 +895,22 @@ function renderInvRow(item) {
     const nameHtml = prodName ? `<br><span class="product-name-sub">${esc(prodName)}</span>` : '';
     const sealedIcon = item.is_sealed ? '\u2713' : '';
     const igIcon = item.posted_instagram ? '\u2713' : '';
-    return `<tr class="clickable-row" data-inv-id="${item.id}"><td><strong>${esc(prod.product_number || '-')}</strong>${nameHtml}</td><td>${esc(col.code || col.name || '-')}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td></tr>`;
+    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td><strong>${esc(prod.product_number || '-')}</strong>${nameHtml}</td><td>${esc(col.code || col.name || '-')}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td></tr>`;
+}
+
+function invImageCell(url) {
+    const placeholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+    if (!url) {
+        return `<div class="inv-img-thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg></div>`;
+    }
+    return `<div class="inv-img-thumb"><img class="product-thumb-img" src="${placeholder}" data-src="${esc(assetUrl(url))}" alt="" loading="lazy"></div>`;
 }
 
 function appendInv(items) {
     if (!items.length && invState.loaded === 0) { invBody.innerHTML = ''; invEmpty.hidden = false; return; }
     invEmpty.hidden = true;
     invBody.insertAdjacentHTML('beforeend', items.map(renderInvRow).join(''));
+    loadImages(invBody);
 }
 
 function updateInvProgress() {
@@ -887,7 +922,13 @@ async function loadInventory({reset = false} = {}) {
     if (!appStarted) return;
     const s = invState;
     if (s.loading || (!s.hasNext && !reset)) return;
-    if (reset) { s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true; invBody.innerHTML = ''; invEmpty.hidden = true; renderInvLoading(); }
+    if (reset) {
+        s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true;
+        invBody.innerHTML = '';
+        document.getElementById('invTableView').hidden = false;
+        invEmpty.hidden = true;
+        renderInvLoading();
+    }
     s.loading = true;
     try {
         const params = {page: s.page, per_page: s.perPage, q: s.q};
@@ -928,16 +969,23 @@ const entryModal = document.getElementById('entryModal');
 if (document.getElementById('entryBackdrop')) document.getElementById('entryBackdrop').addEventListener('click', () => entryModal.hidden = true);
 if (document.getElementById('entryCancel')) document.getElementById('entryCancel').addEventListener('click', () => entryModal.hidden = true);
 
+let entryPurchasesCache = [];
+let entrySelectedPurchaseId = null;
+
 async function openEntryModal(invId) {
     document.getElementById('modalInventoryId').value = invId || '';
     document.getElementById('entryQuantity').value = '1';
     document.getElementById('entryNote').value = '';
     document.getElementById('entrySealed').checked = false;
     document.getElementById('entryInstagram').checked = false;
+    document.getElementById('entryPurchase').value = '';
+    entrySelectedPurchaseId = null;
+    closeEntryPurchaseSuggestions();
     try {
-        const [langResp, condResp] = await Promise.all([
+        const [langResp, condResp, purResp] = await Promise.all([
             apiFetch(apiUrl('languages', {per_page: 200})),
-            apiFetch(apiUrl('product-conditions', {per_page: 200}))
+            apiFetch(apiUrl('product-conditions', {per_page: 200})),
+            apiFetch(apiUrl('purchases', {per_page: 200}))
         ]);
         if (langResp.ok) {
             const data = await langResp.json(); const langs = data.items || [];
@@ -950,6 +998,10 @@ async function openEntryModal(invId) {
             const sel = document.getElementById('entryCondition');
             sel.innerHTML = '<option value="">(sin estado)</option>';
             conds.forEach(c => { const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; sel.appendChild(opt); });
+        }
+        if (purResp.ok) {
+            const data = await purResp.json();
+            entryPurchasesCache = data.items || [];
         }
     } catch (e) { console.error(e); }
     if (invId) {
@@ -968,10 +1020,17 @@ async function openEntryModal(invId) {
                 document.getElementById('entrySealed').checked = !!item.is_sealed;
                 document.getElementById('entryInstagram').checked = !!item.posted_instagram;
                 document.getElementById('entryNote').value = item.notes || '';
-                const purInfo = pur.id ? `${(pur.purchase_date || '').slice(0,10)} - ${(pur.entity && pur.entity.name) || ''}` : 'Sin compra';
-                document.getElementById('entryPurchaseDisplay').textContent = purInfo;
+                if (pur.id) {
+                    entrySelectedPurchaseId = pur.id;
+                    const purDate = (pur.purchase_date || '').slice(0,10);
+                    const purEntity = (pur.entity && pur.entity.name) || '';
+                    document.getElementById('entryPurchase').value = purDate ? `${purDate} - ${purEntity}` : purEntity || 'Compra #' + pur.id;
+                }
+                loadInventoryFiles(invId);
             }
         } catch (e) { console.error('Error loading inventory entry', e); }
+    } else {
+        document.getElementById('entryPhotos').innerHTML = '';
     }
     entryModal.hidden = false;
     document.body.style.overflow = 'hidden';
@@ -994,6 +1053,7 @@ document.getElementById('entryForm').addEventListener('submit', async (ev) => {
             quantity: quantity,
             ...(languageId ? {language_id: parseInt(languageId)} : {language_id: null}),
             ...(conditionId ? {condition_id: parseInt(conditionId)} : {condition_id: null}),
+            purchase_id: entrySelectedPurchaseId,
             is_sealed: isSealed, posted_instagram: postedInstagram,
             ...(note ? {notes: note} : {notes: null})
         };
@@ -1006,6 +1066,133 @@ document.getElementById('entryForm').addEventListener('submit', async (ev) => {
         loadInventory({reset: true});
     } catch (e) { console.error(e); alert('Error al guardar'); }
     finally { btn.disabled = false; btn.textContent = 'Guardar'; }
+});
+
+// Entry purchase autocomplete
+const entryPurchaseInput = document.getElementById('entryPurchase');
+const entryPurchaseSuggestions = document.getElementById('entryPurchaseSuggestions');
+let entryPurSearchTimeout;
+entryPurchaseInput.addEventListener('input', () => {
+    clearTimeout(entryPurSearchTimeout);
+    entrySelectedPurchaseId = null;
+    const q = entryPurchaseInput.value.trim().toLowerCase();
+    if (q.length < 1) { closeEntryPurchaseSuggestions(); return; }
+    entryPurSearchTimeout = setTimeout(() => searchEntryPurchases(q), 200);
+});
+entryPurchaseInput.addEventListener('blur', () => {
+    setTimeout(closeEntryPurchaseSuggestions, 200);
+});
+function searchEntryPurchases(q) {
+    const matching = entryPurchasesCache.filter(p => {
+        const date = (p.purchase_date || '').slice(0, 10);
+        const entity = (p.entity && p.entity.name) || '';
+        return date.includes(q) || entity.toLowerCase().includes(q);
+    });
+    if (matching.length === 0) { closeEntryPurchaseSuggestions(); return; }
+    showEntryPurchaseSuggestions(matching);
+}
+function showEntryPurchaseSuggestions(items) {
+    closeEntryPurchaseSuggestions();
+    const rect = entryPurchaseInput.getBoundingClientRect();
+    entryPurchaseSuggestions.style.display = 'block';
+    entryPurchaseSuggestions.style.top = (rect.bottom + window.scrollY) + 'px';
+    entryPurchaseSuggestions.style.left = (rect.left + window.scrollX) + 'px';
+    entryPurchaseSuggestions.style.width = rect.width + 'px';
+    entryPurchaseSuggestions.innerHTML = items.map(p =>
+        `<div class="suggestion-item" data-id="${p.id}" data-date="${(p.purchase_date || '').slice(0,10)}" data-entity="${esc((p.entity && p.entity.name) || '')}">${esc((p.purchase_date || '').slice(0,10))} - ${esc((p.entity && p.entity.name) || '?')}</div>`
+    ).join('');
+    entryPurchaseSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+        el.addEventListener('click', () => {
+            entryPurchaseInput.value = el.dataset.date + ' - ' + el.dataset.entity;
+            entrySelectedPurchaseId = parseInt(el.dataset.id);
+            closeEntryPurchaseSuggestions();
+        });
+    });
+}
+function closeEntryPurchaseSuggestions() {
+    if (entryPurchaseSuggestions) {
+        entryPurchaseSuggestions.style.display = 'none';
+        entryPurchaseSuggestions.innerHTML = '';
+    }
+}
+
+// File helpers for inventory/purchase photos
+async function loadInventoryFiles(invId) {
+    const container = document.getElementById('entryPhotos');
+    if (!container) return;
+    container.innerHTML = '<span class="loading-state" style="padding:8px;font-size:13px">Cargando...</span>';
+    try {
+        const resp = await apiFetch(apiUrl(`files/by-inventory/${invId}`));
+        if (!resp.ok) { container.innerHTML = ''; return; }
+        const files = await resp.json();
+        if (!files.length) { container.innerHTML = '<span style="color:var(--muted);font-size:13px">Sin fotos</span>'; return; }
+        const token = window.localStorage.getItem(TOKEN_KEY) || '';
+        const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+        container.innerHTML = files.map(f => {
+            const url = apiUrl(`product-catalog/files/${f.id}/content`) + qs;
+            return `<a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>`;
+        }).join('');
+    } catch (e) { console.error(e); container.innerHTML = ''; }
+}
+
+async function loadPurchaseFiles(purId) {
+    const container = document.getElementById('purPhotos');
+    if (!container) return;
+    container.innerHTML = '<span class="loading-state" style="padding:8px;font-size:13px">Cargando...</span>';
+    try {
+        const resp = await apiFetch(apiUrl(`files/by-purchase/${purId}`));
+        if (!resp.ok) { container.innerHTML = ''; return; }
+        const files = await resp.json();
+        if (!files.length) { container.innerHTML = '<span style="color:var(--muted);font-size:13px">Sin fotos</span>'; return; }
+        const token = window.localStorage.getItem(TOKEN_KEY) || '';
+        const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+        container.innerHTML = files.map(f => {
+            const url = apiUrl(`product-catalog/files/${f.id}/content`) + qs;
+            return `<a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>`;
+        }).join('');
+    } catch (e) { console.error(e); container.innerHTML = ''; }
+}
+
+async function uploadInventoryFile(invId, file) {
+    const formData = new FormData();
+    formData.append('inventory_id', invId);
+    formData.append('file', file);
+    try {
+        const resp = await apiFetch(apiUrl('files/upload-inventory'), {method: 'POST', body: formData});
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al subir foto: ' + (t || resp.status)); return; }
+        loadInventoryFiles(invId);
+    } catch (e) { console.error(e); alert('Error al subir foto'); }
+}
+
+async function uploadPurchaseFile(purId, file) {
+    const formData = new FormData();
+    formData.append('purchase_id', purId);
+    formData.append('file', file);
+    try {
+        const resp = await apiFetch(apiUrl('files/upload-purchase'), {method: 'POST', body: formData});
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al subir foto: ' + (t || resp.status)); return; }
+        loadPurchaseFiles(purId);
+    } catch (e) { console.error(e); alert('Error al subir foto'); }
+}
+
+// Wire upload buttons
+document.getElementById('entryUploadBtn')?.addEventListener('click', () => {
+    document.getElementById('entryPhotoInput')?.click();
+});
+document.getElementById('entryPhotoInput')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    const invId = document.getElementById('modalInventoryId').value;
+    if (file && invId) uploadInventoryFile(invId, file);
+    e.target.value = '';
+});
+document.getElementById('purUploadBtn')?.addEventListener('click', () => {
+    document.getElementById('purPhotoInput')?.click();
+});
+document.getElementById('purPhotoInput')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    const purId = document.getElementById('modalPurchaseId').value;
+    if (file && purId) uploadPurchaseFile(purId, file);
+    e.target.value = '';
 });
 
 // Add inventory modal
@@ -1314,8 +1501,11 @@ async function openPurchaseModal(purchaseId) {
                         for (const it of items) await addItemRow(it);
                     }
                 } catch (e) { console.error(e); }
+                loadPurchaseFiles(purchaseId);
             }
         } catch (e) { console.error('Error loading purchase', e); }
+    } else {
+        document.getElementById('purPhotos').innerHTML = '';
     }
     purModal.hidden = false;
     document.body.style.overflow = 'hidden';

@@ -19,6 +19,7 @@ const TOKEN_KEY = "cardvault_token";
 async function apiFetch(url, options = {}) {
     options = options || {};
     options.headers = options.headers || {};
+    options.cache = 'no-store';
     const token = window.localStorage.getItem(TOKEN_KEY);
     if (token) {
         options.headers['Authorization'] = `Bearer ${token}`;
@@ -46,7 +47,7 @@ function handleUnauthorized() {
 
 let currentUserRoles = [];
 
-function loadCurrentUser() {
+async function loadCurrentUser() {
     const authPanelEl = document.getElementById('authPanel');
     if (!authPanelEl) return;
     const token = window.localStorage.getItem(TOKEN_KEY);
@@ -729,27 +730,12 @@ async function handleProductFormSubmit(ev) {
     const productId = Number(modalProductId.value);
     const imageUrl = imageUrlInput.value.trim();
     const priceUrl = priceUrlInput.value.trim();
-    const isVerified = document.getElementById('isVerified').checked;
 
     console.log('handleProductFormSubmit', {productId, imageUrl, priceUrl});
 
     // disable save button to avoid duplicate submissions
     modalSaveButton.disabled = true;
     modalSaveButton.textContent = "Guardando...";
-
-    // Patch is_verified first
-    try {
-        const patchResp = await apiFetch(apiUrl(`products/${productId}`), {
-            method: 'PATCH',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({is_verified: isVerified})
-        });
-        if (!patchResp.ok) {
-            console.error('Error updating is_verified', patchResp.status);
-        }
-    } catch (err) {
-        console.error('Error updating is_verified', err);
-    }
 
     let success = true;
     try {
@@ -943,14 +929,11 @@ async function loadProductDetails(productId) {
                 <div><strong>Número:</strong> ${escapeHtml(prod.product_number || '-')}</div>
                 <div><strong>Colección:</strong> ${escapeHtml(colName)} (${escapeHtml(colCode)})</div>
                 <div><strong>Force download:</strong> ${prod.force_download ? 'Sí' : 'No'}</div>
-                <div><strong>Verificado:</strong> ${prod.is_verified ? 'Sí' : 'No'}</div>
+                <div><strong>Verificado:</strong> <label class="checkbox-label"><input type="checkbox" class="verified-check" data-product-id="${prod.id}" ${prod.is_verified ? 'checked' : ''}></label></div>
             </div>
             <div class="detail-actions">
                 ${searchQ ? `<a class="google-search-btn" href="https://www.google.com/search?q=${searchQ}" target="_blank" rel="noopener" title="Buscar en Google">Buscar en Google</a>` : ''}
             </div>`;
-            // set is_verified checkbox
-            const vCheck = document.getElementById('isVerified');
-            if (vCheck) vCheck.checked = !!prod.is_verified;
         }
 
         html += `<h3>Traducciones (${translations.length})</h3>`;
@@ -982,8 +965,10 @@ async function loadProductDetails(productId) {
         html += `<h3>Ficheros (${files.length})</h3>`;
         if (files.length === 0) html += '<div class="empty-state">Sin ficheros</div>';
         html += '<ul class="files-list">';
+        const tokenF = window.localStorage.getItem(TOKEN_KEY) || '';
+        const qsF = tokenF ? `?token=${encodeURIComponent(tokenF)}` : '';
         for (const f of files) {
-            const fileContentUrl = apiUrl(`product-catalog/files/${f.id}/content`);
+            const fileContentUrl = apiUrl(`product-catalog/files/${f.id}/content`) + qsF;
             const lang = f.language ? `(${escapeHtml(f.language.name)})` : '';
             html += `<li class="detail-row">
                 <a href="${escapeHtml(fileContentUrl)}" target="_blank">${escapeHtml(f.original_name || f.stored_name)}</a>
@@ -1012,6 +997,20 @@ async function loadProductDetails(productId) {
         html += '</ul>';
 
         modalDetail.innerHTML = html;
+
+        // Check verificado - autoguardado al toggle
+        const verifiedCheck = modalDetail.querySelector('.verified-check');
+        if (verifiedCheck) {
+            verifiedCheck.addEventListener('change', async function () {
+                const pid = this.dataset.productId;
+                const checked = this.checked;
+                const resp = await apiFetch(apiUrl(`products/${pid}`), {
+                    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_verified: checked})
+                });
+                if (!resp.ok) { this.checked = !checked; alert('Error al actualizar verificado'); }
+            });
+        }
 
         // Botones borrar fichero
         modalDetail.querySelectorAll('.btn-delete-file').forEach(btn => {
