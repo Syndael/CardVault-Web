@@ -70,7 +70,7 @@ async function loadCurrentUser() {
         document.getElementById('logoutButton').addEventListener('click', logout);
         appStarted = true;
         applyRoleUI();
-        const validRoles = ['product_read', 'product_write', 'inventory_manage', 'admin'];
+    const validRoles = ['product_read', 'product_write', 'inventory_manage', 'collection_read', 'collection_write', 'scheduled_task_read', 'scheduled_task_write', 'admin'];
         const hasAny = validRoles.some(r => currentUserRoles.includes(r));
         if (hasAny) loadTab(currentTab);
     } catch (err) {
@@ -89,7 +89,7 @@ function hasRole(role) {
 }
 
 function applyRoleUI() {
-    const validRoles = ['product_read', 'product_write', 'inventory_manage', 'admin'];
+    const validRoles = ['product_read', 'product_write', 'inventory_manage', 'collection_read', 'collection_write', 'admin'];
     const hasAny = validRoles.some(r => currentUserRoles.includes(r));
 
     const tabs = document.getElementById('mainTabs');
@@ -118,10 +118,17 @@ function applyRoleUI() {
     if (document.getElementById('createProductModal') && !hasRole('product_write'))
         document.getElementById('createProductModal').hidden = true;
 
+    const addColBtn = document.getElementById('addCollectionBtn');
+    if (addColBtn) addColBtn.style.display = (hasRole('collection_write') || hasRole('product_write')) ? '' : 'none';
+    if (document.getElementById('collectionModal') && !hasRole('collection_write') && !hasRole('product_write'))
+        document.getElementById('collectionModal').hidden = true;
+
     const addInvBtn = document.getElementById('addInventoryBtn');
     if (addInvBtn) addInvBtn.style.display = hasRole('inventory_manage') ? '' : 'none';
     const addPurBtn = document.getElementById('addPurchaseBtn');
     if (addPurBtn) addPurBtn.style.display = hasRole('inventory_manage') ? '' : 'none';
+    const addScheduledBtn = document.getElementById('addScheduledTaskBtn');
+    if (addScheduledBtn) addScheduledBtn.style.display = hasRole('scheduled_task_write') ? '' : 'none';
     const showAllLabel = document.getElementById('showAllLabel');
     if (showAllLabel) showAllLabel.style.display = currentUserRoles.includes('admin') ? '' : 'none';
 }
@@ -212,8 +219,10 @@ function assetUrl(path) {
 })();
 
 function loadTab(tab) {
-    if (tab === 'products') loadProducts({reset: true});
+    if (tab === 'collections') loadCollections({reset: true});
+    else if (tab === 'products') loadProducts({reset: true});
     else if (tab === 'inventory') loadInventory({reset: true});
+    else if (tab === 'scheduledTasks') loadScheduledTasks({reset: true});
     else loadPurchases({reset: true});
 }
 
@@ -221,7 +230,8 @@ function loadTab(tab) {
 
 const prodState = {
     page: 1, perPage: 10, q: "", is_verified: null, is_manual: null,
-    pages: 0, total: 0, loaded: 0, loading: false, hasNext: true
+    pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
+    collection_code: '', product_number: '', product_name: '', product_type_id: ''
 };
 
 const productGrid = document.querySelector("#productGrid");
@@ -253,7 +263,7 @@ function imageCell(item) {
 }
 
 function itemCard(item) {
-    return `<article class="product-card"><div class="thumb-wrap">${imageCell(item)}${verifiedIcon(item.is_verified)}</div><div class="card-body"><div class="collection-line"><span class="code">${esc(item.collection_code)}</span>${manualIcon(item.is_manual)}<span class="collection-name" title="${esc(item.collection_name || "-")}">${esc(item.collection_name || "-")}</span></div><div class="product-line"><span class="number">${esc(item.product_number || "-")}</span><span class="product-name" title="${esc(item.product_name || "-")}" data-product-id="${item.product_id}">${esc(item.product_name || "-")}</span>${item.tracker_url ? `<button class="tracker-button" data-tracker-url="${esc(item.tracker_url)}" title="Abrir precio" aria-label="Abrir precio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h12"></path><path d="M15 6l6 6-6 6"></path></svg></button>` : ''}</div></div></article>`;
+    return `<article class="product-card"><div class="thumb-wrap">${imageCell(item)}${verifiedIcon(item.is_verified)}</div><div class="card-body"><div class="collection-line" style="grid-template-columns:auto auto 1fr auto"><span class="code">${esc(item.collection_code)}</span>${manualIcon(item.collection_is_manual)}<span class="collection-name" title="${esc(item.collection_name || "-")}">${esc(item.collection_name || "-")}</span><button type="button" class="btn-delete-prod" data-product-id="${item.product_id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;justify-self:end">&times;</button></div><div class="product-line"><span class="number">${esc(item.product_number || "-")}</span><span class="product-name" title="${esc(item.product_name || "-")}" data-product-id="${item.product_id}">${esc(item.product_name || "-")}</span>${manualIcon(item.product_is_manual)}${item.tracker_url ? `<button class="tracker-button" data-tracker-url="${esc(item.tracker_url)}" title="Abrir precio" aria-label="Abrir precio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h12"></path><path d="M15 6l6 6-6 6"></path></svg></button>` : ''}</div></div></article>`;
 }
 
 function appendItems(items) {
@@ -315,10 +325,15 @@ async function loadProducts({reset = false} = {}) {
     prodState.loading = true;
     scrollStatus.textContent = "Cargando...";
     try {
-        const resp = await apiFetch(apiUrl("product-catalog", {
+        const params = {
             page: prodState.page, per_page: prodState.perPage,
             q: prodState.q, is_verified: prodState.is_verified, is_manual: prodState.is_manual
-        }));
+        };
+        if (prodState.collection_code) params.collection_code = prodState.collection_code;
+        if (prodState.product_number) params.product_number = prodState.product_number;
+        if (prodState.product_name) params.product_name = prodState.product_name;
+        if (prodState.product_type_id) params.product_type_id = prodState.product_type_id;
+        const resp = await apiFetch(apiUrl("product-catalog", params));
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         if (reset) productGrid.innerHTML = "";
@@ -543,7 +558,7 @@ async function loadProductDetails(productId) {
             const colName = (prod.collection && (prod.collection.name || prod.collection.code)) || '';
             const searchParts = [prodName, prod.product_number, colCode].filter(Boolean).join(' ');
             const searchQ = searchParts ? encodeURIComponent(searchParts) : '';
-            html += `<div class="detail-grid"><div><strong>Producto:</strong> ${esc(prodName || prod.product_number || '-')}</div><div><strong>N\u00famero:</strong> ${esc(prod.product_number || '-')}</div><div><strong>Colecci\u00f3n:</strong> ${esc(colName)} (${esc(colCode)})</div><div><strong>Force download:</strong> ${prod.force_download ? 'S\u00ed' : 'No'}</div><div><strong>Verificado:</strong> <label class="checkbox-label"><input type="checkbox" class="verified-check" data-product-id="${prod.id}" ${prod.is_verified ? 'checked' : ''}></label></div></div>`;
+            html += `<div class="detail-grid"><div><strong>Producto:</strong> ${esc(prodName || prod.product_number || '-')}</div><div><strong>N\u00famero:</strong> ${esc(prod.product_number || '-')}</div><div><strong>Colecci\u00f3n:</strong> ${esc(colName)} (${esc(colCode)})</div><div><label class="checkbox-label"><strong>Forzar descarga:</strong> <input type="checkbox" class="force-download-check" data-product-id="${prod.id}" ${prod.force_download ? 'checked' : ''}></label></div><div><label class="checkbox-label"><strong>Verificado:</strong> <input type="checkbox" class="verified-check" data-product-id="${prod.id}" ${prod.is_verified ? 'checked' : ''}></label></div><div><label class="checkbox-label"><strong>Manual:</strong> <input type="checkbox" class="manual-check" data-product-id="${prod.id}" ${prod.is_manual ? 'checked' : ''}></label></div></div>`;
             html += searchQ ? `<div class="detail-actions"><a class="google-search-btn" href="https://www.google.com/search?q=${searchQ}" target="_blank" rel="noopener" title="Buscar en Google">Buscar en Google</a></div>` : '';
         }
         html += `<h3>Traducciones (${translations.length})</h3><div class="trans-list" id="transList">`;
@@ -587,6 +602,32 @@ async function loadProductDetails(productId) {
                     body: JSON.stringify({is_verified: checked})
                 });
                 if (!resp.ok) { this.checked = !checked; alert('Error al actualizar verificado'); }
+            });
+        }
+
+        const forceDownloadCheck = modalDetail.querySelector('.force-download-check');
+        if (forceDownloadCheck) {
+            forceDownloadCheck.addEventListener('change', async function () {
+                const pid = this.dataset.productId;
+                const checked = this.checked;
+                const resp = await apiFetch(apiUrl(`products/${pid}`), {
+                    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({force_download: checked})
+                });
+                if (!resp.ok) { this.checked = !checked; alert('Error al actualizar force download'); }
+            });
+        }
+
+        const manualCheck = modalDetail.querySelector('.manual-check');
+        if (manualCheck) {
+            manualCheck.addEventListener('change', async function () {
+                const pid = this.dataset.productId;
+                const checked = this.checked;
+                const resp = await apiFetch(apiUrl(`products/${pid}`), {
+                    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_manual: checked})
+                });
+                if (!resp.ok) { this.checked = !checked; alert('Error al actualizar manual'); }
             });
         }
 
@@ -652,8 +693,24 @@ async function loadProductDetails(productId) {
     } catch (err) { modalDetail.innerHTML = '<div class="empty-state">Error cargando detalles</div>'; }
 }
 
-// Delegated clicks for product name / image
-document.addEventListener("click", (ev) => {
+// Delegated clicks for product name / image / delete
+document.addEventListener("click", async (ev) => {
+    const delBtn = ev.target.closest('.btn-delete-prod');
+    if (delBtn) {
+        ev.preventDefault(); ev.stopPropagation();
+        if (!confirm('\u00bfEliminar este producto?')) return;
+        const productId = delBtn.dataset.productId;
+        const resp = await apiFetch(apiUrl(`products/${productId}`), {method: 'DELETE'});
+        if (resp && resp.ok) {
+            delBtn.closest('.product-card').remove();
+            prodState.loaded -= 1; prodState.total -= 1;
+            renderProgress();
+        } else {
+            const msg = resp ? await resp.text().catch(() => 'Error al eliminar') : 'Error de red';
+            alert(msg);
+        }
+        return;
+    }
     const nameEl = ev.target.closest('.product-name');
     const imgEl = ev.target.closest('.product-thumb-img');
     if (nameEl) {
@@ -683,11 +740,8 @@ const createBackdrop = document.getElementById('createBackdrop');
 const createForm = document.getElementById('createProductForm');
 const createCancel = document.getElementById('createCancel');
 const newColCode = document.getElementById('newColCode');
-const newColName = document.getElementById('newColName');
-const newColLang = document.getElementById('newColLang');
-const newCardType = document.getElementById('newCardType');
 const newProductNumber = document.getElementById('newProductNumber');
-const newForceDownload = document.getElementById('newForceDownload');
+const newIsManual = document.getElementById('newIsManual');
 const colSuggestions = document.getElementById('colSuggestions');
 
 const addProductBtn = document.getElementById('addProductBtn');
@@ -695,6 +749,43 @@ if (addProductBtn) {
     addProductBtn.addEventListener('click', () => {
         if (!hasRole('product_write')) return;
         openCreateModal();
+    });
+}
+
+const pokeSyncBtn = document.getElementById('pokeSyncBtn');
+if (pokeSyncBtn) {
+    pokeSyncBtn.addEventListener('click', async () => {
+        if (!hasRole('product_write')) return;
+        pokeSyncBtn.disabled = true; pokeSyncBtn.textContent = 'Programando...';
+        try {
+            const tasksResp = await apiFetch(apiUrl('scheduled-tasks', {per_page: 200}));
+            let taskId;
+            if (tasksResp.ok) {
+                const tasksData = await tasksResp.json();
+                const existing = (tasksData.items || []).find(t => t.script_path && t.script_path.includes('sync_pokemon_products'));
+                if (existing) {
+                    taskId = existing.id;
+                } else {
+                    const createResp = await apiFetch(apiUrl('scheduled-tasks'), {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name: 'Sync Pokémon Products', script_path: 'sync_pokemon_products.py', cron_expression: '0 0 * * *', enabled: true})
+                    });
+                    if (createResp.ok) { const d = await createResp.json(); taskId = d.id; }
+                }
+            }
+            if (!taskId) { alert('Error al crear/programar la tarea'); return; }
+            const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            const execResp = await apiFetch(apiUrl('task-executions'), {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({scheduled_task_id: taskId, scheduled_date: now, status: 'pending'})
+            });
+            if (execResp.ok) {
+                alert('Tarea programada correctamente. Se ejecutar\u00e1 en breve.');
+            } else {
+                alert('Error al programar la ejecuci\u00f3n');
+            }
+        } catch (e) { console.error(e); alert('Error al programar sync'); }
+        finally { pokeSyncBtn.disabled = false; pokeSyncBtn.textContent = '+ Poke sync'; }
     });
 }
 
@@ -706,37 +797,14 @@ function closeCreateModal() {
     document.body.style.overflow = '';
 }
 
-async function openCreateModal() {
-    newColCode.value = ''; delete newColCode.dataset.collectionId;
-    newColName.value = ''; newProductNumber.value = ''; newForceDownload.checked = false;
+function openCreateModal() {
+    newColCode.value = ''; delete newColCode.dataset.collectionId; delete newColCode.dataset.isManual;
+    newProductNumber.value = ''; newIsManual.checked = true;
     closeColSuggestions();
+    const preview = document.getElementById('cardPreview');
+    if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
     createModal.hidden = false;
     document.body.style.overflow = 'hidden';
-    try {
-        const [typesResp, langsResp] = await Promise.all([
-            apiFetch(apiUrl('types', {per_page: 200})),
-            apiFetch(apiUrl('languages', {per_page: 200}))
-        ]);
-        if (typesResp.ok) {
-            const data = await typesResp.json(); const types = data.items || [];
-            const cardTypes = types.filter(t => t.type === 'card');
-            newCardType.innerHTML = '<option value="">Seleccionar...</option>';
-            cardTypes.forEach(t => {
-                const opt = document.createElement('option');
-                opt.value = t.id; opt.textContent = t.name + (t.short_name ? ` (${t.short_name})` : '');
-                newCardType.appendChild(opt);
-            });
-        }
-        if (langsResp.ok) {
-            const data = await langsResp.json(); const langs = data.items || [];
-            newColLang.innerHTML = '<option value="">Seleccionar...</option>';
-            langs.forEach(l => {
-                const opt = document.createElement('option');
-                opt.value = l.id; opt.textContent = l.name;
-                newColLang.appendChild(opt);
-            });
-        }
-    } catch (e) { console.error('Error loading data', e); }
     setTimeout(() => newColCode.focus(), 50);
 }
 
@@ -744,12 +812,81 @@ let colSearchTimeout;
 if (newColCode) {
     newColCode.addEventListener('input', () => {
         clearTimeout(colSearchTimeout);
-        delete newColCode.dataset.collectionId;
+        delete newColCode.dataset.collectionId; delete newColCode.dataset.isManual;
+        const preview = document.getElementById('cardPreview');
+        if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
         const q = newColCode.value.trim();
         if (q.length < 2) { closeColSuggestions(); return; }
         colSearchTimeout = setTimeout(() => searchCollections(q), 300);
     });
     newColCode.addEventListener('blur', () => setTimeout(closeColSuggestions, 200));
+}
+
+let _tcgdexApiBase = null;
+let prodNumCheckTimeout = null;
+
+async function getTcgdexApiBase() {
+    if (_tcgdexApiBase) return _tcgdexApiBase;
+    try {
+        const resp = await apiFetch(apiUrl('settings', {per_page: 200}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const items = data.items || [];
+            const setting = items.find(s => s.setting_key === 'sync.pokemon.products.api.base');
+            if (setting && setting.setting_value) {
+                _tcgdexApiBase = setting.setting_value;
+                return _tcgdexApiBase;
+            }
+        }
+    } catch (e) { console.error(e); }
+    return null;
+}
+
+async function checkCardInApi(collectionCode, productNumber) {
+    const preview = document.getElementById('cardPreview');
+    if (!preview) return;
+    const apiBase = await getTcgdexApiBase();
+    if (!apiBase) { preview.style.display = 'none'; preview.innerHTML = ''; return; }
+    preview.style.display = 'block';
+    preview.innerHTML = '<span style="color:var(--muted)">Comprobando...</span>';
+    try {
+        const url = `${apiBase.replace(/\/+$/, '')}/en/cards/${encodeURIComponent(collectionCode)}-${encodeURIComponent(productNumber)}`;
+        const resp = await fetch(url, {headers: {Accept: 'application/json'}});
+        if (!resp.ok) {
+            preview.innerHTML = '<span style="color:var(--red)">No encontrado en API</span>';
+            return;
+        }
+        const data = await resp.json();
+        const name = data.name || null;
+        const imageBase = data.image || null;
+        let html = '';
+        if (name) html += `<div><strong>Nombre:</strong> ${esc(name)}</div>`;
+        else html += '<div><span style="color:var(--red)">Sin nombre</span></div>';
+        if (imageBase) {
+            const imgUrl = `${imageBase.replace(/\/+$/, '')}/high.jpg`;
+            html += `<div style="margin-top:6px"><img src="${esc(imgUrl)}" alt="${esc(name || '')}" style="max-width:180px;border-radius:4px;border:1px solid var(--border)" onerror="this.style.display='none'"></div>`;
+        } else {
+            html += '<div><span style="color:var(--red)">Sin imagen</span></div>';
+        }
+        preview.innerHTML = html;
+    } catch (e) {
+        console.error(e);
+        preview.innerHTML = '<span style="color:var(--red)">Error al consultar API</span>';
+    }
+}
+
+if (newProductNumber) {
+    newProductNumber.addEventListener('input', () => {
+        clearTimeout(prodNumCheckTimeout);
+        const preview = document.getElementById('cardPreview');
+        if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+        const num = newProductNumber.value.trim();
+        const code = newColCode ? newColCode.value.trim() : '';
+        if (!num || !code) return;
+        const isManual = newColCode && newColCode.dataset.isManual === 'true';
+        if (isManual) return;
+        prodNumCheckTimeout = setTimeout(() => checkCardInApi(code, num), 500);
+    });
 }
 
 async function searchCollections(q) {
@@ -771,13 +908,20 @@ function showColSuggestions(items) {
     colSuggestions.style.left = (rect.left + window.scrollX) + 'px';
     colSuggestions.style.width = rect.width + 'px';
     colSuggestions.innerHTML = items.map(item =>
-        `<div class="suggestion-item" data-code="${esc(item.code)}" data-id="${item.id}">${esc(item.code)}${item.card_type ? ' (' + esc(item.card_type.name) + ')' : ''}</div>`
+        `<div class="suggestion-item" data-code="${esc(item.code)}" data-id="${item.id}" data-is-manual="${!!item.is_manual}">${esc(item.code)}${item.card_type ? ' (' + esc(item.card_type.name) + ')' : ''}</div>`
     ).join('');
     colSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
         el.addEventListener('click', () => {
             newColCode.value = el.dataset.code;
             newColCode.dataset.collectionId = el.dataset.id;
+            newColCode.dataset.isManual = el.dataset.isManual;
             closeColSuggestions();
+            if (newProductNumber && newProductNumber.value.trim()) {
+                clearTimeout(prodNumCheckTimeout);
+                const num = newProductNumber.value.trim();
+                const isManual = newColCode.dataset.isManual === 'true';
+                if (!isManual) prodNumCheckTimeout = setTimeout(() => checkCardInApi(newColCode.value.trim(), num), 500);
+            }
         });
     });
 }
@@ -791,52 +935,22 @@ if (createForm) {
         ev.preventDefault();
         const code = newColCode.value.trim();
         const productNumber = newProductNumber.value.trim();
-        const forceDownload = newForceDownload.checked;
+        const isManual = newIsManual.checked;
         if (!code) { alert('El c\u00f3digo de colecci\u00f3n es obligatorio'); return; }
         const btn = createForm.querySelector('button[type="submit"]');
         btn.disabled = true; btn.textContent = 'Creando...';
         try {
-            let collectionId = newColCode.dataset.collectionId;
-            let cardTypeId;
-            if (!collectionId) {
-                try {
-                    const searchResp = await apiFetch(apiUrl('collections', {q: code, per_page: 5}));
-                    if (searchResp.ok) {
-                        const searchData = await searchResp.json();
-                        const existing = (searchData.items || []).find(c => c.code === code);
-                        if (existing) { collectionId = existing.id; cardTypeId = existing.card_type ? existing.card_type.id : existing.card_type_id; }
-                    }
-                } catch (e) { console.error(e); }
-            }
-            if (!collectionId) {
-                cardTypeId = newCardType.value;
-                if (!cardTypeId) { alert('Selecciona un tipo de carta'); btn.disabled = false; btn.textContent = 'Crear producto'; return; }
-                const colResp = await apiFetch(apiUrl('collections'), {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({code: code, card_type_id: parseInt(cardTypeId), is_manual: true})
-                });
-                if (!colResp.ok) { const t = await colResp.text().catch(()=>null); alert('Error al crear colecci\u00f3n: ' + colResp.status + ' ' + (t||'')); return; }
-                const newCol = await colResp.json();
-                collectionId = newCol.id;
-                const colName = newColName.value.trim();
-                const colLangId = newColLang.value;
-                if (colName && colLangId) {
-                    await apiFetch(apiUrl('collection-translations'), {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({collection_id: collectionId, language_id: parseInt(colLangId), name: colName})
-                    });
-                }
-            } else {
-                collectionId = parseInt(collectionId);
-                try {
-                    const colResp = await apiFetch(apiUrl(`collections/${collectionId}`));
-                    if (colResp.ok) { const colData = await colResp.json(); cardTypeId = colData.card_type ? colData.card_type.id : (colData.card_type_id || null); }
-                } catch (e) { console.error(e); }
-            }
-            if (!cardTypeId) { alert('No se pudo determinar el tipo de carta'); return; }
+            const colResp = await apiFetch(apiUrl('collections', {q: code, per_page: 5}));
+            if (!colResp.ok) return;
+            const colData = await colResp.json();
+            const existing = (colData.items || []).find(c => c.code === code);
+            if (!existing) { alert('Colecci\u00f3n no encontrada. Debe existir para crear un producto.'); btn.disabled = false; btn.textContent = 'Crear producto'; return; }
+            const collectionId = existing.id;
+            const cardTypeId = existing.card_type ? existing.card_type.id : existing.card_type_id;
+            if (!cardTypeId) { alert('La colecci\u00f3n no tiene tipo de carta'); btn.disabled = false; btn.textContent = 'Crear producto'; return; }
             const prodResp = await apiFetch(apiUrl('products'), {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({collection_id: collectionId, product_type_id: parseInt(cardTypeId), ...(productNumber ? {product_number: productNumber} : {}), force_download: forceDownload})
+                body: JSON.stringify({collection_id: collectionId, product_type_id: parseInt(cardTypeId), ...(productNumber ? {product_number: productNumber} : {}), is_manual: isManual})
             });
             if (!prodResp.ok) { const t = await prodResp.text().catch(()=>null); alert('Error al crear producto: ' + prodResp.status + ' ' + (t||'')); return; }
             closeCreateModal();
@@ -849,7 +963,8 @@ if (createForm) {
 // ==================== INVENTORY ====================
 
 const invState = {
-    page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true
+    page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
+    collection_code: '', product_number: '', product_name: '', card_type_id: ''
 };
 
 const purState = {
@@ -880,7 +995,7 @@ document.querySelectorAll('.view-btn').forEach(btn => {
 });
 
 function renderInvLoading() {
-    invBody.innerHTML = `<tr><td colspan="9" class="loading-state">Cargando inventario...</td></tr>`;
+    invBody.innerHTML = `<tr><td colspan="11" class="loading-state">Cargando inventario...</td></tr>`;
     invEmpty.hidden = true;
 }
 
@@ -892,10 +1007,12 @@ function renderInvRow(item) {
     const stock = item.quantity ?? 0;
     const cls = stock > 0 ? 'stock-positive' : stock < 0 ? 'stock-negative' : 'stock-zero';
     const prodName = prod.translations && prod.translations[0] ? prod.translations[0].name : '';
-    const nameHtml = prodName ? `<br><span class="product-name-sub">${esc(prodName)}</span>` : '';
+    const cardType = prod.product_type ? (prod.product_type.name + (prod.product_type.short_name ? ' (' + prod.product_type.short_name + ')' : '')) : (item.extra_type ? (item.extra_type.name + (item.extra_type.short_name ? ' (' + item.extra_type.short_name + ')' : '')) : '');
     const sealedIcon = item.is_sealed ? '\u2713' : '';
     const igIcon = item.posted_instagram ? '\u2713' : '';
-    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td><strong>${esc(prod.product_number || '-')}</strong>${nameHtml}</td><td>${esc(col.code || col.name || '-')}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td></tr>`;
+    const codeNum = esc(col.code || '-') + (prod.product_number ? ' ' + esc(prod.product_number) : '');
+    const nameDisplay = prodName ? `<strong>${esc(prodName)}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>';
+    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function invImageCell(url) {
@@ -932,6 +1049,10 @@ async function loadInventory({reset = false} = {}) {
     s.loading = true;
     try {
         const params = {page: s.page, per_page: s.perPage, q: s.q};
+        if (s.collection_code) params.collection_code = s.collection_code;
+        if (s.product_number) params.product_number = s.product_number;
+        if (s.product_name) params.product_name = s.product_name;
+        if (s.card_type_id) params.card_type_id = s.card_type_id;
         const showAllCb = document.getElementById('showAllInv');
         if (showAllCb && showAllCb.checked) params.all = 'true';
         const resp = await apiFetch(apiUrl('inventory', params));
@@ -1013,7 +1134,7 @@ async function openEntryModal(invId) {
                 const lang = item.language || {}; const cond = item.condition || {}; const pur = item.purchase || {};
                 const prodName = prod.translations && prod.translations[0] ? prod.translations[0].name : '';
                 document.getElementById('entryProductDisplay').innerHTML = `<strong>${esc(prod.product_number || '-')}</strong>${prodName ? ' <span style="color:var(--muted)">' + esc(prodName) + '</span>' : ''}`;
-                document.getElementById('entryCollectionDisplay').textContent = esc(col.code || col.name || '-');
+                document.getElementById('entryCollectionDisplay').textContent = col.code || col.name || '-';
                 document.getElementById('entryQuantity').value = item.quantity ?? 1;
                 document.getElementById('entryLang').value = lang.id || '';
                 document.getElementById('entryCondition').value = cond.id || '';
@@ -1392,7 +1513,7 @@ const purSentinel = document.getElementById('purSentinel');
 let allEntities = [];
 
 function renderPurLoading() {
-    purBody.innerHTML = `<tr><td colspan="6" class="loading-state">Cargando compras...</td></tr>`;
+    purBody.innerHTML = `<tr><td colspan="7" class="loading-state">Cargando compras...</td></tr>`;
     purEmpty.hidden = true;
 }
 
@@ -1400,7 +1521,7 @@ function renderPurRow(item) {
     const itemsCount = (item.items || []).length;
     const total = item.total_amount || '0.00';
     const ship = item.shipping_cost || '0.00';
-    return `<tr class="clickable-row" data-pur-id="${item.id}"><td>${esc(item.purchase_date ? item.purchase_date.slice(0,10) : '-')}</td><td>${esc(item.entity ? item.entity.name : '-')}</td><td>${total}</td><td>${ship}</td><td>${esc(item.currency || 'EUR')}</td><td>${itemsCount}</td></tr>`;
+    return `<tr class="clickable-row" data-pur-id="${item.id}"><td>${esc(item.purchase_date ? item.purchase_date.slice(0,10) : '-')}</td><td>${esc(item.entity ? item.entity.name : '-')}</td><td>${total}</td><td>${ship}</td><td>${esc(item.currency || 'EUR')}</td><td>${itemsCount}</td><td style="text-align:center"><button type="button" class="btn-delete-pur" data-pur-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function appendPur(items) {
@@ -1682,15 +1803,578 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
     finally { btn.disabled = false; btn.textContent = 'Guardar compra'; }
 });
 
+// ==================== SCHEDULED TASKS (executions) ====================
+
+const scheduledState = {
+    page: 1, perPage: 50, pages: 0, total: 0, loaded: 0, loading: false, hasNext: true
+};
+
+const scheduledBody = document.getElementById('scheduledTasksBody');
+const scheduledEmpty = document.getElementById('scheduledEmpty');
+const scheduledSummary = document.getElementById('scheduledSummary');
+const scheduledSentinel = document.getElementById('scheduledSentinel');
+
+function renderScheduledLoading() {
+    scheduledBody.innerHTML = `<tr><td colspan="7" class="loading-state">Cargando ejecuciones...</td></tr>`;
+    scheduledEmpty.hidden = true;
+}
+
+const statusLabels = {
+    pending: 'Pendiente', running: 'Ejecutando', completed: 'Completado', error: 'Error'
+};
+
+function renderScheduledRow(item) {
+    const taskName = item.scheduled_task ? item.scheduled_task.name : (item.scheduled_task_id || '-');
+    const status = item.status || '-';
+    const label = statusLabels[status] || status;
+    const cls = status === 'error' ? 'stock-negative' : (status === 'completed' ? 'stock-positive' : '');
+    const scheduledDate = item.scheduled_date ? item.scheduled_date.slice(0, 16).replace('T', ' ') : '-';
+    const startedAt = item.started_at ? item.started_at.slice(0, 16).replace('T', ' ') : '-';
+    const finishedAt = item.finished_at ? item.finished_at.slice(0, 16).replace('T', ' ') : '-';
+    const output = item.output ? item.output.slice(0, 80) + (item.output.length > 80 ? '...' : '') : '';
+    return `<tr class="clickable-row" data-exec-id="${item.id}">
+        <td><strong>${esc(taskName)}</strong></td>
+        <td><span class="${cls}">${esc(label)}</span></td>
+        <td>${scheduledDate}</td>
+        <td>${startedAt}</td>
+        <td>${finishedAt}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(output)}">${esc(output)}</td>
+        <td style="text-align:center"><button type="button" class="btn-delete-scheduled" data-exec-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
+    </tr>`;
+}
+
+function appendScheduled(items) {
+    if (!items.length && scheduledState.loaded === 0) { scheduledBody.innerHTML = ''; scheduledEmpty.hidden = false; return; }
+    scheduledEmpty.hidden = true;
+    scheduledBody.insertAdjacentHTML('beforeend', items.map(renderScheduledRow).join(''));
+}
+
+function updateScheduledProgress() {
+    const f = scheduledState.loaded ? 1 : 0;
+    scheduledSummary.textContent = `${f}-${scheduledState.loaded} de ${scheduledState.total} ejecuciones`;
+}
+
+async function loadScheduledTasks({reset = false} = {}) {
+    if (!appStarted) return;
+    const s = scheduledState;
+    if (s.loading || (!s.hasNext && !reset)) return;
+    if (reset) { s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true; scheduledBody.innerHTML = ''; scheduledEmpty.hidden = true; renderScheduledLoading(); }
+    s.loading = true;
+    try {
+        const params = {page: s.page, per_page: s.perPage};
+        const resp = await apiFetch(apiUrl('task-executions', params));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        if (reset) scheduledBody.innerHTML = '';
+        appendScheduled(data.items || []);
+        s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
+        s.loaded += (data.items || []).length; s.page += 1;
+        updateScheduledProgress();
+        setTimeout(checkScheduledScroll, 50);
+    } catch (e) {
+        if (s.loaded === 0) { scheduledBody.innerHTML = ''; scheduledEmpty.hidden = false; }
+        scheduledSummary.textContent = 'Error al cargar';
+        s.hasNext = false;
+    } finally {
+        s.loading = false;
+    }
+}
+
+function checkScheduledScroll() {
+    if (scheduledState.loading || !scheduledState.hasNext) return;
+    const r = scheduledSentinel.getBoundingClientRect();
+    if (r.top <= window.innerHeight + 700) loadScheduledTasks();
+}
+
+const scheduledObs = new IntersectionObserver(entries => {
+    if (!appStarted) return;
+    if (entries.some(e => e.isIntersecting)) loadScheduledTasks();
+}, {rootMargin: '640px 0px'});
+if (scheduledSentinel) scheduledObs.observe(scheduledSentinel);
+
+// Scheduled Task Execution modal
+const scheduledModal = document.getElementById('scheduledTaskModal');
+if (document.getElementById('scheduledBackdrop')) document.getElementById('scheduledBackdrop').addEventListener('click', closeScheduledModal);
+if (document.getElementById('scheduledCancel')) document.getElementById('scheduledCancel').addEventListener('click', closeScheduledModal);
+
+function closeScheduledModal() { scheduledModal.hidden = true; document.body.style.overflow = ''; }
+
+document.getElementById('addScheduledTaskBtn').addEventListener('click', () => openScheduledTaskModal());
+
+async function openScheduledTaskModal() {
+    document.getElementById('scheduledModalTitle').textContent = 'Nueva ejecución';
+    document.getElementById('scheduledDateInput').value = new Date().toISOString().slice(0, 16);
+    const select = document.getElementById('scheduledTaskSelect');
+    select.innerHTML = '<option value="">Seleccionar...</option>';
+    try {
+        const resp = await apiFetch(apiUrl('scheduled-tasks', {per_page: 200}));
+        if (resp.ok) {
+            const data = await resp.json();
+            (data.items || []).forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name + (t.script_path ? ' (' + t.script_path + ')' : '');
+                select.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading tasks', e); }
+    scheduledModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+}
+
+document.getElementById('scheduledTaskForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const taskId = document.getElementById('scheduledTaskSelect').value;
+    const scheduledDate = document.getElementById('scheduledDateInput').value;
+    if (!taskId) { alert('Selecciona una tarea'); return; }
+    if (!scheduledDate) { alert('Selecciona fecha y hora'); return; }
+    const btn = ev.target.querySelector('button[type="submit"]');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    try {
+        const payload = {
+            scheduled_task_id: parseInt(taskId),
+            scheduled_date: scheduledDate + ':00',
+            status: 'pending'
+        };
+        const resp = await apiFetch(apiUrl('task-executions'), {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+        });
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al crear: ' + resp.status + ' ' + (t||'')); return; }
+        closeScheduledModal();
+        loadScheduledTasks({reset: true});
+    } catch (e) { console.error(e); alert('Error al guardar'); }
+    finally { btn.disabled = false; btn.textContent = 'Crear ejecución'; }
+});
+
+// Execution output modal
+if (document.getElementById('execOutputBackdrop')) document.getElementById('execOutputBackdrop').addEventListener('click', () => { document.getElementById('execOutputModal').hidden = true; document.body.style.overflow = ''; });
+if (document.getElementById('execOutputClose')) document.getElementById('execOutputClose').addEventListener('click', () => { document.getElementById('execOutputModal').hidden = true; document.body.style.overflow = ''; });
+
+// ==================== COLLECTIONS ====================
+
+const colState = {
+    page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
+    code: '', name: '', card_type_id: '', is_manual: ''
+};
+
+const colBody = document.getElementById('collectionsBody');
+const colEmpty = document.getElementById('colEmpty');
+const colSummary = document.getElementById('colSummary');
+const colSentinel = document.getElementById('colSentinel');
+
+function renderColLoading() {
+    colBody.innerHTML = `<tr><td colspan="6" class="loading-state">Cargando colecciones...</td></tr>`;
+    colEmpty.hidden = true;
+}
+
+function renderColRow(item) {
+    const cardType = item.card_type ? (item.card_type.name + (item.card_type.short_name ? ' (' + item.card_type.short_name + ')' : '')) : '-';
+    const manual = item.is_manual ? '\u2713' : '';
+    const releaseDate = item.release_date ? item.release_date.slice(0, 10) : '-';
+    const name = item.name || '-';
+    return `<tr class="clickable-row" data-col-id="${item.id}">
+        <td><strong>${esc(item.code)}</strong></td>
+        <td>${esc(name)}</td>
+        <td>${esc(cardType)}</td>
+        <td>${manual}</td>
+        <td>${releaseDate}</td>
+        <td style="text-align:center"><button type="button" class="btn-delete-col" data-col-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
+    </tr>`;
+}
+
+function appendCol(items) {
+    if (!items.length && colState.loaded === 0) { colBody.innerHTML = ''; colEmpty.hidden = false; return; }
+    colEmpty.hidden = true;
+    colBody.insertAdjacentHTML('beforeend', items.map(renderColRow).join(''));
+}
+
+function updateColProgress() {
+    const f = colState.loaded ? 1 : 0;
+    colSummary.textContent = `${f}-${colState.loaded} de ${colState.total} colecciones`;
+}
+
+async function loadCollections({reset = false} = {}) {
+    if (!appStarted) return;
+    const s = colState;
+    if (s.loading || (!s.hasNext && !reset)) return;
+    if (reset) { s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true; colBody.innerHTML = ''; colEmpty.hidden = true; renderColLoading(); }
+    s.loading = true;
+    try {
+        const params = {page: s.page, per_page: s.perPage};
+        if (s.q) params.q = s.q;
+        if (s.code) params.code = s.code;
+        if (s.name) params.name = s.name;
+        if (s.card_type_id) params.card_type_id = s.card_type_id;
+        if (s.is_manual !== null && s.is_manual !== '') params.is_manual = s.is_manual;
+        const resp = await apiFetch(apiUrl('collections', params));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        if (reset) colBody.innerHTML = '';
+        appendCol(data.items);
+        s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
+        s.loaded += data.items.length; s.page += 1;
+        updateColProgress();
+        setTimeout(checkColScroll, 50);
+        attachColListeners();
+    } catch (e) {
+        if (s.loaded === 0) { colBody.innerHTML = ''; colEmpty.hidden = false; }
+        colSummary.textContent = 'Error al cargar';
+        s.hasNext = false;
+    } finally {
+        s.loading = false;
+    }
+}
+
+function attachColListeners() {
+}
+
+function checkColScroll() {
+    if (colState.loading || !colState.hasNext) return;
+    const r = colSentinel.getBoundingClientRect();
+    if (r.top <= window.innerHeight + 700) loadCollections();
+}
+
+const colObs = new IntersectionObserver(entries => {
+    if (!appStarted) return;
+    if (entries.some(e => e.isIntersecting)) loadCollections();
+}, {rootMargin: '640px 0px'});
+if (colSentinel) colObs.observe(colSentinel);
+
+// Collection modal
+const colModal = document.getElementById('collectionModal');
+if (document.getElementById('colBackdrop')) document.getElementById('colBackdrop').addEventListener('click', closeColModal);
+if (document.getElementById('colCancel')) document.getElementById('colCancel').addEventListener('click', closeColModal);
+
+function closeColModal() { colModal.hidden = true; document.body.style.overflow = ''; }
+
+document.getElementById('addCollectionBtn').addEventListener('click', () => openCollectionModal(null));
+
+let colTranslations = [];
+
+async function openCollectionModal(collectionId) {
+    document.getElementById('modalCollectionId').value = collectionId || '';
+    document.getElementById('colModalTitle').textContent = collectionId ? 'Editar colecci\u00f3n' : 'Nueva colecci\u00f3n';
+    document.getElementById('colCode').value = '';
+    document.getElementById('colManual').checked = true;
+    document.getElementById('colReleaseDate').value = '';
+    colTranslations = [];
+    renderColTranslations();
+
+    try {
+        const [typesResp, langsResp] = await Promise.all([
+            apiFetch(apiUrl('types', {per_page: 200})),
+            apiFetch(apiUrl('languages', {per_page: 200}))
+        ]);
+        if (typesResp.ok) {
+            const data = await typesResp.json();
+            const types = data.items || [];
+            const cardTypes = types.filter(t => t.type === 'card');
+            const sel = document.getElementById('colCardType');
+            sel.innerHTML = '<option value="">Seleccionar...</option>';
+            cardTypes.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id; opt.textContent = t.name + (t.short_name ? ' (' + t.short_name + ')' : '');
+                sel.appendChild(opt);
+            });
+        }
+        if (langsResp.ok) {
+            const data = await langsResp.json();
+            const langs = data.items || [];
+            const sel = document.getElementById('colTransLang');
+            sel.innerHTML = '<option value="">Idioma...</option>';
+            langs.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l.id; opt.textContent = l.name;
+                sel.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading data', e); }
+
+    if (collectionId) {
+        try {
+            const resp = await apiFetch(apiUrl(`collections/${collectionId}`));
+            if (resp.ok) {
+                const col = await resp.json();
+                document.getElementById('colCode').value = col.code || '';
+                document.getElementById('colManual').checked = !!col.is_manual;
+                document.getElementById('colReleaseDate').value = col.release_date ? col.release_date.slice(0, 10) : '';
+                const cardTypeEl = document.getElementById('colCardType');
+                if (col.card_type_id) cardTypeEl.value = col.card_type_id;
+                else if (col.card_type && col.card_type.id) cardTypeEl.value = col.card_type.id;
+            }
+            // load translations
+            const transResp = await apiFetch(apiUrl('collection-translations', {page: 1, per_page: 200, collection_id: collectionId}));
+            if (transResp.ok) {
+                const transData = await transResp.json();
+                colTranslations = (transData.items || []).map(t => ({
+                    id: t.id,
+                    language_id: t.language_id,
+                    language_name: t.language ? t.language.name : 'ID ' + t.language_id,
+                    name: t.name
+                }));
+                renderColTranslations();
+            }
+        } catch (e) { console.error('Error loading collection', e); }
+    }
+    colModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('colCode').focus(), 50);
+}
+
+function renderColTranslations() {
+    const container = document.getElementById('colTransList');
+    if (colTranslations.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:8px;font-size:13px">Sin traducciones</div>';
+        return;
+    }
+    container.innerHTML = colTranslations.map((t, i) =>
+        `<div class="trans-item" data-trans-index="${i}">
+            <span class="trans-lang">${esc(t.language_name)}</span>
+            <span class="trans-name">${esc(t.name)}</span>
+            <button type="button" class="btn-delete-trans" data-trans-index="${i}" title="Eliminar traduccion">
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
+        </div>`
+    ).join('');
+    container.querySelectorAll('.btn-delete-trans').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.transIndex);
+            colTranslations.splice(idx, 1);
+            renderColTranslations();
+        });
+    });
+}
+
+document.getElementById('addColTransBtn').addEventListener('click', () => {
+    const langId = document.getElementById('colTransLang').value;
+    const name = document.getElementById('colTransName').value.trim();
+    if (!langId || !name) { alert('Selecciona idioma y escribe un nombre'); return; }
+    const langName = document.getElementById('colTransLang').selectedOptions[0].textContent;
+    colTranslations.push({language_id: parseInt(langId), language_name: langName, name: name});
+    document.getElementById('colTransName').value = '';
+    renderColTranslations();
+});
+
+document.getElementById('collectionForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const collectionId = document.getElementById('modalCollectionId').value;
+    const code = document.getElementById('colCode').value.trim();
+    const cardTypeId = document.getElementById('colCardType').value;
+    const isManual = document.getElementById('colManual').checked;
+    const releaseDate = document.getElementById('colReleaseDate').value;
+    if (!code) { alert('El c\u00f3digo es obligatorio'); return; }
+    if (!cardTypeId) { alert('Selecciona un tipo de carta'); return; }
+    const btn = ev.target.querySelector('button[type="submit"]');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    try {
+        const payload = {
+            code: code,
+            card_type_id: parseInt(cardTypeId),
+            is_manual: isManual,
+            ...(releaseDate ? {release_date: releaseDate} : {})
+        };
+        let savedCol;
+        if (collectionId) {
+            const resp = await apiFetch(apiUrl(`collections/${collectionId}`), {
+                method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al actualizar: ' + resp.status + ' ' + (t||'')); return; }
+            savedCol = await resp.json();
+        } else {
+            const resp = await apiFetch(apiUrl('collections'), {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al crear: ' + resp.status + ' ' + (t||'')); return; }
+            savedCol = await resp.json();
+        }
+
+        // Sync translations
+        const savedId = savedCol.id;
+        const oldTransResp = await apiFetch(apiUrl('collection-translations', {page: 1, per_page: 200, collection_id: savedId}));
+        if (oldTransResp.ok) {
+            const oldData = await oldTransResp.json();
+            for (const ot of (oldData.items || [])) {
+                await apiFetch(apiUrl(`collection-translations/${ot.id}`), {method: 'DELETE'});
+            }
+        }
+        for (const t of colTranslations) {
+            await apiFetch(apiUrl('collection-translations'), {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({collection_id: savedId, language_id: t.language_id, name: t.name})
+            });
+        }
+
+        closeColModal();
+        loadCollections({reset: true});
+    } catch (e) { console.error(e); alert('Error al guardar'); }
+    finally { btn.disabled = false; btn.textContent = 'Guardar'; }
+});
+
+// Collection filter wiring
+let colFilterTimers = {};
+
+function setupColFilters() {
+    const codeInput = document.getElementById('colFilterCode');
+    const nameInput = document.getElementById('colFilterName');
+    const typeSelect = document.getElementById('colFilterType');
+    const manualSelect = document.getElementById('colFilterManual');
+
+    if (codeInput) {
+        codeInput.addEventListener('input', () => {
+            clearTimeout(colFilterTimers.code);
+            colFilterTimers.code = setTimeout(() => {
+                colState.code = codeInput.value.trim();
+                loadCollections({reset: true});
+            }, 300);
+        });
+    }
+    if (nameInput) {
+        nameInput.addEventListener('input', () => {
+            clearTimeout(colFilterTimers.name);
+            colFilterTimers.name = setTimeout(() => {
+                colState.name = nameInput.value.trim();
+                loadCollections({reset: true});
+            }, 300);
+        });
+    }
+    if (typeSelect) {
+        typeSelect.addEventListener('change', () => {
+            colState.card_type_id = typeSelect.value;
+            loadCollections({reset: true});
+        });
+    }
+    if (manualSelect) {
+        manualSelect.addEventListener('change', () => {
+            colState.is_manual = manualSelect.value;
+            loadCollections({reset: true});
+        });
+    }
+}
+
+async function loadColFilterTypes() {
+    const sel = document.getElementById('colFilterType');
+    if (!sel) return;
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 200}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const types = data.items || [];
+            const cardTypes = types.filter(t => t.type === 'card');
+            sel.innerHTML = '<option value="">Todos</option>';
+            cardTypes.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name + (t.short_name ? ' (' + t.short_name + ')' : '');
+                sel.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading types', e); }
+}
+
+setupInvFilters();
+loadInvFilterTypes();
+setupColFilters();
+loadColFilterTypes();
+
 // ==================== EVENTS & INIT ====================
 
+// Tab click on collections rows
+document.getElementById('tabCollections').addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('.btn-delete-col');
+    if (delBtn) {
+        e.stopPropagation();
+        if (!confirm('\u00bfEliminar esta colecci\u00f3n?')) return;
+        const colId = delBtn.dataset.colId;
+        const resp = await apiFetch(apiUrl(`collections/${colId}`), {method: 'DELETE'});
+        if (resp && resp.ok) {
+            delBtn.closest('tr').remove();
+            colState.loaded -= 1; colState.total -= 1;
+            updateColProgress();
+        } else {
+            const msg = resp ? (await resp.json().catch(() => null))?.message || 'Error al eliminar' : 'Error de red';
+            alert(msg);
+        }
+        return;
+    }
+    const row = e.target.closest('tr.clickable-row[data-col-id]');
+    if (row) openCollectionModal(row.dataset.colId);
+});
+
 // Tab click on inventory rows
-document.getElementById('tabInventory').addEventListener('click', (e) => {
+document.getElementById('tabInventory').addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('.btn-delete-inv');
+    if (delBtn) {
+        e.stopPropagation();
+        if (!confirm('\u00bfEliminar este registro de inventario?')) return;
+        const invId = delBtn.dataset.invId;
+        const resp = await apiFetch(apiUrl(`inventory/${invId}`), {method: 'DELETE'});
+        if (resp && resp.ok) {
+            delBtn.closest('tr').remove();
+            invState.loaded -= 1; invState.total -= 1;
+            updateInvProgress();
+        } else {
+            const msg = resp ? await resp.text().catch(() => 'Error al eliminar') : 'Error de red';
+            alert(msg);
+        }
+        return;
+    }
     const row = e.target.closest('tr.clickable-row[data-inv-id]');
     if (row) openEntryModal(row.dataset.invId);
 });
 
-document.getElementById('tabPurchases').addEventListener('click', (e) => {
+document.getElementById('tabScheduledTasks').addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('.btn-delete-scheduled');
+    if (delBtn) {
+        e.stopPropagation();
+        if (!confirm('\u00bfEliminar esta ejecuci\u00f3n?')) return;
+        const execId = delBtn.dataset.execId;
+        const resp = await apiFetch(apiUrl(`task-executions/${execId}`), {method: 'DELETE'});
+        if (resp && resp.ok) {
+            delBtn.closest('tr').remove();
+            scheduledState.loaded -= 1; scheduledState.total -= 1;
+            updateScheduledProgress();
+        } else {
+            const msg = resp ? await resp.text().catch(() => 'Error al eliminar') : 'Error de red';
+            alert(msg);
+        }
+        return;
+    }
+    const row = e.target.closest('tr.clickable-row[data-exec-id]');
+    if (row) {
+        const execId = row.dataset.execId;
+        try {
+            const resp = await apiFetch(apiUrl(`task-executions/${execId}`));
+            if (resp.ok) {
+                const exec = await resp.json();
+                document.getElementById('execOutputTitle').textContent = 'Salida de ejecuci\u00f3n #' + execId;
+                document.getElementById('execOutputText').value = exec.output || '(sin salida)';
+                const m = document.getElementById('execOutputModal');
+                m.hidden = false;
+                document.body.style.overflow = 'hidden';
+            }
+        } catch (e) { console.error(e); }
+    }
+});
+
+document.getElementById('tabPurchases').addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('.btn-delete-pur');
+    if (delBtn) {
+        e.stopPropagation();
+        if (!confirm('\u00bfEliminar esta compra?')) return;
+        const purId = delBtn.dataset.purId;
+        const resp = await apiFetch(apiUrl(`purchases/${purId}`), {method: 'DELETE'});
+        if (resp && resp.ok) {
+            delBtn.closest('tr').remove();
+            purState.loaded -= 1; purState.total -= 1;
+            updatePurProgress();
+        } else {
+            const msg = resp ? await resp.text().catch(() => 'Error al eliminar') : 'Error de red';
+            alert(msg);
+        }
+        return;
+    }
     const row = e.target.closest('tr.clickable-row[data-pur-id]');
     if (row) openPurchaseModal(row.dataset.purId);
 });
@@ -1709,25 +2393,90 @@ searchForm.addEventListener("submit", (event) => {
     prodState.q = q;
     invState.q = q;
     purState.q = q;
+    colState.q = q;
     loadTab(currentTab);
 });
 
 // Filters (products)
-const filterManual = document.getElementById('filterManual');
-if (filterManual) {
-    filterManual.addEventListener('change', (e) => {
-        prodState.is_manual = e.target.value || null;
-        loadProducts({reset: true});
-    });
+let prodFilterTimers = {};
+
+function setupProdFilters() {
+    const colCodeInput = document.getElementById('filterColCode');
+    const prodNumInput = document.getElementById('filterProdNumber');
+    const prodNameInput = document.getElementById('filterProdName');
+    const prodTypeSelect = document.getElementById('filterProdType');
+    const filterManualEl = document.getElementById('filterManual');
+    const filterVerifiedEl = document.getElementById('filterVerified');
+
+    if (colCodeInput) {
+        colCodeInput.addEventListener('input', () => {
+            clearTimeout(prodFilterTimers.colCode);
+            prodFilterTimers.colCode = setTimeout(() => {
+                prodState.collection_code = colCodeInput.value.trim();
+                loadProducts({reset: true});
+            }, 300);
+        });
+    }
+    if (prodNumInput) {
+        prodNumInput.addEventListener('input', () => {
+            clearTimeout(prodFilterTimers.prodNum);
+            prodFilterTimers.prodNum = setTimeout(() => {
+                prodState.product_number = prodNumInput.value.trim();
+                loadProducts({reset: true});
+            }, 300);
+        });
+    }
+    if (prodNameInput) {
+        prodNameInput.addEventListener('input', () => {
+            clearTimeout(prodFilterTimers.prodName);
+            prodFilterTimers.prodName = setTimeout(() => {
+                prodState.product_name = prodNameInput.value.trim();
+                loadProducts({reset: true});
+            }, 300);
+        });
+    }
+    if (prodTypeSelect) {
+        prodTypeSelect.addEventListener('change', () => {
+            prodState.product_type_id = prodTypeSelect.value;
+            loadProducts({reset: true});
+        });
+    }
+    if (filterManualEl) {
+        filterManualEl.addEventListener('change', (e) => {
+            prodState.is_manual = e.target.value || null;
+            loadProducts({reset: true});
+        });
+    }
+    if (filterVerifiedEl) {
+        filterVerifiedEl.addEventListener('change', (e) => {
+            prodState.is_verified = e.target.value || null;
+            loadProducts({reset: true});
+        });
+    }
 }
 
-const filterVerified = document.getElementById('filterVerified');
-if (filterVerified) {
-    filterVerified.addEventListener('change', (e) => {
-        prodState.is_verified = e.target.value || null;
-        loadProducts({reset: true});
-    });
+async function loadProdFilterTypes() {
+    const sel = document.getElementById('filterProdType');
+    if (!sel) return;
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 200}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const types = data.items || [];
+            const cardTypes = types.filter(t => t.type === 'card');
+            sel.innerHTML = '<option value="">Todos</option>';
+            cardTypes.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name + (t.short_name ? ' (' + t.short_name + ')' : '');
+                sel.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading types', e); }
 }
+
+setupProdFilters();
+loadProdFilterTypes();
 
 // Resize
 window.addEventListener("resize", () => {
@@ -1741,12 +2490,16 @@ window.addEventListener("resize", () => {
 });
 
 // Scroll handlers
-let invScrollTimer, purScrollTimer;
+let invScrollTimer, purScrollTimer, colScrollTimer, scheduledScrollTimer;
 window.addEventListener('scroll', () => {
     clearTimeout(invScrollTimer);
     invScrollTimer = setTimeout(() => { if (currentTab === 'inventory') checkInvScroll(); }, 80);
     clearTimeout(purScrollTimer);
     purScrollTimer = setTimeout(() => { if (currentTab === 'purchases') checkPurScroll(); }, 80);
+    clearTimeout(colScrollTimer);
+    colScrollTimer = setTimeout(() => { if (currentTab === 'collections') checkColScroll(); }, 80);
+    clearTimeout(scheduledScrollTimer);
+    scheduledScrollTimer = setTimeout(() => { if (currentTab === 'scheduledTasks') checkScheduledScroll(); }, 80);
 }, {passive: true});
 
 // Login modal wiring
@@ -1765,6 +2518,70 @@ window.addEventListener('scroll', () => {
 const showAllCb = document.getElementById('showAllInv');
 if (showAllCb) {
     showAllCb.addEventListener('change', () => { loadInventory({reset: true}); });
+}
+
+// Inventory filters
+let invFilterTimers = {};
+
+function setupInvFilters() {
+    const colCodeInput = document.getElementById('invFilterColCode');
+    const numberInput = document.getElementById('invFilterNumber');
+    const nameInput = document.getElementById('invFilterName');
+    const typeSelect = document.getElementById('invFilterType');
+
+    if (colCodeInput) {
+        colCodeInput.addEventListener('input', () => {
+            clearTimeout(invFilterTimers.colCode);
+            invFilterTimers.colCode = setTimeout(() => {
+                invState.collection_code = colCodeInput.value.trim();
+                loadInventory({reset: true});
+            }, 300);
+        });
+    }
+    if (numberInput) {
+        numberInput.addEventListener('input', () => {
+            clearTimeout(invFilterTimers.number);
+            invFilterTimers.number = setTimeout(() => {
+                invState.product_number = numberInput.value.trim();
+                loadInventory({reset: true});
+            }, 300);
+        });
+    }
+    if (nameInput) {
+        nameInput.addEventListener('input', () => {
+            clearTimeout(invFilterTimers.name);
+            invFilterTimers.name = setTimeout(() => {
+                invState.product_name = nameInput.value.trim();
+                loadInventory({reset: true});
+            }, 300);
+        });
+    }
+    if (typeSelect) {
+        typeSelect.addEventListener('change', () => {
+            invState.card_type_id = typeSelect.value;
+            loadInventory({reset: true});
+        });
+    }
+}
+
+async function loadInvFilterTypes() {
+    const sel = document.getElementById('invFilterType');
+    if (!sel) return;
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 200}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const types = data.items || [];
+            const cardTypes = types.filter(t => t.type === 'card');
+            sel.innerHTML = '<option value="">Todos</option>';
+            cardTypes.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name + (t.short_name ? ' (' + t.short_name + ')' : '');
+                sel.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading types', e); }
 }
 
 // Inline detail styles

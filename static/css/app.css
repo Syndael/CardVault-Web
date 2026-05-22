@@ -619,6 +619,57 @@ tr:hover td { background: var(--surface-soft); }
     min-height: 20px;
 }
 
+.action-cell {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.btn-action {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--cyan);
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.btn-action:hover {
+    border-color: var(--cyan);
+    background: var(--cyan-soft);
+}
+
+.btn-action-danger {
+    color: var(--red);
+}
+
+.btn-action-danger:hover {
+    border-color: var(--red);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.trans-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 14px;
+}
+
+.trans-item .trans-lang {
+    color: var(--muted);
+    font-weight: 640;
+    min-width: 80px;
+}
+
+.trans-item .trans-name {
+    flex: 1;
+    color: var(--text);
+}
+
 @media (max-width: 520px) {
     .toolbar { flex-direction: column; align-items: stretch; }
     .product-grid { grid-template-columns: 1fr; }
