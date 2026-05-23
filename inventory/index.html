@@ -61,6 +61,7 @@
                             <th>Colección</th>
                             <th>Idioma</th>
                             <th>Estado</th>
+                            <th>Precio</th>
                             <th>Stock</th>
                             <th title="Sellado">S</th>
                             <th title="Publicado Instagram">IG</th>
@@ -191,13 +192,14 @@
                 <form id="entryForm">
                     <input type="hidden" id="modalInventoryId">
                     <div class="field">
-                        <label>Producto</label>
-                        <div id="entryProductDisplay" class="readonly-field"></div>
-                    </div>
-                    <div class="field">
                         <label>Colección</label>
                         <div id="entryCollectionDisplay" class="readonly-field"></div>
                     </div>
+                    <div class="field">
+                        <label>Producto</label>
+                        <div id="entryProductDisplay" class="readonly-field"></div>
+                    </div>
+                    <div id="entryGoogleSearch" class="detail-actions"></div>
                     <div class="form-row">
                         <div class="field" style="flex:1">
                             <label for="entryQuantity">Cantidad</label>
@@ -220,28 +222,38 @@
                         <div class="field" style="flex:1">
                             <label for="entryPurchase">Compra</label>
                             <div style="position:relative">
-                                <input id="entryPurchase" type="text" placeholder="Buscar compra..." autocomplete="off" style="width:100%;box-sizing:border-box">
-                                <div id="entryPurchaseSuggestions" class="suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:var(--card-bg,#fff);border:1px solid var(--border,#ccc);max-height:200px;overflow-y:auto"></div>
-                            </div>
+                            <input id="entryPurchase" type="text" placeholder="Buscar compra..." autocomplete="off" style="width:100%;box-sizing:border-box">
+                            <div id="entryPurchaseSuggestions" class="suggestions" style="display:none"></div>
+                        </div>
+                        <select id="entryPurchaseItem" style="display:none;width:100%;margin-top:6px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">(seleccionar item de la compra)</option>
+                        </select>
+                        <div id="entryPriceDisplay" style="display:none;margin-top:6px;font-size:13px;color:var(--muted)">
+                            Precio: <span id="entryPriceValue"></span>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="field" style="flex:1">
-                            <label class="checkbox-label">
-                                <input id="entrySealed" type="checkbox">
-                                Sellado
-                            </label>
-                        </div>
-                        <div class="field" style="flex:1">
-                            <label class="checkbox-label">
-                                <input id="entryInstagram" type="checkbox">
-                                Publicado Instagram
-                            </label>
-                        </div>
+                </div>
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label class="checkbox-label">
+                            <input id="entrySealed" type="checkbox">
+                            Sellado
+                        </label>
                     </div>
+                    <div class="field" style="flex:1">
+                        <label class="checkbox-label">
+                            <input id="entryInstagram" type="checkbox">
+                            Publicado Instagram
+                        </label>
+                    </div>
+                </div>
                     <div class="field">
                         <label for="entryNote">Notas</label>
                         <input id="entryNote" type="text" placeholder="Notas internas">
+                    </div>
+                    <div class="field">
+                        <label>Trackers de precio</label>
+                        <div id="entryTrackers" class="files-list" style="font-size:13px"></div>
                     </div>
                     <div class="field">
                         <label>Fotos</label>
@@ -303,11 +315,17 @@
                     </div>
                     <div class="field">
                         <label for="addInvPurchase">Compra de referencia</label>
-                        <input id="addInvPurchase" type="text" placeholder="Buscar por fecha..." autocomplete="off">
-                        <div id="addInvPurchaseSuggestions" class="suggestions" style="display:none"></div>
+                    <input id="addInvPurchase" type="text" placeholder="Buscar por fecha..." autocomplete="off">
+                    <div id="addInvPurchaseSuggestions" class="suggestions" style="display:none"></div>
+                    <select id="addInvPurchaseItem" style="display:none;width:100%;margin-top:6px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                        <option value="">(seleccionar item de la compra)</option>
+                    </select>
+                    <div id="addInvPriceDisplay" style="display:none;margin-top:6px;font-size:13px;color:var(--muted)">
+                        Precio: <span id="addInvPriceValue"></span>
                     </div>
-                    <div class="field">
-                        <label for="addInvNotes">Notas</label>
+                </div>
+                <div class="field">
+                    <label for="addInvNotes">Notas</label>
                         <input id="addInvNotes" type="text" placeholder="Notas internas">
                     </div>
                     <div class="actions">

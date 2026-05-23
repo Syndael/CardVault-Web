@@ -187,7 +187,15 @@ function esc(v) {
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
 }
-
+function getProductName(translations, langId) {
+    if (!translations || !translations.length) return '';
+    if (langId != null && langId !== '') {
+        const id = parseInt(langId, 10);
+        const match = translations.find(t => t.language_id === id || (t.language && t.language.id === id));
+        if (match) return match.name;
+    }
+    return translations[0].name;
+}
 function apiUrl(path, params = null) {
     let p = path.replace(/^\//, '');
     if (!p.includes('/')) p += '/';
@@ -236,7 +244,7 @@ const prodState = {
 
 const productGrid = document.querySelector("#productGrid");
 const emptyState = document.querySelector("#emptyState");
-const prodSummary = document.querySelector("#resultSummary");
+const prodSummary = document.querySelector("#productSummary");
 const layoutSummary = document.querySelector("#layoutSummary");
 const scrollStatus = document.querySelector("#scrollStatus");
 const searchForm = document.querySelector("#searchForm");
@@ -995,7 +1003,7 @@ document.querySelectorAll('.view-btn').forEach(btn => {
 });
 
 function renderInvLoading() {
-    invBody.innerHTML = `<tr><td colspan="11" class="loading-state">Cargando inventario...</td></tr>`;
+    invBody.innerHTML = `<tr><td colspan="12" class="loading-state">Cargando inventario...</td></tr>`;
     invEmpty.hidden = true;
 }
 
@@ -1006,13 +1014,14 @@ function renderInvRow(item) {
     const cond = item.condition || {};
     const stock = item.quantity ?? 0;
     const cls = stock > 0 ? 'stock-positive' : stock < 0 ? 'stock-negative' : 'stock-zero';
-    const prodName = prod.translations && prod.translations[0] ? prod.translations[0].name : '';
+    const prodName = getProductName(prod.translations, lang.id);
     const cardType = prod.product_type ? (prod.product_type.name + (prod.product_type.short_name ? ' (' + prod.product_type.short_name + ')' : '')) : (item.extra_type ? (item.extra_type.name + (item.extra_type.short_name ? ' (' + item.extra_type.short_name + ')' : '')) : '');
     const sealedIcon = item.is_sealed ? '\u2713' : '';
     const igIcon = item.posted_instagram ? '\u2713' : '';
+    const price = item.acquisition_price != null ? parseFloat(item.acquisition_price).toFixed(2) + '\u20AC' : '';
     const codeNum = esc(col.code || '-') + (prod.product_number ? ' ' + esc(prod.product_number) : '');
     const nameDisplay = prodName ? `<strong>${esc(prodName)}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>';
-    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function invImageCell(url) {
@@ -1092,6 +1101,56 @@ if (document.getElementById('entryCancel')) document.getElementById('entryCancel
 
 let entryPurchasesCache = [];
 let entrySelectedPurchaseId = null;
+let entrySelectedPurchaseItemId = null;
+
+async function loadPurchaseItems(purchaseId, selectEl, priceDisplayId, priceValueId, langId) {
+    selectEl.style.display = 'none';
+    selectEl.innerHTML = '<option value="">(seleccionar item de la compra)</option>';
+    if (!purchaseId) return;
+    try {
+        const resp = await apiFetch(apiUrl('purchase-items', {per_page: 200, purchase_id: purchaseId}));
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const items = data.items || [];
+        if (!items.length) return;
+        items.forEach(it => {
+            const opt = document.createElement('option');
+            opt.value = it.id;
+            opt.dataset.price = it.unit_price;
+            const prod = it.product || {};
+            const prodNum = prod.product_number || '';
+            const name = getProductName(prod.translations, langId) || '';
+            opt.textContent = `${prodNum}${name ? ' - ' + name : ''}  x${it.quantity}  ${it.unit_price}€`;
+            selectEl.appendChild(opt);
+        });
+        selectEl.style.display = 'block';
+        if (priceDisplayId && priceValueId) {
+            updatePriceDisplay(selectEl, priceDisplayId, priceValueId);
+        }
+    } catch (e) { console.error(e); }
+}
+
+function updatePriceDisplay(selectEl, displayId, valueId, purchaseId) {
+    const display = document.getElementById(displayId);
+    const valueEl = document.getElementById(valueId);
+    if (!display || !valueEl) return;
+    const selected = selectEl.options[selectEl.selectedIndex];
+    if (selected && selected.dataset.price) {
+        display.style.display = 'block';
+        valueEl.textContent = parseFloat(selected.dataset.price).toFixed(2) + '\u20AC';
+    } else if (purchaseId) {
+        const cache = entryPurchasesCache.length ? entryPurchasesCache : addInvPurchasesCache;
+        const pur = cache.find(p => p.id === purchaseId);
+        if (pur && pur.total_amount) {
+            display.style.display = 'block';
+            valueEl.textContent = parseFloat(pur.total_amount).toFixed(2) + '\u20AC (total compra)';
+            return;
+        }
+        display.style.display = 'none';
+    } else {
+        display.style.display = 'none';
+    }
+}
 
 async function openEntryModal(invId) {
     document.getElementById('modalInventoryId').value = invId || '';
@@ -1101,6 +1160,15 @@ async function openEntryModal(invId) {
     document.getElementById('entryInstagram').checked = false;
     document.getElementById('entryPurchase').value = '';
     entrySelectedPurchaseId = null;
+    const entryPriceDisplay = document.getElementById('entryPriceDisplay');
+    if (entryPriceDisplay) entryPriceDisplay.style.display = 'none';
+    entrySelectedPurchaseItemId = null;
+    const entryPurchaseItem = document.getElementById('entryPurchaseItem');
+    if (entryPurchaseItem) { entryPurchaseItem.style.display = 'none'; entryPurchaseItem.value = ''; }
+    const gs = document.getElementById('entryGoogleSearch');
+    if (gs) gs.innerHTML = '';
+    const tc = document.getElementById('entryTrackers');
+    if (tc) tc.innerHTML = '';
     closeEntryPurchaseSuggestions();
     try {
         const [langResp, condResp, purResp] = await Promise.all([
@@ -1132,9 +1200,38 @@ async function openEntryModal(invId) {
                 const item = await resp.json();
                 const prod = item.product || {}; const col = item.collection || {};
                 const lang = item.language || {}; const cond = item.condition || {}; const pur = item.purchase || {};
-                const prodName = prod.translations && prod.translations[0] ? prod.translations[0].name : '';
-                document.getElementById('entryProductDisplay').innerHTML = `<strong>${esc(prod.product_number || '-')}</strong>${prodName ? ' <span style="color:var(--muted)">' + esc(prodName) + '</span>' : ''}`;
-                document.getElementById('entryCollectionDisplay').textContent = col.code || col.name || '-';
+                const prodName = getProductName(prod.translations, lang.id);
+                const codeNum = esc(col.code || '-') + (prod.product_number ? ' ' + esc(prod.product_number) : '');
+                document.getElementById('entryCollectionDisplay').textContent = esc(col.code || col.name || '-');
+                document.getElementById('entryProductDisplay').innerHTML = `<span style="color:var(--muted)">(${codeNum})</span> ${prodName ? `<strong>${esc(prodName)}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>'}`;
+                // Google search button
+                const searchParts = [prodName, prod.product_number, col.code].filter(Boolean).join(' ');
+                const searchQ = searchParts ? encodeURIComponent(searchParts) : '';
+                const gs = document.getElementById('entryGoogleSearch');
+                if (gs) gs.innerHTML = searchQ ? `<a class="google-search-btn" href="https://www.google.com/search?q=${searchQ}" target="_blank" rel="noopener" title="Buscar en Google">Buscar en Google</a>` : '';
+                // Price trackers
+                const trackersContainer = document.getElementById('entryTrackers');
+                if (trackersContainer && prod.id) {
+                    apiFetch(apiUrl('product-price-tracking', {per_page: 200, product_id: prod.id})).then(r => r.ok ? r.json() : {items: []}).then(data => {
+                        const trackers = data.items || [];
+                        if (!trackers.length) { trackersContainer.innerHTML = '<span style="color:var(--muted)">Sin trackers</span>'; return; }
+                        trackersContainer.innerHTML = trackers.map(t => {
+                            let url = t.url;
+                            const ps = t.price_source || {};
+                            if (ps.language_param && lang.cardmarket_code) {
+                                const sep = url.includes('?') ? '&' : '?';
+                                url += sep + ps.language_param + '=' + encodeURIComponent(lang.cardmarket_code);
+                            }
+                            if (ps.condition_param && cond.cardmarket_code) {
+                                const sep = url.includes('?') ? '&' : '?';
+                                url += sep + ps.condition_param + '=' + encodeURIComponent(cond.cardmarket_code);
+                            }
+                            return `<div class="detail-row"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${ps.name ? ' <span class="detail-meta">(' + esc(ps.name) + ')</span>' : ''}</div>`;
+                        }).join('');
+                    }).catch(() => { trackersContainer.innerHTML = ''; });
+                } else if (trackersContainer) {
+                    trackersContainer.innerHTML = '<span style="color:var(--muted)">Sin trackers</span>';
+                }
                 document.getElementById('entryQuantity').value = item.quantity ?? 1;
                 document.getElementById('entryLang').value = lang.id || '';
                 document.getElementById('entryCondition').value = cond.id || '';
@@ -1146,6 +1243,16 @@ async function openEntryModal(invId) {
                     const purDate = (pur.purchase_date || '').slice(0,10);
                     const purEntity = (pur.entity && pur.entity.name) || '';
                     document.getElementById('entryPurchase').value = purDate ? `${purDate} - ${purEntity}` : purEntity || 'Compra #' + pur.id;
+                    const purItem = item.purchase_item;
+                    entrySelectedPurchaseItemId = purItem ? purItem.id : null;
+                    const entryPurchaseItem = document.getElementById('entryPurchaseItem');
+                    if (entrySelectedPurchaseItemId) {
+                        loadPurchaseItems(entrySelectedPurchaseId, entryPurchaseItem, 'entryPriceDisplay', 'entryPriceValue', lang.id).then(() => {
+                            if (entryPurchaseItem) entryPurchaseItem.value = entrySelectedPurchaseItemId;
+                        });
+                    } else if (entrySelectedPurchaseId) {
+                        updatePriceDisplay(entryPurchaseItem, 'entryPriceDisplay', 'entryPriceValue', entrySelectedPurchaseId);
+                    }
                 }
                 loadInventoryFiles(invId);
             }
@@ -1170,11 +1277,14 @@ document.getElementById('entryForm').addEventListener('submit', async (ev) => {
     const btn = ev.target.querySelector('button[type="submit"]');
     btn.disabled = true; btn.textContent = 'Guardando...';
     try {
+        const purchaseItemEl = document.getElementById('entryPurchaseItem');
+        const purchaseItemId = purchaseItemEl && purchaseItemEl.style.display !== 'none' ? (purchaseItemEl.value || null) : null;
         const payload = {
             quantity: quantity,
             ...(languageId ? {language_id: parseInt(languageId)} : {language_id: null}),
             ...(conditionId ? {condition_id: parseInt(conditionId)} : {condition_id: null}),
             purchase_id: entrySelectedPurchaseId,
+            purchase_item_id: purchaseItemId ? parseInt(purchaseItemId) : null,
             is_sealed: isSealed, posted_instagram: postedInstagram,
             ...(note ? {notes: note} : {notes: null})
         };
@@ -1214,11 +1324,7 @@ function searchEntryPurchases(q) {
 }
 function showEntryPurchaseSuggestions(items) {
     closeEntryPurchaseSuggestions();
-    const rect = entryPurchaseInput.getBoundingClientRect();
     entryPurchaseSuggestions.style.display = 'block';
-    entryPurchaseSuggestions.style.top = (rect.bottom + window.scrollY) + 'px';
-    entryPurchaseSuggestions.style.left = (rect.left + window.scrollX) + 'px';
-    entryPurchaseSuggestions.style.width = rect.width + 'px';
     entryPurchaseSuggestions.innerHTML = items.map(p =>
         `<div class="suggestion-item" data-id="${p.id}" data-date="${(p.purchase_date || '').slice(0,10)}" data-entity="${esc((p.entity && p.entity.name) || '')}">${esc((p.purchase_date || '').slice(0,10))} - ${esc((p.entity && p.entity.name) || '?')}</div>`
     ).join('');
@@ -1226,7 +1332,10 @@ function showEntryPurchaseSuggestions(items) {
         el.addEventListener('click', () => {
             entryPurchaseInput.value = el.dataset.date + ' - ' + el.dataset.entity;
             entrySelectedPurchaseId = parseInt(el.dataset.id);
+            entrySelectedPurchaseItemId = null;
             closeEntryPurchaseSuggestions();
+            const entryLangVal = document.getElementById('entryLang').value;
+            loadPurchaseItems(entrySelectedPurchaseId, document.getElementById('entryPurchaseItem'), null, null, entryLangVal || null);
         });
     });
 }
@@ -1329,6 +1438,7 @@ function closeAddInvModal() { addInvModal.hidden = true; document.body.style.ove
 let addInvProductCache = {};
 let addInvPurchasesCache = [];
 let addInvSelectedPurchaseId = null;
+let addInvSelectedPurchaseItemId = null;
 
 async function openAddInvModal() {
     document.getElementById('addInvProduct').value = '';
@@ -1336,6 +1446,11 @@ async function openAddInvModal() {
     document.getElementById('addInvQty').value = '1';
     document.getElementById('addInvPurchase').value = '';
     addInvSelectedPurchaseId = null;
+    addInvSelectedPurchaseItemId = null;
+    const addInvPurchaseItem = document.getElementById('addInvPurchaseItem');
+    if (addInvPurchaseItem) { addInvPurchaseItem.style.display = 'none'; addInvPurchaseItem.value = ''; }
+    const addInvPriceDisplay = document.getElementById('addInvPriceDisplay');
+    if (addInvPriceDisplay) addInvPriceDisplay.style.display = 'none';
     document.getElementById('addInvNotes').value = '';
     document.getElementById('addInvSealed').checked = false;
     document.getElementById('addInvInstagram').checked = false;
@@ -1400,7 +1515,7 @@ function showAddInvSuggestions(items) {
     addInvSuggestions.style.left = (rect.left + window.scrollX) + 'px';
     addInvSuggestions.style.width = rect.width + 'px';
     addInvSuggestions.innerHTML = items.map(item =>
-        `<div class="suggestion-item" data-id="${item.product_id}" data-name="${esc(item.product_name || item.product_number || '')}" data-collection="${esc(item.collection_code || '')}">${esc(item.product_name || item.product_number || '')} [${esc(item.collection_code || '')}]</div>`
+        `<div class="suggestion-item" data-id="${item.product_id}" data-name="${esc(item.collection_code || '')} ${esc(item.product_number || '')}" data-collection="${esc(item.collection_code || '')}"><span style="color:var(--muted)">(${esc(item.collection_code || '-')} ${esc(item.product_number || '-')})</span> ${esc(item.product_name || '')}</div>`
     ).join('');
     addInvSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
         el.addEventListener('click', () => {
@@ -1455,7 +1570,12 @@ function showAddInvPurchaseSuggestions(items) {
         el.addEventListener('click', () => {
             addInvPurchaseInput.value = el.dataset.date + ' - ' + el.dataset.entity;
             addInvSelectedPurchaseId = parseInt(el.dataset.id);
+            addInvSelectedPurchaseItemId = null;
             closeAddInvPurchaseSuggestions();
+            const addInvLangVal = document.getElementById('addInvLang').value;
+            const addInvPurchaseItem = document.getElementById('addInvPurchaseItem');
+            loadPurchaseItems(addInvSelectedPurchaseId, addInvPurchaseItem, 'addInvPriceDisplay', 'addInvPriceValue', addInvLangVal || null);
+            updatePriceDisplay(addInvPurchaseItem, 'addInvPriceDisplay', 'addInvPriceValue', addInvSelectedPurchaseId);
         });
     });
 }
@@ -1475,6 +1595,8 @@ document.getElementById('addInvForm').addEventListener('submit', async (ev) => {
     const isSealed = document.getElementById('addInvSealed').checked;
     const postedInstagram = document.getElementById('addInvInstagram').checked;
     const purchaseId = addInvSelectedPurchaseId;
+    const purchaseItemEl = document.getElementById('addInvPurchaseItem');
+    const purchaseItemId = purchaseItemEl && purchaseItemEl.style.display !== 'none' ? (purchaseItemEl.value || null) : null;
     const notes = document.getElementById('addInvNotes').value.trim();
     let collectionId;
     try {
@@ -1490,6 +1612,7 @@ document.getElementById('addInvForm').addEventListener('submit', async (ev) => {
             ...(languageId ? {language_id: parseInt(languageId)} : {}),
             ...(conditionId ? {condition_id: parseInt(conditionId)} : {}),
             ...(purchaseId ? {purchase_id: purchaseId} : {}),
+            ...(purchaseItemId ? {purchase_item_id: parseInt(purchaseItemId)} : {}),
             is_sealed: isSealed, posted_instagram: postedInstagram,
             ...(notes ? {notes: notes} : {})
         };
@@ -1721,9 +1844,10 @@ function showSuggestions(input, items) {
     items.forEach(item => {
         const opt = document.createElement('div');
         opt.className = 'suggestion-item';
-        const name = item.product_name || item.product_number || '';
         const code = item.collection_code || '';
-        opt.textContent = `${name} [${code}]`;
+        const num = item.product_number || '';
+        const name = item.product_name || '';
+        opt.innerHTML = `<span style="color:var(--muted)">(${esc(code || '-')} ${esc(num || '-')})</span> ${esc(name)}`;
         opt.addEventListener('click', () => {
             input.value = `${item.collection_code || ''} ${item.product_number || ''}`;
             input.dataset.productId = item.product_id;
@@ -1764,7 +1888,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
         const qty = parseInt(tr.querySelector('.item-qty').value, 10) || 0;
         const price = parseFloat(tr.querySelector('.item-price').value) || 0;
         const productId = prodInput.dataset.productId;
-        if (productId && qty > 0) items.push({product_id: parseInt(productId), quantity: qty, unit_price: price});
+        if (productId && qty > 0) items.push({_rowId: tr.dataset.itemId, product_id: parseInt(productId), quantity: qty, unit_price: price});
     });
     const btn = ev.target.querySelector('button[type="submit"]');
     btn.disabled = true; btn.textContent = 'Guardando...';
@@ -1787,15 +1911,31 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
         if (!purResp.ok) { const t = await purResp.text().catch(()=>null); alert('Error al guardar compra: ' + purResp.status + ' ' + (t||'')); return; }
         const savedPurchase = await purResp.json();
         const savedId = savedPurchase.id;
+        // Save items: update existing, delete removed, create new
         if (purchaseId) {
             const oldResp = await apiFetch(apiUrl('purchase-items', {per_page: 200, purchase_id: purchaseId}));
-            if (oldResp.ok) { const oldData = await oldResp.json(); for (const oldItem of (oldData.items || [])) { await apiFetch(apiUrl(`purchase-items/${oldItem.id}`), {method: 'DELETE'}); } }
+            if (oldResp.ok) {
+                const oldData = await oldResp.json();
+                const currentIds = new Set(items.filter(i => i._rowId && !i._rowId.startsWith('new_')).map(i => parseInt(i._rowId)));
+                for (const oldItem of (oldData.items || [])) {
+                    if (!currentIds.has(oldItem.id)) {
+                        await apiFetch(apiUrl(`purchase-items/${oldItem.id}`), {method: 'DELETE'});
+                    }
+                }
+            }
         }
         for (const item of items) {
-            await apiFetch(apiUrl('purchase-items'), {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({purchase_id: savedId, product_id: item.product_id, unit_price: item.unit_price, quantity: item.quantity})
-            });
+            if (item._rowId && !item._rowId.startsWith('new_')) {
+                await apiFetch(apiUrl(`purchase-items/${item._rowId}`), {
+                    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({product_id: item.product_id, unit_price: item.unit_price, quantity: item.quantity})
+                });
+            } else {
+                await apiFetch(apiUrl('purchase-items'), {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({purchase_id: savedId, product_id: item.product_id, unit_price: item.unit_price, quantity: item.quantity})
+                });
+            }
         }
         closePurModal();
         loadPurchases({reset: true});
@@ -2614,6 +2754,13 @@ async function loadInvFilterTypes() {
 })();
 
 updatePageSizeFromViewport();
+
+document.getElementById('entryPurchaseItem').addEventListener('change', function() {
+    updatePriceDisplay(this, 'entryPriceDisplay', 'entryPriceValue', entrySelectedPurchaseId);
+});
+document.getElementById('addInvPurchaseItem').addEventListener('change', function() {
+    updatePriceDisplay(this, 'addInvPriceDisplay', 'addInvPriceValue', addInvSelectedPurchaseId);
+});
 
 // Initialize
 updateAuthUI();
