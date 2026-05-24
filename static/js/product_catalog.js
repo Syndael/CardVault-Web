@@ -344,6 +344,11 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
+function formatName(name, nameAlter) {
+    if (name && nameAlter) return `${escapeHtml(name)} (${escapeHtml(nameAlter)})`;
+    return name ? escapeHtml(name) : (nameAlter ? escapeHtml(nameAlter) : '');
+}
+
 function apiUrl(path, params = null) {
     // normalize path: remove leading slash
     let p = path.replace(/^\//, "");
@@ -945,7 +950,7 @@ async function loadProductDetails(productId) {
                 const langName = t.language && t.language.name ? t.language.name : `ID ${t.language_id}`;
                 html += `<div class="trans-row" data-trans-id="${t.id}">
                     <span class="trans-lang">${escapeHtml(langName)}</span>
-                    <span class="trans-name">${escapeHtml(t.name)}</span>
+                    <span class="trans-name">${formatName(t.name, t.name_alter)}</span>
                     <button type="button" class="btn-delete-trans" data-trans-id="${t.id}" title="Eliminar traduccion">
                         <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
                     </button>
@@ -1273,7 +1278,12 @@ function showColSuggestions(items) {
     colSuggestions.style.left = (rect.left + window.scrollX) + 'px';
     colSuggestions.style.width = rect.width + 'px';
     colSuggestions.innerHTML = items.map(item =>
-        `<div class="suggestion-item" data-code="${esc(item.code)}" data-id="${item.id}">${esc(item.code)}${item.card_type ? ' (' + esc(item.card_type.name) + ')' : ''}</div>`
+        `<div class="suggestion-item" data-code="${escapeHtml(item.code)}" data-id="${item.id}" data-is-manual="${item.is_manual ? 'true' : ''}">
+            <span class="suggestion-code">${escapeHtml(item.code)}</span>
+            ${item.name ? `<span class="suggestion-name">${formatName(item.name, item.name_alter)}</span>` : ''}
+            ${item.card_type ? `<span class="suggestion-type">${escapeHtml(item.card_type.short_name || item.card_type.name)}</span>` : ''}
+            ${item.is_manual ? '<span class="suggestion-manual" title="Manual">M</span>' : ''}
+        </div>`
     ).join('');
     colSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
         el.addEventListener('click', () => {

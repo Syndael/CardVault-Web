@@ -1,11 +1,4 @@
-const DEFAULT_API_BASE = "http://127.0.0.1:5000/api";
-const urlParams = new URLSearchParams(window.location.search);
-const configuredApiBase = (
-    urlParams.get("api")
-    || window.localStorage.getItem("cardvault_api_base")
-    || DEFAULT_API_BASE
-).replace(/\/$/, "");
-window.localStorage.setItem("cardvault_api_base", configuredApiBase);
+const configuredApiBase = (typeof CARDVAULT_API_BASE !== "undefined" ? CARDVAULT_API_BASE : "http://127.0.0.1:5000/api").replace(/\/$/, "");
 const apiOrigin = new URL(configuredApiBase).origin;
 const TOKEN_KEY = "cardvault_token";
 
@@ -187,6 +180,11 @@ function esc(v) {
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
 }
+
+function formatName(name, nameAlter) {
+    if (name && nameAlter) return `${esc(name)} (${esc(nameAlter)})`;
+    return name ? esc(name) : (nameAlter ? esc(nameAlter) : '');
+}
 function getProductName(translations, langId) {
     if (!translations || !translations.length) return '';
     if (langId != null && langId !== '') {
@@ -195,6 +193,16 @@ function getProductName(translations, langId) {
         if (match) return match.name;
     }
     return translations[0].name;
+}
+function getFormattedProductName(translations, langId) {
+    if (!translations || !translations.length) return '';
+    let match;
+    if (langId != null && langId !== '') {
+        const id = parseInt(langId, 10);
+        match = translations.find(t => t.language_id === id || (t.language && t.language.id === id));
+    }
+    if (!match) match = translations[0];
+    return formatName(match.name, match.name_alter);
 }
 function apiUrl(path, params = null) {
     let p = path.replace(/^\//, '');
@@ -574,7 +582,7 @@ async function loadProductDetails(productId) {
         else {
             for (const t of translations) {
                 const langName = t.language && t.language.name ? t.language.name : `ID ${t.language_id}`;
-                html += `<div class="trans-row" data-trans-id="${t.id}"><span class="trans-lang">${esc(langName)}</span><span class="trans-name">${esc(t.name)}</span><button type="button" class="btn-delete-trans" data-trans-id="${t.id}" title="Eliminar traduccion"><svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></div>`;
+                html += `<div class="trans-row" data-trans-id="${t.id}"><span class="trans-lang">${esc(langName)}</span><span class="trans-name">${formatName(t.name, t.name_alter)}</span><button type="button" class="btn-delete-trans" data-trans-id="${t.id}" title="Eliminar traduccion"><svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></div>`;
             }
         }
         html += '</div>';
@@ -738,8 +746,15 @@ document.addEventListener("click", async (ev) => {
 }, {capture: true});
 
 document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape" && !productModal.hidden) closeModal();
-    if (ev.key === "Escape" && !createModal.hidden) closeCreateModal();
+    if (ev.key !== "Escape") return;
+    if (!productModal.hidden) closeModal();
+    else if (!createModal.hidden) closeCreateModal();
+    else if (!entryModal.hidden) closeEntryModal();
+    else if (!addInvModal.hidden) closeAddInvModal();
+    else if (!purModal.hidden) closePurModal();
+    else if (!colModal.hidden) closeColModal();
+    else if (!scheduledModal.hidden) closeScheduledModal();
+    else if (!loginModal.hidden) hideLoginModal();
 });
 
 // Create product
@@ -916,7 +931,12 @@ function showColSuggestions(items) {
     colSuggestions.style.left = (rect.left + window.scrollX) + 'px';
     colSuggestions.style.width = rect.width + 'px';
     colSuggestions.innerHTML = items.map(item =>
-        `<div class="suggestion-item" data-code="${esc(item.code)}" data-id="${item.id}" data-is-manual="${!!item.is_manual}">${esc(item.code)}${item.card_type ? ' (' + esc(item.card_type.name) + ')' : ''}</div>`
+        `<div class="suggestion-item" data-code="${esc(item.code)}" data-id="${item.id}" data-is-manual="${!!item.is_manual}">
+            <span class="suggestion-code">${esc(item.code)}</span>
+            ${item.name ? `<span class="suggestion-name">${formatName(item.name, item.name_alter)}</span>` : ''}
+            ${item.card_type ? `<span class="suggestion-type">${esc(item.card_type.short_name || item.card_type.name)}</span>` : ''}
+            ${item.is_manual ? '<span class="suggestion-manual" title="Manual">M</span>' : ''}
+        </div>`
     ).join('');
     colSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
         el.addEventListener('click', () => {
@@ -972,7 +992,7 @@ if (createForm) {
 
 const invState = {
     page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
-    collection_code: '', product_number: '', product_name: '', card_type_id: ''
+    collection_code: '', product_number: '', product_name: '', card_type_id: '', tag_name: ''
 };
 
 const purState = {
@@ -1003,7 +1023,7 @@ document.querySelectorAll('.view-btn').forEach(btn => {
 });
 
 function renderInvLoading() {
-    invBody.innerHTML = `<tr><td colspan="12" class="loading-state">Cargando inventario...</td></tr>`;
+    invBody.innerHTML = `<tr><td colspan="13" class="loading-state">Cargando inventario...</td></tr>`;
     invEmpty.hidden = true;
 }
 
@@ -1015,13 +1035,28 @@ function renderInvRow(item) {
     const stock = item.quantity ?? 0;
     const cls = stock > 0 ? 'stock-positive' : stock < 0 ? 'stock-negative' : 'stock-zero';
     const prodName = getProductName(prod.translations, lang.id);
+    const prodNameFmt = getFormattedProductName(prod.translations, lang.id);
     const cardType = prod.product_type ? (prod.product_type.name + (prod.product_type.short_name ? ' (' + prod.product_type.short_name + ')' : '')) : (item.extra_type ? (item.extra_type.name + (item.extra_type.short_name ? ' (' + item.extra_type.short_name + ')' : '')) : '');
     const sealedIcon = item.is_sealed ? '\u2713' : '';
     const igIcon = item.posted_instagram ? '\u2713' : '';
     const price = item.acquisition_price != null ? parseFloat(item.acquisition_price).toFixed(2) + '\u20AC' : '';
     const codeNum = esc(col.code || '-') + (prod.product_number ? ' ' + esc(prod.product_number) : '');
-    const nameDisplay = prodName ? `<strong>${esc(prodName)}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>';
-    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+    const nameDisplay = prodNameFmt ? `<strong>${prodNameFmt}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>';
+    const tagsHtml = renderTagBadges(item.tags);
+    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td>${tagsHtml}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+}
+
+function renderTagBadges(tags) {
+    if (!tags || !tags.length) return '';
+    return tags.map(t => {
+        const bg = t.color || '#6c757d';
+        return `<span class="tag-badge" style="display:inline-block;padding:1px 6px;margin:1px;border-radius:3px;font-size:11px;color:#fff;background:${esc(bg)}">${esc(t.name)}</span>`;
+    }).join(' ');
+}
+
+function renderEntryTagBadge(tag, invId) {
+    const bg = tag.color || '#6c757d';
+    return `<span class="entry-tag-badge" data-tag-id="${tag.id}" data-inv-id="${invId}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(bg)}">${esc(tag.name)}<button type="button" class="btn-remove-tag" data-tag-id="${tag.id}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`;
 }
 
 function invImageCell(url) {
@@ -1062,6 +1097,7 @@ async function loadInventory({reset = false} = {}) {
         if (s.product_number) params.product_number = s.product_number;
         if (s.product_name) params.product_name = s.product_name;
         if (s.card_type_id) params.card_type_id = s.card_type_id;
+        if (s.tag_name) params.tag_name = s.tag_name;
         const showAllCb = document.getElementById('showAllInv');
         if (showAllCb && showAllCb.checked) params.all = 'true';
         const resp = await apiFetch(apiUrl('inventory', params));
@@ -1096,8 +1132,9 @@ if (invSentinel) invObs.observe(invSentinel);
 
 // Inventory entry modal
 const entryModal = document.getElementById('entryModal');
-if (document.getElementById('entryBackdrop')) document.getElementById('entryBackdrop').addEventListener('click', () => entryModal.hidden = true);
-if (document.getElementById('entryCancel')) document.getElementById('entryCancel').addEventListener('click', () => entryModal.hidden = true);
+function closeEntryModal() { entryModal.hidden = true; document.body.style.overflow = ''; }
+if (document.getElementById('entryBackdrop')) document.getElementById('entryBackdrop').addEventListener('click', closeEntryModal);
+if (document.getElementById('entryCancel')) document.getElementById('entryCancel').addEventListener('click', closeEntryModal);
 
 let entryPurchasesCache = [];
 let entrySelectedPurchaseId = null;
@@ -1120,7 +1157,8 @@ async function loadPurchaseItems(purchaseId, selectEl, priceDisplayId, priceValu
             const prod = it.product || {};
             const prodNum = prod.product_number || '';
             const name = getProductName(prod.translations, langId) || '';
-            opt.textContent = `${prodNum}${name ? ' - ' + name : ''}  x${it.quantity}  ${it.unit_price}€`;
+            const nameFmt = getFormattedProductName(prod.translations, langId) || '';
+            opt.textContent = `${prodNum}${nameFmt ? ' - ' + nameFmt : ''}  x${it.quantity}  ${it.unit_price}€`;
             selectEl.appendChild(opt);
         });
         selectEl.style.display = 'block';
@@ -1171,11 +1209,16 @@ async function openEntryModal(invId) {
     if (tc) tc.innerHTML = '';
     closeEntryPurchaseSuggestions();
     try {
-        const [langResp, condResp, purResp] = await Promise.all([
+        const [langResp, condResp, purResp, tagsResp] = await Promise.all([
             apiFetch(apiUrl('languages', {per_page: 200})),
             apiFetch(apiUrl('product-conditions', {per_page: 200})),
-            apiFetch(apiUrl('purchases', {per_page: 200}))
+            apiFetch(apiUrl('purchases', {per_page: 200})),
+            apiFetch(apiUrl('tags', {per_page: 200}))
         ]);
+        if (tagsResp.ok) {
+            const data = await tagsResp.json();
+            allTagsCache = data.items || [];
+        }
         if (langResp.ok) {
             const data = await langResp.json(); const langs = data.items || [];
             const sel = document.getElementById('entryLang');
@@ -1201,9 +1244,10 @@ async function openEntryModal(invId) {
                 const prod = item.product || {}; const col = item.collection || {};
                 const lang = item.language || {}; const cond = item.condition || {}; const pur = item.purchase || {};
                 const prodName = getProductName(prod.translations, lang.id);
+                const prodNameFmt = getFormattedProductName(prod.translations, lang.id);
                 const codeNum = esc(col.code || '-') + (prod.product_number ? ' ' + esc(prod.product_number) : '');
                 document.getElementById('entryCollectionDisplay').textContent = esc(col.code || col.name || '-');
-                document.getElementById('entryProductDisplay').innerHTML = `<span style="color:var(--muted)">(${codeNum})</span> ${prodName ? `<strong>${esc(prodName)}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>'}`;
+                document.getElementById('entryProductDisplay').innerHTML = `<span style="color:var(--muted)">(${codeNum})</span> ${prodNameFmt ? `<strong>${prodNameFmt}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>'}`;
                 // Google search button
                 const searchParts = [prodName, prod.product_number, col.code].filter(Boolean).join(' ');
                 const searchQ = searchParts ? encodeURIComponent(searchParts) : '';
@@ -1254,11 +1298,18 @@ async function openEntryModal(invId) {
                         updatePriceDisplay(entryPurchaseItem, 'entryPriceDisplay', 'entryPriceValue', entrySelectedPurchaseId);
                     }
                 }
+                const tags = item.tags || [];
+                const tagsContainer = document.getElementById('entryTags');
+                if (tagsContainer) {
+                    tagsContainer.innerHTML = tags.map(t => renderEntryTagBadge(t, invId)).join('');
+                }
                 loadInventoryFiles(invId);
             }
         } catch (e) { console.error('Error loading inventory entry', e); }
     } else {
         document.getElementById('entryPhotos').innerHTML = '';
+        const tagsContainer = document.getElementById('entryTags');
+        if (tagsContainer) tagsContainer.innerHTML = '';
     }
     entryModal.hidden = false;
     document.body.style.overflow = 'hidden';
@@ -1345,6 +1396,163 @@ function closeEntryPurchaseSuggestions() {
         entryPurchaseSuggestions.innerHTML = '';
     }
 }
+
+// Entry tag management
+const entryTagInput = document.getElementById('entryTagInput');
+const entryTagAddBtn = document.getElementById('entryTagAddBtn');
+const entryTagSuggestions = document.getElementById('entryTagSuggestions');
+let entryTagSearchTimeout;
+let allTagsCache = [];
+
+async function loadAllTags() {
+    try {
+        const resp = await apiFetch(apiUrl('tags', {per_page: 200}));
+        if (resp.ok) {
+            const data = await resp.json();
+            allTagsCache = data.items || [];
+        }
+    } catch (e) { console.error(e); }
+}
+
+function getEntryInvId() {
+    return document.getElementById('modalInventoryId').value;
+}
+
+function getEntryTagNames() {
+    const container = document.getElementById('entryTags');
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('.entry-tag-badge')).map(el => el.textContent.replace('\u00d7', '').trim());
+}
+
+if (entryTagInput) {
+    entryTagInput.addEventListener('input', () => {
+        clearTimeout(entryTagSearchTimeout);
+        const q = entryTagInput.value.trim().toLowerCase();
+        if (q.length < 1) { closeEntryTagSuggestions(); return; }
+        entryTagSearchTimeout = setTimeout(() => searchEntryTags(q), 200);
+    });
+    entryTagInput.addEventListener('blur', () => setTimeout(closeEntryTagSuggestions, 200));
+    entryTagInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addEntryTagFromInput();
+        }
+    });
+}
+
+function searchEntryTags(q) {
+    const existing = getEntryTagNames();
+    const matching = allTagsCache.filter(t => !existing.includes(t.name) && t.name.toLowerCase().includes(q));
+    if (matching.length === 0) {
+        showEntryTagCreateSuggestion(q);
+        return;
+    }
+    showEntryTagSuggestions(matching);
+}
+
+function showEntryTagSuggestions(items) {
+    closeEntryTagSuggestions();
+    const rect = entryTagInput.getBoundingClientRect();
+    entryTagSuggestions.style.display = 'block';
+    entryTagSuggestions.style.top = (rect.bottom + window.scrollY) + 'px';
+    entryTagSuggestions.style.left = (rect.left + window.scrollX) + 'px';
+    entryTagSuggestions.style.width = rect.width + 'px';
+    entryTagSuggestions.innerHTML = items.map(t =>
+        `<div class="suggestion-item" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}" data-tag-color="${esc(t.color || '')}"><span class="tag-badge" style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;color:#fff;background:${esc(t.color || '#6c757d')}">${esc(t.name)}</span></div>`
+    ).join('');
+    entryTagSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const tagId = parseInt(el.dataset.tagId);
+            const tagName = el.dataset.tagName;
+            const tagColor = el.dataset.tagColor;
+            entryTagInput.value = '';
+            closeEntryTagSuggestions();
+            addTagToEntry(tagId, tagName, tagColor);
+        });
+    });
+}
+
+function showEntryTagCreateSuggestion(q) {
+    closeEntryTagSuggestions();
+    const rect = entryTagInput.getBoundingClientRect();
+    entryTagSuggestions.style.display = 'block';
+    entryTagSuggestions.style.top = (rect.bottom + window.scrollY) + 'px';
+    entryTagSuggestions.style.left = (rect.left + window.scrollX) + 'px';
+    entryTagSuggestions.style.width = rect.width + 'px';
+    entryTagSuggestions.innerHTML = `<div class="suggestion-item create-tag" data-tag-name="${esc(q)}"><em>Crear tag "${esc(q)}"</em></div>`;
+    entryTagSuggestions.querySelector('.create-tag').addEventListener('click', async () => {
+        const name = q;
+        entryTagInput.value = '';
+        closeEntryTagSuggestions();
+        try {
+            const resp = await apiFetch(apiUrl('tags'), {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name})
+            });
+            if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al crear tag: ' + (t || resp.status)); return; }
+            const tag = await resp.json();
+            allTagsCache.push(tag);
+            addTagToEntry(tag.id, tag.name, tag.color);
+        } catch (e) { console.error(e); alert('Error al crear tag'); }
+    });
+}
+
+function closeEntryTagSuggestions() {
+    if (entryTagSuggestions) {
+        entryTagSuggestions.style.display = 'none';
+        entryTagSuggestions.innerHTML = '';
+    }
+}
+
+async function addTagToEntry(tagId, tagName, tagColor) {
+    const invId = getEntryInvId();
+    if (!invId) return;
+    try {
+        const resp = await apiFetch(apiUrl(`inventory/${invId}/tags`), {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tag_id: tagId})
+        });
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al añadir tag: ' + resp.status + ' ' + (t||'')); return; }
+        const container = document.getElementById('entryTags');
+        if (container) container.insertAdjacentHTML('beforeend', renderEntryTagBadge({id: tagId, name: tagName, color: tagColor}, invId));
+    } catch (e) { console.error(e); alert('Error al añadir tag'); }
+}
+
+if (entryTagAddBtn) {
+    entryTagAddBtn.addEventListener('click', addEntryTagFromInput);
+}
+
+function addEntryTagFromInput() {
+    const q = entryTagInput.value.trim();
+    if (!q) return;
+    const existing = allTagsCache.find(t => t.name.toLowerCase() === q.toLowerCase());
+    if (existing) {
+        const currentTags = getEntryTagNames();
+        if (currentTags.includes(existing.name)) { alert('Tag ya añadido'); return; }
+        entryTagInput.value = '';
+        closeEntryTagSuggestions();
+        addTagToEntry(existing.id, existing.name, existing.color);
+    } else {
+        showEntryTagCreateSuggestion(q);
+    }
+}
+
+// Delegated remove tag
+document.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.btn-remove-tag');
+    if (!removeBtn) return;
+    e.preventDefault();
+    const badge = removeBtn.closest('.entry-tag-badge');
+    if (!badge) return;
+    const tagId = parseInt(removeBtn.dataset.tagId);
+    const invId = getEntryInvId();
+    if (!invId || !tagId) return;
+    if (!confirm('¿Eliminar este tag?')) return;
+    apiFetch(apiUrl(`inventory/${invId}/tags/${tagId}`), {method: 'DELETE'}).then(resp => {
+        if (resp.ok) badge.remove();
+        else alert('Error al eliminar tag');
+    }).catch(() => alert('Error al eliminar tag'));
+});
 
 // File helpers for inventory/purchase photos
 async function loadInventoryFiles(invId) {
@@ -1743,6 +1951,7 @@ async function openPurchaseModal(purchaseId) {
                         const items = idata.items || [];
                         document.getElementById('purchaseItemsBody').innerHTML = '';
                         for (const it of items) await addItemRow(it);
+                        updatePurchaseTotal();
                     }
                 } catch (e) { console.error(e); }
                 loadPurchaseFiles(purchaseId);
@@ -1786,6 +1995,7 @@ async function addItemRow(data) {
         tr.remove();
         const rows = tbody.querySelectorAll('tr');
         if (rows.length === 0) tbody.innerHTML = '<tr class="empty-row"><td colspan="5" class="empty-state">Sin items</td></tr>';
+        updatePurchaseTotal();
     });
     if (data && data.product) {
         prodInput.dataset.productId = data.product.id;
@@ -1798,6 +2008,7 @@ async function addItemRow(data) {
             } catch (e) { /* ignore */ }
         }
     }
+    updatePurchaseTotal();
 }
 
 function recalcItemTotal(ev) {
@@ -1806,6 +2017,24 @@ function recalcItemTotal(ev) {
     const qty = parseInt(row.querySelector('.item-qty').value, 10) || 0;
     const price = parseFloat(row.querySelector('.item-price').value) || 0;
     row.querySelector('.item-total').textContent = (qty * price).toFixed(2);
+    updatePurchaseTotal();
+}
+
+function updatePurchaseTotal() {
+    const tbody = document.getElementById('purchaseItemsBody');
+    const tfoot = document.getElementById('purchaseItemsFoot');
+    if (!tfoot) return;
+    const rows = tbody.querySelectorAll('tr:not(.empty-row)');
+    if (rows.length === 0) {
+        tfoot.style.display = 'none';
+        return;
+    }
+    let total = 0;
+    rows.forEach(tr => {
+        total += parseFloat(tr.querySelector('.item-total').textContent) || 0;
+    });
+    tfoot.style.display = 'table-footer-group';
+    document.getElementById('purchaseTotalAmount').textContent = total.toFixed(2);
 }
 
 let searchTimeout;
@@ -2043,7 +2272,10 @@ document.getElementById('addScheduledTaskBtn').addEventListener('click', () => o
 
 async function openScheduledTaskModal() {
     document.getElementById('scheduledModalTitle').textContent = 'Nueva ejecución';
-    document.getElementById('scheduledDateInput').value = new Date().toISOString().slice(0, 16);
+    const nowLocal = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    document.getElementById('scheduledDateInput').value =
+        `${nowLocal.getFullYear()}-${pad(nowLocal.getMonth()+1)}-${pad(nowLocal.getDate())}T${pad(nowLocal.getHours())}:${pad(nowLocal.getMinutes())}`;
     const select = document.getElementById('scheduledTaskSelect');
     select.innerHTML = '<option value="">Seleccionar...</option>';
     try {
@@ -2111,10 +2343,10 @@ function renderColRow(item) {
     const cardType = item.card_type ? (item.card_type.name + (item.card_type.short_name ? ' (' + item.card_type.short_name + ')' : '')) : '-';
     const manual = item.is_manual ? '\u2713' : '';
     const releaseDate = item.release_date ? item.release_date.slice(0, 10) : '-';
-    const name = item.name || '-';
+    const displayName = formatName(item.name, item.name_alter) || '-';
     return `<tr class="clickable-row" data-col-id="${item.id}">
         <td><strong>${esc(item.code)}</strong></td>
-        <td>${esc(name)}</td>
+        <td>${displayName}</td>
         <td>${esc(cardType)}</td>
         <td>${manual}</td>
         <td>${releaseDate}</td>
@@ -2250,7 +2482,8 @@ async function openCollectionModal(collectionId) {
                     id: t.id,
                     language_id: t.language_id,
                     language_name: t.language ? t.language.name : 'ID ' + t.language_id,
-                    name: t.name
+                    name: t.name,
+                    name_alter: t.name_alter
                 }));
                 renderColTranslations();
             }
@@ -2270,7 +2503,7 @@ function renderColTranslations() {
     container.innerHTML = colTranslations.map((t, i) =>
         `<div class="trans-item" data-trans-index="${i}">
             <span class="trans-lang">${esc(t.language_name)}</span>
-            <span class="trans-name">${esc(t.name)}</span>
+            <span class="trans-name">${formatName(t.name, t.name_alter)}</span>
             <button type="button" class="btn-delete-trans" data-trans-index="${i}" title="Eliminar traduccion">
                 <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
             </button>
@@ -2700,6 +2933,16 @@ function setupInvFilters() {
         typeSelect.addEventListener('change', () => {
             invState.card_type_id = typeSelect.value;
             loadInventory({reset: true});
+        });
+    }
+    const tagInput = document.getElementById('invFilterTag');
+    if (tagInput) {
+        tagInput.addEventListener('input', () => {
+            clearTimeout(invFilterTimers.tag);
+            invFilterTimers.tag = setTimeout(() => {
+                invState.tag_name = tagInput.value.trim();
+                loadInventory({reset: true});
+            }, 300);
         });
     }
 }

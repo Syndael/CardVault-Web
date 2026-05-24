@@ -170,6 +170,10 @@
                             <option value="">Todos</option>
                         </select>
                     </label>
+                    <label class="filter-check">
+                        Tag
+                        <input id="invFilterTag" type="text" placeholder="Nombre tag..." style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </label>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center">
                     <div style="display:flex;gap:8px;align-items:center">
@@ -200,6 +204,7 @@
                             <th>Stock</th>
                             <th title="Sellado">S</th>
                             <th title="Publicado Instagram">IG</th>
+                            <th>Tags</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -394,6 +399,13 @@
                         <tbody id="purchaseItemsBody">
                             <tr class="empty-row"><td colspan="5" class="empty-state">Sin items</td></tr>
                         </tbody>
+                        <tfoot id="purchaseItemsFoot" style="display:none">
+                            <tr>
+                                <td colspan="3" style="text-align:right;font-weight:640;color:var(--cyan);padding:8px 10px">Total:</td>
+                                <td id="purchaseTotalAmount" style="font-weight:760;color:var(--cyan);padding:8px 10px">0.00</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
                 <div style="margin-bottom:12px">
@@ -483,6 +495,15 @@
                 <div class="field">
                     <label>Trackers de precio</label>
                     <div id="entryTrackers" class="files-list" style="font-size:13px"></div>
+                </div>
+                <div class="field">
+                    <label>Tags</label>
+                    <div id="entryTags" class="files-list" style="font-size:13px;display:flex;flex-wrap:wrap;gap:4px"></div>
+                    <div style="display:flex;gap:4px;margin-top:4px;width:100%">
+                        <input id="entryTagInput" type="text" placeholder="Buscar o crear tag...">
+                        <button type="button" id="entryTagAddBtn" class="btn-secondary" style="padding:4px 10px;flex-shrink:0">+</button>
+                    </div>
+                    <div id="entryTagSuggestions" class="suggestions" style="display:none"></div>
                 </div>
                 <div class="field">
                     <label>Fotos</label>
@@ -672,6 +693,7 @@
         </div>
     </div>
 
+    <script src="static/js/api-config.js"></script>
     <script src="static/js/app.js"></script>
 </body>
 </html>
