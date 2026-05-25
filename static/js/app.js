@@ -991,7 +991,7 @@ if (createForm) {
 // ==================== INVENTORY ====================
 
 const invState = {
-    page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
+    page: 1, perPage: 50, q: '', sort: 'newest', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
     collection_code: '', product_number: '', product_name: '', card_type_id: '', tag_name: ''
 };
 
@@ -1092,7 +1092,7 @@ async function loadInventory({reset = false} = {}) {
     }
     s.loading = true;
     try {
-        const params = {page: s.page, per_page: s.perPage, q: s.q};
+        const params = {page: s.page, per_page: s.perPage, q: s.q, sort: s.sort};
         if (s.collection_code) params.collection_code = s.collection_code;
         if (s.product_number) params.product_number = s.product_number;
         if (s.product_name) params.product_name = s.product_name;
@@ -2943,6 +2943,13 @@ function setupInvFilters() {
                 invState.tag_name = tagInput.value.trim();
                 loadInventory({reset: true});
             }, 300);
+        });
+    }
+    const sortEl = document.getElementById('invSortOrder');
+    if (sortEl) {
+        sortEl.addEventListener('change', (e) => {
+            invState.sort = e.target.value;
+            loadInventory({reset: true});
         });
     }
 }

@@ -180,6 +180,15 @@
                         <label id="showAllLabel" style="display:none;font-size:13px;cursor:pointer">
                             <input type="checkbox" id="showAllInv"> Ver todos
                         </label>
+                        <label class="filter-check" style="font-size:12px">
+                            Ordenar
+                            <select id="invSortOrder" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:12px;cursor:pointer">
+                                <option value="newest">Más recientes</option>
+                                <option value="oldest">Más antiguos</option>
+                                <option value="name_collection">Producto + Colección</option>
+                                <option value="collection_name">Colección + Producto</option>
+                            </select>
+                        </label>
                         <div class="view-toggle" style="display:flex;gap:2px;border:1px solid var(--border);border-radius:4px;overflow:hidden">
                             <button type="button" class="view-btn active" data-view="list" title="Vista lista" style="padding:4px 8px;border:none;background:var(--card-bg);cursor:pointer;font-size:13px">☰</button>
                             <button type="button" class="view-btn" data-view="cards-sm" title="Vista tarjetas pequeñas" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▦</button>

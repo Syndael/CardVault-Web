@@ -315,6 +315,7 @@ const state = {
     page: 1,
     perPage: 10,
     q: "",
+    sort: "newest",
     is_verified: null,
     is_manual: null,
     pages: 0,
@@ -569,6 +570,7 @@ async function loadProducts({reset = false} = {}) {
             page: state.page,
             per_page: state.perPage,
             q: state.q,
+            sort: state.sort,
             is_verified: state.is_verified,
             is_manual: state.is_manual
         }));
@@ -653,6 +655,11 @@ window.addEventListener("scroll", () => {
 searchForm.addEventListener("submit", (event) => {
     event.preventDefault();
     state.q = searchInput.value.trim();
+    loadProducts({reset: true});
+});
+
+document.getElementById('sortOrder').addEventListener('change', (e) => {
+    state.sort = e.target.value;
     loadProducts({reset: true});
 });
 
