@@ -2109,7 +2109,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
     const currency = document.getElementById('purCurrency').value;
     const ref = document.getElementById('purRef').value.trim();
     const notes = document.getElementById('purNotes').value.trim();
-    if (!date || !entityId) { alert('Fecha y tienda son obligatorios'); return; }
+    if (!entityId) { alert('La tienda es obligatoria'); return; }
     const itemRows = document.querySelectorAll('#purchaseItemsBody tr:not(.empty-row)');
     const items = [];
     itemRows.forEach(tr => {
@@ -2124,7 +2124,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
     try {
         let purResp;
         const payload = {
-            entity_id: parseInt(entityId), purchase_date: date,
+            entity_id: parseInt(entityId), purchase_date: date || null,
             total_amount: total || null, shipping_cost: shipping, currency: currency,
             ...(ref ? {external_reference: ref} : {}), ...(notes ? {notes: notes} : {})
         };

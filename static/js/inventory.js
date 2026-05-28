@@ -1340,7 +1340,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
     const ref = document.getElementById('purRef').value.trim();
     const notes = document.getElementById('purNotes').value.trim();
 
-    if (!date || !entityId) { alert('Fecha y tienda son obligatorios'); return; }
+    if (!entityId) { alert('La tienda es obligatoria'); return; }
 
     // Collect items with their row IDs (existing DB id or 'new_X')
     const itemRows = document.querySelectorAll('#purchaseItemsBody tr:not(.empty-row)');
@@ -1368,7 +1368,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
         let purResp;
         const payload = {
             entity_id: parseInt(entityId),
-            purchase_date: date,
+            purchase_date: date || null,
             total_amount: total || null,
             shipping_cost: shipping,
             currency: currency,
