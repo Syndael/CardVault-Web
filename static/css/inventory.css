@@ -402,13 +402,9 @@ tr:hover td {
     width: 100%;
     padding: 8px 10px;
     border: 1px solid var(--border);
-    background: transparent;
+    background: var(--surface);
     color: var(--text);
     border-radius: 4px;
-}
-
-.modal-body select {
-    background: var(--surface);
 }
 
 .modal-body .actions {

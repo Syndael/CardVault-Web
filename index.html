@@ -210,7 +210,10 @@
                             <th>Producto</th>
                             <th>Idioma</th>
                             <th>Estado</th>
-                            <th>Precio</th>
+                             <th>P. Compra</th>
+                            <th>P. Actual</th>
+                            <th>P. Mín</th>
+                            <th>P. Máx</th>
                             <th>Stock</th>
                             <th title="Sellado">S</th>
                             <th title="Publicado Instagram">IG</th>
@@ -442,60 +445,64 @@
             <h2 id="entryTitle">Editar inventario</h2>
             <form id="entryForm">
                 <input type="hidden" id="modalInventoryId">
-                <div class="field">
-                    <label>Colección</label>
-                    <div id="entryCollectionDisplay" class="readonly-field"></div>
-                </div>
-                <div class="field">
-                    <label>Producto</label>
-                    <div id="entryProductDisplay" class="readonly-field"></div>
-                </div>
-                <div id="entryGoogleSearch" class="detail-actions"></div>
-                <div class="form-row">
+                <div class="form-row" style="align-items:flex-end">
+                    <div class="field" style="flex:0 0 auto;min-width:160px">
+                        <label>Colección</label>
+                        <div id="entryCollectionDisplay" class="readonly-field"></div>
+                    </div>
                     <div class="field" style="flex:1">
+                        <label>Producto</label>
+                        <div style="display:flex;align-items:center;gap:8px;width:100%">
+                            <div id="entryProductDisplay" class="readonly-field" style="flex:1"></div>
+                            <div id="entryGoogleSearch" class="detail-actions" style="margin-bottom:0;flex-shrink:0"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" style="flex-wrap:wrap">
+                    <div class="field" style="flex:0 0 80px">
                         <label for="entryQuantity">Cantidad</label>
                         <input id="entryQuantity" type="number" min="1" step="1" value="1">
                     </div>
-                    <div class="field" style="flex:1">
+                    <div class="field" style="flex:1;min-width:120px">
                         <label for="entryLang">Idioma</label>
                         <select id="entryLang">
                             <option value="">(sin idioma)</option>
                         </select>
                     </div>
-                </div>
-                <div class="form-row">
-                    <div class="field" style="flex:1">
+                    <div class="field" style="flex:1;min-width:120px">
                         <label for="entryCondition">Estado</label>
                         <select id="entryCondition">
                             <option value="">(sin estado)</option>
                         </select>
                     </div>
-                    <div class="field" style="flex:1">
-                        <label for="entryPurchase">Compra</label>
-                        <div style="position:relative">
-                            <input id="entryPurchase" type="text" placeholder="Buscar compra..." autocomplete="off" style="width:100%;box-sizing:border-box">
-                            <div id="entryPurchaseSuggestions" class="suggestions" style="display:none"></div>
-                        </div>
-                        <select id="entryPurchaseItem" style="display:none;width:100%;margin-top:6px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                            <option value="">(seleccionar item de la compra)</option>
-                        </select>
-                        <div id="entryPriceDisplay" style="display:none;margin-top:6px;font-size:13px;color:var(--muted)">
-                            Precio: <span id="entryPriceValue"></span>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="field" style="flex:1">
+                    <div class="field" style="flex:0 0 auto;padding-top:26px">
                         <label class="checkbox-label">
                             <input id="entrySealed" type="checkbox">
                             Sellado
                         </label>
                     </div>
-                    <div class="field" style="flex:1">
+                    <div class="field" style="flex:0 0 auto;padding-top:26px">
                         <label class="checkbox-label">
                             <input id="entryInstagram" type="checkbox">
                             Publicado Instagram
                         </label>
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="entryPurchase">Compra</label>
+                    <div style="display:flex;gap:8px;width:100%">
+                        <div style="position:relative;flex:1">
+                            <input id="entryPurchase" type="text" placeholder="Buscar compra..." autocomplete="off" style="width:100%;box-sizing:border-box">
+                            <div id="entryPurchaseSuggestions" class="suggestions" style="display:none"></div>
+                        </div>
+                        <div style="flex:1">
+                            <select id="entryPurchaseItem">
+                                <option value="">(seleccionar item de la compra)</option>
+                            </select>
+                            <div id="entryPriceDisplay" style="display:none;margin-top:6px;font-size:13px;color:var(--muted)">
+                                Precio: <span id="entryPriceValue"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="field">
@@ -505,6 +512,15 @@
                 <div class="field">
                     <label>Trackers de precio</label>
                     <div id="entryTrackers" class="files-list" style="font-size:13px"></div>
+                </div>
+                <div class="field">
+                    <label>URLs</label>
+                    <div id="entryUrls" class="files-list" style="font-size:13px"></div>
+                    <div style="display:flex;gap:4px;margin-top:4px;width:100%">
+                        <input id="entryUrlInput" type="text" placeholder="Añadir URL..." style="flex:2">
+                        <input id="entryUrlNameInput" type="text" placeholder="Nombre (opcional)..." style="flex:1">
+                        <button type="button" id="entryUrlAddBtn" class="btn-secondary" style="padding:4px 10px;flex-shrink:0">+</button>
+                    </div>
                 </div>
                 <div class="field">
                     <label>Tags</label>
@@ -574,13 +590,19 @@
                 </div>
                 <div class="field">
                     <label for="addInvPurchase">Compra de referencia</label>
-                    <input id="addInvPurchase" type="text" placeholder="Buscar por fecha..." autocomplete="off">
-                    <div id="addInvPurchaseSuggestions" class="suggestions" style="display:none"></div>
-                    <select id="addInvPurchaseItem" style="display:none;width:100%;margin-top:6px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                        <option value="">(seleccionar item de la compra)</option>
-                    </select>
-                    <div id="addInvPriceDisplay" style="display:none;margin-top:6px;font-size:13px;color:var(--muted)">
-                        Precio: <span id="addInvPriceValue"></span>
+                    <div style="display:flex;gap:8px;width:100%">
+                        <div style="position:relative;flex:1">
+                            <input id="addInvPurchase" type="text" placeholder="Buscar por fecha..." autocomplete="off" style="width:100%;box-sizing:border-box">
+                            <div id="addInvPurchaseSuggestions" class="suggestions" style="display:none"></div>
+                        </div>
+                        <div style="flex:1">
+                            <select id="addInvPurchaseItem">
+                                <option value="">(seleccionar item de la compra)</option>
+                            </select>
+                            <div id="addInvPriceDisplay" style="display:none;margin-top:6px;font-size:13px;color:var(--muted)">
+                                Precio: <span id="addInvPriceValue"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="field">

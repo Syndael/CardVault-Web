@@ -299,7 +299,20 @@ function renderInvRow(item) {
     const nameHtml = prodName ? `<br><span class="product-name-sub">${prodName}</span>` : '';
     const sealedIcon = item.is_sealed ? '&#10003;' : '';
     const igIcon = item.posted_instagram ? '&#10003;' : '';
-    const price = item.acquisition_price != null ? parseFloat(item.acquisition_price).toFixed(2) + '\u20AC' : '';
+    let price = '';
+    if (item.acquisition_price != null) {
+        const p = parseFloat(item.acquisition_price).toFixed(2);
+        price = p + '\u20AC';
+        if (item.current_price != null) {
+            const diff = parseFloat(item.current_price) - parseFloat(item.acquisition_price);
+            const sign = diff >= 0 ? '+' : '';
+            const color = diff >= 0 ? 'var(--green)' : 'var(--red)';
+            price += ` <span style="color:${color}">(${sign}${diff.toFixed(2)}\u20AC)</span>`;
+        }
+    }
+    const currentPrice = item.current_price != null ? parseFloat(item.current_price).toFixed(2) + '\u20AC' : '';
+    const minPrice = item.min_price != null ? parseFloat(item.min_price).toFixed(2) + '\u20AC' : '';
+    const maxPrice = item.max_price != null ? parseFloat(item.max_price).toFixed(2) + '\u20AC' : '';
     const tagsHtml = renderTagBadges(item.tags);
     return `<tr class="clickable-row" data-inv-id="${item.id}">
         <td class="inv-img-cell">${invImageCell(item.product_image_url)}</td>
@@ -309,6 +322,9 @@ function renderInvRow(item) {
         <td>${esc(lang.name || '')}</td>
         <td>${esc(cond.name || '')}</td>
         <td>${price}</td>
+        <td>${currentPrice}</td>
+        <td>${minPrice}</td>
+        <td>${maxPrice}</td>
         <td class="${cls}">${stock}</td>
         <td>${sealedIcon}</td>
         <td>${igIcon}</td>
@@ -597,7 +613,6 @@ function updatePriceDisplay(selectEl, displayId, valueId, purchaseId) {
 }
 
 async function loadPurchaseItems(purchaseId, selectEl, priceDisplayId, priceValueId, langId) {
-    selectEl.style.display = 'none';
     selectEl.innerHTML = '<option value="">(seleccionar item de la compra)</option>';
     if (!purchaseId) return;
     try {
@@ -617,8 +632,6 @@ async function loadPurchaseItems(purchaseId, selectEl, priceDisplayId, priceValu
             opt.textContent = `${prodNum}${nameFmt ? ' - ' + nameFmt : ''}  x${it.quantity}  ${it.unit_price}€`;
             selectEl.appendChild(opt);
         });
-        selectEl.style.display = 'block';
-        // Show price from first option if available
         if (priceDisplayId && priceValueId) {
             updatePriceDisplay(selectEl, priceDisplayId, priceValueId);
         }
@@ -633,7 +646,7 @@ async function openAddInvModal() {
     addInvSelectedPurchaseId = null;
     addInvSelectedPurchaseItemId = null;
     const addInvPurchaseItem = document.getElementById('addInvPurchaseItem');
-    if (addInvPurchaseItem) { addInvPurchaseItem.style.display = 'none'; addInvPurchaseItem.value = ''; }
+    if (addInvPurchaseItem) { addInvPurchaseItem.innerHTML = '<option value="">(seleccionar item de la compra)</option>'; addInvPurchaseItem.value = ''; }
     const addInvPriceDisplay = document.getElementById('addInvPriceDisplay');
     if (addInvPriceDisplay) addInvPriceDisplay.style.display = 'none';
     document.getElementById('addInvNotes').value = '';
@@ -675,7 +688,7 @@ if (entryPurchaseInput) {
         entrySelectedPurchaseId = null;
         entrySelectedPurchaseItemId = null;
         const entryPurchaseItem = document.getElementById('entryPurchaseItem');
-        if (entryPurchaseItem) { entryPurchaseItem.style.display = 'none'; entryPurchaseItem.value = ''; }
+        if (entryPurchaseItem) { entryPurchaseItem.innerHTML = '<option value="">(seleccionar item de la compra)</option>'; entryPurchaseItem.value = ''; }
         const entryPriceDisplay = document.getElementById('entryPriceDisplay');
         if (entryPriceDisplay) entryPriceDisplay.style.display = 'none';
         const q = entryPurchaseInput.value.trim().toLowerCase();

@@ -1039,11 +1039,24 @@ function renderInvRow(item) {
     const cardType = prod.product_type ? (prod.product_type.name + (prod.product_type.short_name ? ' (' + prod.product_type.short_name + ')' : '')) : (item.extra_type ? (item.extra_type.name + (item.extra_type.short_name ? ' (' + item.extra_type.short_name + ')' : '')) : '');
     const sealedIcon = item.is_sealed ? '\u2713' : '';
     const igIcon = item.posted_instagram ? '\u2713' : '';
-    const price = item.acquisition_price != null ? parseFloat(item.acquisition_price).toFixed(2) + '\u20AC' : '';
+    let price = '';
+    if (item.acquisition_price != null) {
+        const p = parseFloat(item.acquisition_price).toFixed(2);
+        price = p + '\u20AC';
+        if (item.current_price != null) {
+            const diff = parseFloat(item.current_price) - parseFloat(item.acquisition_price);
+            const sign = diff >= 0 ? '+' : '';
+            const color = diff >= 0 ? 'var(--green)' : 'var(--red)';
+            price += ` <span style="color:${color}">(${sign}${diff.toFixed(2)}\u20AC)</span>`;
+        }
+    }
+    const currentPrice = item.current_price != null ? parseFloat(item.current_price).toFixed(2) + '\u20AC' : '';
+    const minPrice = item.min_price != null ? parseFloat(item.min_price).toFixed(2) + '\u20AC' : '';
+    const maxPrice = item.max_price != null ? parseFloat(item.max_price).toFixed(2) + '\u20AC' : '';
     const codeNum = esc(col.code || '-') + (prod.product_number ? ' ' + esc(prod.product_number) : '');
     const nameDisplay = prodNameFmt ? `<strong>${prodNameFmt}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>';
     const tagsHtml = renderTagBadges(item.tags);
-    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td>${tagsHtml}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td>${tagsHtml}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function renderTagBadges(tags) {
@@ -1141,7 +1154,6 @@ let entrySelectedPurchaseId = null;
 let entrySelectedPurchaseItemId = null;
 
 async function loadPurchaseItems(purchaseId, selectEl, priceDisplayId, priceValueId, langId) {
-    selectEl.style.display = 'none';
     selectEl.innerHTML = '<option value="">(seleccionar item de la compra)</option>';
     if (!purchaseId) return;
     try {
@@ -1161,7 +1173,6 @@ async function loadPurchaseItems(purchaseId, selectEl, priceDisplayId, priceValu
             opt.textContent = `${prodNum}${nameFmt ? ' - ' + nameFmt : ''}  x${it.quantity}  ${it.unit_price}€`;
             selectEl.appendChild(opt);
         });
-        selectEl.style.display = 'block';
         if (priceDisplayId && priceValueId) {
             updatePriceDisplay(selectEl, priceDisplayId, priceValueId);
         }
@@ -1202,7 +1213,7 @@ async function openEntryModal(invId) {
     if (entryPriceDisplay) entryPriceDisplay.style.display = 'none';
     entrySelectedPurchaseItemId = null;
     const entryPurchaseItem = document.getElementById('entryPurchaseItem');
-    if (entryPurchaseItem) { entryPurchaseItem.style.display = 'none'; entryPurchaseItem.value = ''; }
+    if (entryPurchaseItem) { entryPurchaseItem.value = ''; }
     const gs = document.getElementById('entryGoogleSearch');
     if (gs) gs.innerHTML = '';
     const tc = document.getElementById('entryTrackers');
@@ -1256,9 +1267,20 @@ async function openEntryModal(invId) {
                 // Price trackers
                 const trackersContainer = document.getElementById('entryTrackers');
                 if (trackersContainer && prod.id) {
-                    apiFetch(apiUrl('product-price-tracking', {per_page: 200, product_id: prod.id})).then(r => r.ok ? r.json() : {items: []}).then(data => {
-                        const trackers = data.items || [];
+                    const fmtDate = (d) => d ? d.slice(0, 10) : '-';
+                    const fmtPrice = (p) => p != null ? parseFloat(p).toFixed(2) + '\u20AC' : '-';
+                    Promise.all([
+                        apiFetch(apiUrl('product-price-tracking', {per_page: 200, product_id: prod.id})).then(r => r.ok ? r.json() : {items: []}),
+                        apiFetch(apiUrl('inventory-price-history', {per_page: 200, inventory_id: invId})).then(r => r.ok ? r.json() : {items: []})
+                    ]).then(([trackerData, priceData]) => {
+                        const trackers = trackerData.items || [];
                         if (!trackers.length) { trackersContainer.innerHTML = '<span style="color:var(--muted)">Sin trackers</span>'; return; }
+                        const prices = (priceData.items || []).reduce((acc, p) => {
+                            if (!acc[p.product_price_tracking_id] || p.id > acc[p.product_price_tracking_id].id) {
+                                acc[p.product_price_tracking_id] = p;
+                            }
+                            return acc;
+                        }, {});
                         trackersContainer.innerHTML = trackers.map(t => {
                             let url = t.url;
                             const ps = t.price_source || {};
@@ -1270,7 +1292,13 @@ async function openEntryModal(invId) {
                                 const sep = url.includes('?') ? '&' : '?';
                                 url += sep + ps.condition_param + '=' + encodeURIComponent(cond.cardmarket_code);
                             }
-                            return `<div class="detail-row"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${ps.name ? ' <span class="detail-meta">(' + esc(ps.name) + ')</span>' : ''}</div>`;
+                            const p = prices[t.id];
+                            const priceHtml = p ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5">
+                                <span>Actual: <strong>${fmtPrice(p.price)}</strong> (${fmtDate(p.recorded_at)})</span>
+                                <span style="margin-left:10px">Mín: ${fmtPrice(p.min_price)} (${fmtDate(p.min_price_recorded_at)})</span>
+                                <span style="margin-left:10px">Máx: ${fmtPrice(p.max_price)} (${fmtDate(p.max_price_recorded_at)})</span>
+                            </div>` : '<div style="font-size:12px;color:var(--muted);margin-top:2px">Sin precios</div>';
+                            return `<div><div class="detail-row" style="border-bottom:none!important"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${ps.name ? ' <span class="detail-meta">(' + esc(ps.name) + ')</span>' : ''}</div>${priceHtml}</div>`;
                         }).join('');
                     }).catch(() => { trackersContainer.innerHTML = ''; });
                 } else if (trackersContainer) {
@@ -1304,6 +1332,7 @@ async function openEntryModal(invId) {
                     tagsContainer.innerHTML = tags.map(t => renderEntryTagBadge(t, invId)).join('');
                 }
                 loadInventoryFiles(invId);
+                loadInventoryUrls(invId);
             }
         } catch (e) { console.error('Error loading inventory entry', e); }
     } else {
@@ -1311,6 +1340,10 @@ async function openEntryModal(invId) {
         const tagsContainer = document.getElementById('entryTags');
         if (tagsContainer) tagsContainer.innerHTML = '';
     }
+    const urlContainer = document.getElementById('entryUrls');
+    if (urlContainer && !invId) urlContainer.innerHTML = '';
+    document.getElementById('entryUrlInput').value = '';
+    document.getElementById('entryUrlNameInput').value = '';
     entryModal.hidden = false;
     document.body.style.overflow = 'hidden';
 }
@@ -1329,7 +1362,7 @@ document.getElementById('entryForm').addEventListener('submit', async (ev) => {
     btn.disabled = true; btn.textContent = 'Guardando...';
     try {
         const purchaseItemEl = document.getElementById('entryPurchaseItem');
-        const purchaseItemId = purchaseItemEl && purchaseItemEl.style.display !== 'none' ? (purchaseItemEl.value || null) : null;
+        const purchaseItemId = purchaseItemEl ? (purchaseItemEl.value || null) : null;
         const payload = {
             quantity: quantity,
             ...(languageId ? {language_id: parseInt(languageId)} : {language_id: null}),
@@ -1623,6 +1656,54 @@ document.getElementById('entryPhotoInput')?.addEventListener('change', (e) => {
     if (file && invId) uploadInventoryFile(invId, file);
     e.target.value = '';
 });
+
+async function loadInventoryUrls(invId) {
+    const container = document.getElementById('entryUrls');
+    if (!container) return;
+    container.innerHTML = '<span class="loading-state" style="padding:4px 0;font-size:13px">Cargando...</span>';
+    try {
+        const resp = await apiFetch(apiUrl(`inventory-urls/by-inventory/${invId}`));
+        if (!resp.ok) { container.innerHTML = ''; return; }
+        const urls = await resp.json();
+        if (!urls.length) { container.innerHTML = '<span style="color:var(--muted);font-size:13px">Sin URLs</span>'; return; }
+        container.innerHTML = urls.map(u =>
+            `<div class="detail-row" style="display:flex;align-items:center;gap:6px;padding:2px 0">
+                <a href="${esc(u.url)}" target="_blank" rel="noopener" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(u.name || u.url)}</a>
+                <button type="button" class="btn-delete-url" data-url-id="${u.id}" title="Eliminar URL" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;line-height:1;padding:0 4px">&times;</button>
+            </div>`
+        ).join('');
+        container.querySelectorAll('.btn-delete-url').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const urlId = btn.dataset.urlId;
+                try {
+                    const r = await apiFetch(apiUrl(`inventory-urls/${urlId}`), {method: 'DELETE'});
+                    if (!r.ok) { const t = await r.text().catch(()=>null); alert('Error al eliminar URL: ' + (t || r.status)); return; }
+                    loadInventoryUrls(invId);
+                } catch (e) { console.error(e); alert('Error al eliminar URL'); }
+            });
+        });
+    } catch (e) { console.error(e); container.innerHTML = ''; }
+}
+
+document.getElementById('entryUrlAddBtn')?.addEventListener('click', async () => {
+    const invId = document.getElementById('modalInventoryId').value;
+    const urlInput = document.getElementById('entryUrlInput');
+    const nameInput = document.getElementById('entryUrlNameInput');
+    const url = urlInput.value.trim();
+    if (!invId || !url) return;
+    try {
+        const resp = await apiFetch(apiUrl('inventory-urls/'), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({inventory_id: parseInt(invId), url, name: nameInput.value.trim() || null})
+        });
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al añadir URL: ' + (t || resp.status)); return; }
+        urlInput.value = '';
+        nameInput.value = '';
+        loadInventoryUrls(invId);
+    } catch (e) { console.error(e); alert('Error al añadir URL'); }
+});
+
 document.getElementById('purUploadBtn')?.addEventListener('click', () => {
     document.getElementById('purPhotoInput')?.click();
 });
@@ -1656,7 +1737,7 @@ async function openAddInvModal() {
     addInvSelectedPurchaseId = null;
     addInvSelectedPurchaseItemId = null;
     const addInvPurchaseItem = document.getElementById('addInvPurchaseItem');
-    if (addInvPurchaseItem) { addInvPurchaseItem.style.display = 'none'; addInvPurchaseItem.value = ''; }
+    if (addInvPurchaseItem) { addInvPurchaseItem.innerHTML = '<option value="">(seleccionar item de la compra)</option>'; addInvPurchaseItem.value = ''; }
     const addInvPriceDisplay = document.getElementById('addInvPriceDisplay');
     if (addInvPriceDisplay) addInvPriceDisplay.style.display = 'none';
     document.getElementById('addInvNotes').value = '';
@@ -1804,7 +1885,7 @@ document.getElementById('addInvForm').addEventListener('submit', async (ev) => {
     const postedInstagram = document.getElementById('addInvInstagram').checked;
     const purchaseId = addInvSelectedPurchaseId;
     const purchaseItemEl = document.getElementById('addInvPurchaseItem');
-    const purchaseItemId = purchaseItemEl && purchaseItemEl.style.display !== 'none' ? (purchaseItemEl.value || null) : null;
+    const purchaseItemId = purchaseItemEl ? (purchaseItemEl.value || null) : null;
     const notes = document.getElementById('addInvNotes').value.trim();
     let collectionId;
     try {
