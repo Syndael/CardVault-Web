@@ -845,21 +845,15 @@ if (newColCode) {
     newColCode.addEventListener('blur', () => setTimeout(closeColSuggestions, 200));
 }
 
-let _tcgdexApiBase = null;
 let prodNumCheckTimeout = null;
 
-async function getTcgdexApiBase() {
-    if (_tcgdexApiBase) return _tcgdexApiBase;
+async function getSettingValue(key) {
     try {
         const resp = await apiFetch(apiUrl('settings', {per_page: 200}));
         if (resp.ok) {
             const data = await resp.json();
-            const items = data.items || [];
-            const setting = items.find(s => s.setting_key === 'sync.pokemon.products.api.base');
-            if (setting && setting.setting_value) {
-                _tcgdexApiBase = setting.setting_value;
-                return _tcgdexApiBase;
-            }
+            const setting = (data.items || []).find(s => s.setting_key === key);
+            if (setting && setting.setting_value) return setting.setting_value;
         }
     } catch (e) { console.error(e); }
     return null;
@@ -868,26 +862,61 @@ async function getTcgdexApiBase() {
 async function checkCardInApi(collectionCode, productNumber) {
     const preview = document.getElementById('cardPreview');
     if (!preview) return;
-    const apiBase = await getTcgdexApiBase();
+
+    const cardType = newColCode ? newColCode.dataset.cardType || '' : '';
+    const settingKey = cardType === 'MTG' ? 'sync.magic.collections.api.base' : cardType === 'YUG' ? 'sync.yugioh.products.api.base' : cardType === 'DIG' ? 'sync.digimon.products.api.base' : 'sync.pokemon.products.api.base';
+    const apiBase = await getSettingValue(settingKey);
     if (!apiBase) { preview.style.display = 'none'; preview.innerHTML = ''; return; }
+
     preview.style.display = 'block';
     preview.innerHTML = '<span style="color:var(--muted)">Comprobando...</span>';
     try {
-        const url = `${apiBase.replace(/\/+$/, '')}/en/cards/${encodeURIComponent(collectionCode)}-${encodeURIComponent(productNumber)}`;
-        const resp = await fetch(url, {headers: {Accept: 'application/json'}});
-        if (!resp.ok) {
-            preview.innerHTML = '<span style="color:var(--red)">No encontrado en API</span>';
-            return;
+        let externalUrl, name, imageUrl;
+        if (cardType === 'MTG') {
+            externalUrl = `${apiBase.replace(/\/+$/, '')}/cards/${encodeURIComponent(collectionCode)}/${encodeURIComponent(productNumber)}`;
+        } else if (cardType === 'YUG') {
+            externalUrl = `${apiBase.replace(/\/+$/, '')}/cardinfo.php?id=${encodeURIComponent(productNumber)}`;
+        } else if (cardType === 'DIG') {
+            externalUrl = `${apiBase.replace(/\/+$/, '')}/search?card=${encodeURIComponent(collectionCode)}-${encodeURIComponent(productNumber)}`;
+        } else {
+            externalUrl = `${apiBase.replace(/\/+$/, '')}/en/cards/${encodeURIComponent(collectionCode)}-${encodeURIComponent(productNumber)}`;
         }
-        const data = await resp.json();
-        const name = data.name || null;
-        const imageBase = data.image || null;
+
+        const proxyResp = await apiFetch(apiUrl('proxy/external'), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url: externalUrl})
+        });
+        if (!proxyResp.ok) { preview.innerHTML = '<span style="color:var(--red)">Error al consultar API</span>'; return; }
+        const data = await proxyResp.json();
+        if (data.found === false) { preview.innerHTML = '<span style="color:var(--red)">No encontrado en API</span>'; return; }
+
+        if (cardType === 'MTG') {
+            name = data.name || null;
+            imageUrl = data.image_uris ? (data.image_uris.small || data.image_uris.normal || null) : null;
+        } else if (cardType === 'YUG') {
+            const cardData = data.data ? data.data[0] : null;
+            if (!cardData) { preview.innerHTML = '<span style="color:var(--red)">No encontrado en API</span>'; return; }
+            name = cardData.name || null;
+            const images = cardData.card_images || [];
+            imageUrl = images.length > 0 ? (images[0].image_url_small || images[0].image_url || null) : null;
+        } else if (cardType === 'DIG') {
+            const cardData = Array.isArray(data) ? data[0] : null;
+            if (!cardData) { preview.innerHTML = '<span style="color:var(--red)">No encontrado en API</span>'; return; }
+            name = cardData.name || null;
+            imageUrl = `https://images.digimoncard.io/images/cards/${encodeURIComponent(collectionCode)}-${encodeURIComponent(productNumber)}.jpg`;
+        } else {
+            name = data.name || null;
+            const imageBase = data.image || null;
+            imageUrl = imageBase ? `${imageBase.replace(/\/+$/, '')}/high.jpg` : null;
+        }
+
         let html = '';
         if (name) html += `<div><strong>Nombre:</strong> ${esc(name)}</div>`;
         else html += '<div><span style="color:var(--red)">Sin nombre</span></div>';
-        if (imageBase) {
-            const imgUrl = `${imageBase.replace(/\/+$/, '')}/high.jpg`;
-            html += `<div style="margin-top:6px"><img src="${esc(imgUrl)}" alt="${esc(name || '')}" style="max-width:180px;border-radius:4px;border:1px solid var(--border)" onerror="this.style.display='none'"></div>`;
+
+        if (imageUrl) {
+            html += `<div style="margin-top:6px"><img src="${esc(imageUrl)}" alt="${esc(name || '')}" style="max-width:180px;border-radius:4px;border:1px solid var(--border)" onerror="this.style.display='none'"></div>`;
         } else {
             html += '<div><span style="color:var(--red)">Sin imagen</span></div>';
         }
@@ -931,7 +960,7 @@ function showColSuggestions(items) {
     colSuggestions.style.left = (rect.left + window.scrollX) + 'px';
     colSuggestions.style.width = rect.width + 'px';
     colSuggestions.innerHTML = items.map(item =>
-        `<div class="suggestion-item" data-code="${esc(item.code)}" data-id="${item.id}" data-is-manual="${!!item.is_manual}">
+        `<div class="suggestion-item" data-code="${esc(item.code)}" data-id="${item.id}" data-is-manual="${!!item.is_manual}" data-card-type="${item.card_type ? esc(item.card_type.short_name || '') : ''}">
             <span class="suggestion-code">${esc(item.code)}</span>
             ${item.name ? `<span class="suggestion-name">${formatName(item.name, item.name_alter)}</span>` : ''}
             ${item.card_type ? `<span class="suggestion-type">${esc(item.card_type.short_name || item.card_type.name)}</span>` : ''}
@@ -943,6 +972,7 @@ function showColSuggestions(items) {
             newColCode.value = el.dataset.code;
             newColCode.dataset.collectionId = el.dataset.id;
             newColCode.dataset.isManual = el.dataset.isManual;
+            newColCode.dataset.cardType = el.dataset.cardType;
             closeColSuggestions();
             if (newProductNumber && newProductNumber.value.trim()) {
                 clearTimeout(prodNumCheckTimeout);
@@ -2407,7 +2437,7 @@ if (document.getElementById('execOutputClose')) document.getElementById('execOut
 
 const colState = {
     page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
-    code: '', name: '', card_type_id: '', is_manual: ''
+    code: '', name: '', card_type_id: '', is_manual: '', sort: 'code'
 };
 
 const colBody = document.getElementById('collectionsBody');
@@ -2459,6 +2489,7 @@ async function loadCollections({reset = false} = {}) {
         if (s.name) params.name = s.name;
         if (s.card_type_id) params.card_type_id = s.card_type_id;
         if (s.is_manual !== null && s.is_manual !== '') params.is_manual = s.is_manual;
+        if (s.sort) params.sort_by = s.sort;
         const resp = await apiFetch(apiUrl('collections', params));
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
@@ -2702,6 +2733,13 @@ function setupColFilters() {
     if (manualSelect) {
         manualSelect.addEventListener('change', () => {
             colState.is_manual = manualSelect.value;
+            loadCollections({reset: true});
+        });
+    }
+    const sortSelect = document.getElementById('colSortOrder');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', () => {
+            colState.sort = sortSelect.value;
             loadCollections({reset: true});
         });
     }

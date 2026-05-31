@@ -122,7 +122,17 @@
                         </select>
                     </label>
                 </div>
-                <div style="display:flex;justify-content:flex-end">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <label class="filter-check" style="font-size:12px">
+                            Ordenar
+                            <select id="colSortOrder" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:12px;cursor:pointer">
+                                <option value="code">Código</option>
+                                <option value="type_code">Tipo + Código</option>
+                                <option value="name">Nombre</option>
+                            </select>
+                        </label>
+                    </div>
                     <button id="addCollectionBtn" class="btn-primary">+ Nueva colección</button>
                 </div>
             </div>
