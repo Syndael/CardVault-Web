@@ -41,7 +41,6 @@ svg {
 }
 
 .app-shell {
-    width: min(1400px, calc(100% - 32px));
     margin: 0 auto;
     padding: 24px 0;
 }
@@ -747,6 +746,7 @@ tr:hover td { background: var(--surface-soft); }
 
 .view-cards-sm .inv-img-thumb {
     height: 100px;
+    width: 72px;
 }
 
 .view-cards-lg .inv-img-thumb {

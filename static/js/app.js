@@ -864,7 +864,7 @@ async function checkCardInApi(collectionCode, productNumber) {
     if (!preview) return;
 
     const cardType = newColCode ? newColCode.dataset.cardType || '' : '';
-    const settingKey = cardType === 'MTG' ? 'sync.magic.collections.api.base' : cardType === 'YUG' ? 'sync.yugioh.products.api.base' : cardType === 'DIG' ? 'sync.digimon.products.api.base' : 'sync.pokemon.products.api.base';
+    const settingKey = cardType === 'MTG' ? 'sync.magic.collections.api.base' : cardType === 'YUG' ? 'sync.yugioh.products.api.base' : cardType === 'DIG' ? 'sync.digimon.products.api.base' : cardType === 'OP' ? 'sync.one-piece.products.api.base' : 'sync.pokemon.products.api.base';
     const apiBase = await getSettingValue(settingKey);
     if (!apiBase) { preview.style.display = 'none'; preview.innerHTML = ''; return; }
 
@@ -878,6 +878,9 @@ async function checkCardInApi(collectionCode, productNumber) {
             externalUrl = `${apiBase.replace(/\/+$/, '')}/cardinfo.php?id=${encodeURIComponent(productNumber)}`;
         } else if (cardType === 'DIG') {
             externalUrl = `${apiBase.replace(/\/+$/, '')}/search?card=${encodeURIComponent(collectionCode)}-${encodeURIComponent(productNumber)}`;
+        } else if (cardType === 'OP') {
+            const cardId = collectionCode.replace('-', '') + '-' + productNumber;
+            externalUrl = `${apiBase.replace(/\/+$/, '')}/api/sets/card/${encodeURIComponent(cardId)}/`;
         } else {
             externalUrl = `${apiBase.replace(/\/+$/, '')}/en/cards/${encodeURIComponent(collectionCode)}-${encodeURIComponent(productNumber)}`;
         }
@@ -905,6 +908,11 @@ async function checkCardInApi(collectionCode, productNumber) {
             if (!cardData) { preview.innerHTML = '<span style="color:var(--red)">No encontrado en API</span>'; return; }
             name = cardData.name || null;
             imageUrl = `https://images.digimoncard.io/images/cards/${encodeURIComponent(collectionCode)}-${encodeURIComponent(productNumber)}.jpg`;
+        } else if (cardType === 'OP') {
+            const cardData = Array.isArray(data) ? data[0] : null;
+            if (!cardData) { preview.innerHTML = '<span style="color:var(--red)">No encontrado en API</span>'; return; }
+            name = cardData.card_name || null;
+            imageUrl = cardData.card_image || null;
         } else {
             name = data.name || null;
             const imageBase = data.image || null;
@@ -912,6 +920,7 @@ async function checkCardInApi(collectionCode, productNumber) {
         }
 
         let html = '';
+        html += `<div style="margin-bottom:4px;font-size:11px;word-break:break-all"><strong>API URL:</strong> <a href="${esc(externalUrl)}" target="_blank" rel="noopener">${esc(externalUrl)}</a></div>`;
         if (name) html += `<div><strong>Nombre:</strong> ${esc(name)}</div>`;
         else html += '<div><span style="color:var(--red)">Sin nombre</span></div>';
 
