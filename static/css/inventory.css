@@ -36,7 +36,7 @@ button, input, select {
 .app-shell {
     width: min(1400px, calc(100% - 32px));
     margin: 0 auto;
-    padding: 24px 0;
+    padding: 24px 20px;
 }
 
 .topbar {

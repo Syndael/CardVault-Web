@@ -206,30 +206,23 @@ function updateAuthUI() {
 }
 
 // Image loading helpers — fetch images with auth header and set blob URL
-async function fetchAndSetImage(imgEl) {
-    const url = imgEl.getAttribute('data-src');
-    if (!url) return;
-    try {
-        // Request the image and indicate we accept images. Also force a
-        // network reload (cache: 'no-store') to avoid servers responding
-        // 304 Not Modified to conditional requests — a 304 will be treated
-        // as an error by our code because it has no body, which made image
-        // loading fail intermittently. Using no-store avoids conditional
-        // requests and ensures we get the full image body.
-        const resp = await apiFetch(url, {
-            method: 'GET',
-            headers: {'Accept': 'image/*'},
-            cache: 'no-store'
-        });
-        if (!resp.ok) {
-            throw new Error('HTTP ' + resp.status);
-        }
-        const blob = await resp.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        imgEl.src = objectUrl;
-    } catch (err) {
-        console.error('Error loading image', url, err);
+function _addToken(url) {
+    const token = window.localStorage.getItem(TOKEN_KEY);
+    if (!token) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return url + sep + 'token=' + encodeURIComponent(token);
+}
+
+function fetchAndSetImage(imgEl) {
+    const srcset = imgEl.getAttribute('data-srcset');
+    if (srcset) {
+        imgEl.srcset = srcset.split(',').map(part => {
+            const trimmed = part.trim().split(/\s+/);
+            return _addToken(trimmed[0]) + (trimmed[1] ? ' ' + trimmed[1] : '');
+        }).join(', ');
     }
+    const src = imgEl.getAttribute('data-src');
+    if (src) imgEl.src = _addToken(src);
 }
 
 function loadImages(root = document) {
@@ -250,11 +243,8 @@ async function updateProductImage(productId, newImageUrl) {
     }
     // set data-src with cache-buster so fetchAndSetImage always re-fetches
     const cacheBustedUrl = newImageUrl + (newImageUrl.includes('?') ? '&' : '?') + 'v=' + Date.now();
+    img.removeAttribute('data-srcset');
     img.setAttribute('data-src', cacheBustedUrl);
-    // revoke previous blob URL if any
-    if (img.src && img.src.startsWith('blob:')) {
-        URL.revokeObjectURL(img.src);
-    }
     img.removeAttribute('data-loaded');
     img.setAttribute('data-loaded', '1');
     try {
@@ -429,18 +419,26 @@ function imageCell(item) {
         `;
     }
 
+    const baseUrl = assetUrl(item.image_url);
+    const sep = baseUrl.includes('?') ? '&' : '?';
+    const smUrl = baseUrl + sep + 'size=sm';
+    const mdUrl = baseUrl + sep + 'size=md';
+    const lgUrl = baseUrl;
     return `
         <div class="thumb">
             <img
                 class="product-thumb-img"
                 src="${placeholder}"
-                data-src="${escapeHtml(assetUrl(item.image_url))}"
+                data-src="${escapeHtml(lgUrl)}"
+                data-srcset="${escapeHtml(smUrl + ' 200w, ' + mdUrl + ' 400w, ' + lgUrl + ' 600w')}"
+                sizes="(max-width:520px) 100vw, (max-width:820px) 50vw, (max-width:1080px) 33vw, (max-width:1320px) 25vw, 20vw"
                 data-product-id="${item.product_id}"
                 data-product-name="${escapeHtml(item.product_name || "")}"
                 alt="${escapeHtml(item.product_name || "Producto")}"
                 loading="lazy"
             >
         </div>
+        <div class="img-preview"></div>
     `;
 }
 
@@ -631,6 +629,27 @@ function attachCardListeners() {
     // Images: clicking is handled by delegated listener added earlier, but
     // ensure pointer cursor
     document.querySelectorAll('.product-thumb-img').forEach(img => img.style.cursor = 'pointer');
+
+    // Hover preview: lazy-load full-res image into .img-preview on first mouseenter
+    document.querySelectorAll('.thumb-wrap').forEach(wrap => {
+        if (wrap.dataset.previewBound) return;
+        wrap.dataset.previewBound = '1';
+        const preview = wrap.querySelector('.img-preview');
+        const thumbImg = wrap.querySelector('.product-thumb-img');
+        if (!preview || !thumbImg) return;
+        wrap.addEventListener('mouseenter', () => {
+            if (preview.querySelector('img')) return;
+            const src = thumbImg.getAttribute('data-src');
+            if (!src) return;
+            const token = window.localStorage.getItem(TOKEN_KEY);
+            const sep = src.includes('?') ? '&' : '?';
+            const img = document.createElement('img');
+            img.src = token ? src + sep + 'token=' + encodeURIComponent(token) : src;
+            img.alt = '';
+            img.draggable = false;
+            preview.appendChild(img);
+        });
+    });
 }
 
 const observer = new IntersectionObserver((entries) => {

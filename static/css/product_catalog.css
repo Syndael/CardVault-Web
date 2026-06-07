@@ -36,7 +36,7 @@ input {
 .app-shell {
     width: min(1680px, calc(100% - 32px));
     margin: 0 auto;
-    padding: 24px 0;
+    padding: 24px 20px;
 }
 
 .topbar {
@@ -165,19 +165,12 @@ svg {
 
 .product-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 16px;
-}
-
-@media (min-width: 1320px) {
-    .product-grid {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-    }
 }
 
 .product-card {
     min-width: 0;
-    overflow: hidden;
     border: 1px solid var(--border-soft);
     background: linear-gradient(180deg, var(--surface-soft), var(--surface));
     box-shadow: var(--shadow);
@@ -210,6 +203,32 @@ svg {
     position: relative;
 }
 
+.img-preview {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    pointer-events: none;
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    padding: 6px;
+}
+
+.img-preview img {
+    display: block;
+    max-height: 75vh;
+    width: auto;
+    border-radius: 4px;
+}
+
+.thumb-wrap:hover .img-preview {
+    display: block;
+}
+
 .verified-badge {
     position: absolute;
     top: 8px;
@@ -232,7 +251,7 @@ svg {
 
 .thumb {
     width: 100%;
-    aspect-ratio: 3 / 4;
+    aspect-ratio: 5 / 7;
     place-items: center;
     overflow: hidden;
     border-bottom: 1px solid var(--border-soft);

@@ -42,7 +42,7 @@ svg {
 
 .app-shell {
     margin: 0 auto;
-    padding: 24px 0;
+    padding: 24px 20px;
 }
 
 .topbar {
@@ -238,17 +238,12 @@ h1 {
 /* Product grid */
 .product-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 16px;
-}
-
-@media (min-width: 1320px) {
-    .product-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
 .product-card {
     min-width: 0;
-    overflow: hidden;
     border: 1px solid var(--border-soft);
     background: linear-gradient(180deg, var(--surface-soft), var(--surface));
     box-shadow: var(--shadow);
@@ -256,6 +251,34 @@ h1 {
 }
 
 .product-card:hover { border-color: rgba(66, 232, 255, 0.42); }
+
+.thumb-wrap { position: relative; }
+
+.img-preview {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    pointer-events: none;
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    padding: 6px;
+}
+
+.img-preview img {
+    display: block;
+    max-height: 75vh;
+    width: auto;
+    border-radius: 4px;
+}
+
+.thumb-wrap:hover .img-preview {
+    display: block;
+}
 
 .tracker-button {
     position: absolute;
@@ -293,9 +316,9 @@ h1 {
 
 .verified-badge svg { width: 16px; height: 16px; }
 
-.thumb {
+    .thumb {
     width: 100%;
-    aspect-ratio: 3 / 4;
+    aspect-ratio: 5 / 7;
     place-items: center;
     overflow: hidden;
     border-bottom: 1px solid var(--border-soft);
@@ -628,6 +651,12 @@ tr:hover td { background: var(--surface-soft); }
 .file-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .file-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; }
 .file-thumb:hover { border-color: var(--cyan); }
+.doc-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.doc-item { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
+.doc-item:hover { border-color: var(--cyan); }
+.doc-item a { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cyan); text-decoration: none; }
+.doc-item a:hover { text-decoration: underline; }
+.doc-size { color: var(--muted); font-size: 11px; white-space: nowrap; }
 
 /* Auth */
 #authPanel { display: flex; align-items: center; gap: 8px; margin-top: 7px; }

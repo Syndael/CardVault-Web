@@ -187,18 +187,16 @@ function assetUrl(path) {
     return new URL(path, apiOrigin).toString();
 }
 
-async function fetchAndSetImage(imgEl) {
-    const url = imgEl.getAttribute('data-src');
-    if (!url) return;
-    try {
-        const resp = await apiFetch(url, {
-            method: 'GET', headers: {'Accept': 'image/*'}, cache: 'no-store'
-        });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const blob = await resp.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        imgEl.src = objectUrl;
-    } catch (err) { console.error('Error loading image', url, err); }
+function _addToken(url) {
+    const token = window.localStorage.getItem(TOKEN_KEY);
+    if (!token) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return url + sep + 'token=' + encodeURIComponent(token);
+}
+
+function fetchAndSetImage(imgEl) {
+    const src = imgEl.getAttribute('data-src');
+    if (src) imgEl.src = _addToken(src);
 }
 
 function loadImages(root = document) {
@@ -336,7 +334,9 @@ function invImageCell(url) {
     if (!url) {
         return `<div class="inv-img-thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg></div>`;
     }
-    return `<div class="inv-img-thumb"><img class="product-thumb-img" src="${placeholder}" data-src="${esc(assetUrl(url))}" alt="" loading="lazy"></div>`;
+    const imgUrl = assetUrl(url);
+    const sep = imgUrl.includes('?') ? '&' : '?';
+    return `<div class="inv-img-thumb"><img class="product-thumb-img" src="${placeholder}" data-src="${esc(imgUrl + sep + 'size=sm')}" alt="" loading="lazy"></div>`;
 }
 function appendInv(items) {
     if (!items.length && state.inventory.loaded === 0) { invBody.innerHTML = ''; invEmpty.hidden = false; return; }
@@ -470,6 +470,10 @@ async function openEntryModal(invId) {
                 const codeNum = esc(col.code || '-') + (prod.product_number ? ' ' + esc(prod.product_number) : '');
                 document.getElementById('entryCollectionDisplay').textContent = esc(col.code || col.name || '-');
                 document.getElementById('entryProductDisplay').innerHTML = `<span style="color:var(--muted)">(${codeNum})</span> ${prodNameFmt ? `<strong>${prodNameFmt}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>'}`;
+                const ctShort = prod.product_type ? (prod.product_type.short_name || '') : (item.extra_type ? (item.extra_type.short_name || '') : '');
+                const lAbbr = lang.abbreviation || '';
+                const cName = (prodName || 'unknown').replace(/[^a-zA-Z0-9\u00C0-\u024F\s-]/g, '').trim().replace(/\s+/g, '_').substring(0, 40);
+                document.getElementById('entryInvCode').textContent = `${ctShort}/${col.code || '-'}/${invId}_${lAbbr}_${cName}`;
                 // Google search button
                 const searchParts = [prodName, prod.product_number, col.code].filter(Boolean).join(' ');
                 const searchQ = searchParts ? encodeURIComponent(searchParts) : '';
@@ -1048,16 +1052,22 @@ const purSentinel = document.getElementById('purSentinel');
 let allEntities = [];
 
 function renderPurLoading() {
-    purBody.innerHTML = `<tr><td colspan="6" class="loading-state">Cargando compras...</td></tr>`;
+    purBody.innerHTML = `<tr><td colspan="9" class="loading-state">Cargando compras...</td></tr>`;
     purEmpty.hidden = true;
 }
 function renderPurRow(item) {
     const itemsCount = (item.items || []).length;
     const total = item.total_amount || '0.00';
     const ship = item.shipping_cost || '0.00';
+    const tracking = item.tracking_code || '-';
+    const status = item.shipping_status ? item.shipping_status.name : '-';
+    const company = item.shipping_company ? item.shipping_company.name : '-';
     return `<tr class="clickable-row" data-pur-id="${item.id}">
         <td>${esc(item.purchase_date ? item.purchase_date.slice(0,10) : '-')}</td>
         <td>${esc(item.entity ? item.entity.name : '-')}</td>
+        <td>${esc(tracking)}</td>
+        <td>${esc(status)}</td>
+        <td>${esc(company)}</td>
         <td>${total}</td>
         <td>${ship}</td>
         <td>${esc(item.currency || 'EUR')}</td>
@@ -1132,25 +1142,63 @@ async function openPurchaseModal(purchaseId) {
     document.getElementById('purShipping').value = '';
     document.getElementById('purCurrency').value = 'EUR';
     document.getElementById('purRef').value = '';
+    document.getElementById('purTracking').value = '';
+    document.getElementById('purShippingStatus').value = '';
+    document.getElementById('purShippingCompany').value = '';
     document.getElementById('purNotes').value = '';
+    document.getElementById('purComputedCode').textContent = '';
     document.getElementById('purchaseItemsBody').innerHTML = '<tr class="empty-row"><td colspan="5" class="empty-state">Sin items</td></tr>';
     itemCounter = 0;
 
-    // Load entities
+    // Load entities (for store dropdown) and types (for shipping status)
     try {
-        const resp = await apiFetch(apiUrl('entities', {per_page: 200}));
-        if (resp.ok) {
-            const data = await resp.json();
-            allEntities = data.items || data || [];
-            const sel = document.getElementById('purEntity');
-            sel.innerHTML = '<option value="">Seleccionar...</option>';
-            allEntities.forEach(e => {
-                const opt = document.createElement('option');
-                opt.value = e.id; opt.textContent = e.name;
-                sel.appendChild(opt);
-            });
-        }
-    } catch (e) { console.error('Error loading entities', e); }
+        const [entResp, typesResp] = await Promise.all([
+            apiFetch(apiUrl('entities', {per_page: 200})),
+            apiFetch(apiUrl('types', {per_page: 200}))
+        ]);
+
+        const [entData, typesData] = await Promise.all([
+            entResp.ok ? entResp.json() : {items: []},
+            typesResp.ok ? typesResp.json() : {items: []}
+        ]);
+
+        const allTypes = typesData.items || [];
+        allEntities = entData.items || entData || [];
+        console.log('TIPOS CARGADOS:', allTypes.map(t => ({id: t.id, name: t.name, type: t.type})));
+        console.log('p_status encontrados:', allTypes.filter(t => t.type === 'p_status'));
+
+        // Populate entity dropdown (stores, platforms, persons)
+        const sel = document.getElementById('purEntity');
+        sel.innerHTML = '<option value="">Seleccionar...</option>';
+        allEntities.slice().sort((a, b) => (a.name || '').localeCompare(b.name)).forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.id; opt.textContent = e.name;
+            sel.appendChild(opt);
+        });
+
+        // Populate shipping company dropdown (entities with type 'shipping_company')
+        const shipType = allTypes.find(t => t.type === 'entity' && t.name === 'shipping_company');
+        const shippingCompanyTypeId = shipType ? shipType.id : null;
+        const shipSel = document.getElementById('purShippingCompany');
+        shipSel.innerHTML = '<option value="">Seleccionar...</option>';
+        const shippingEntities = shippingCompanyTypeId
+            ? allEntities.filter(e => e.entity_type === shippingCompanyTypeId)
+            : [];
+        shippingEntities.forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.id; opt.textContent = e.name;
+            shipSel.appendChild(opt);
+        });
+
+        // Populate shipping status dropdown (p_status types)
+        const statusSel = document.getElementById('purShippingStatus');
+        statusSel.innerHTML = '<option value="">Seleccionar...</option>';
+        allTypes.filter(t => t.type === 'p_status').forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id; opt.textContent = t.name;
+            statusSel.appendChild(opt);
+        });
+    } catch (e) { console.error('Error loading data', e); }
 
     if (purchaseId) {
         try {
@@ -1163,7 +1211,14 @@ async function openPurchaseModal(purchaseId) {
                 document.getElementById('purShipping').value = p.shipping_cost || '';
                 document.getElementById('purCurrency').value = p.currency || 'EUR';
                 document.getElementById('purRef').value = p.external_reference || '';
+                document.getElementById('purTracking').value = p.tracking_code || '';
+                document.getElementById('purShippingStatus').value = (p.shipping_status && p.shipping_status.id) || '';
+                document.getElementById('purShippingCompany').value = (p.shipping_company && p.shipping_company.id) || '';
                 document.getElementById('purNotes').value = p.notes || '';
+                const purDateCode = p.purchase_date ? p.purchase_date.slice(0, 10).replace(/-/g, '') : '????????';
+                const purYear = purDateCode.slice(0, 4);
+                const storeName = (p.entity ? p.entity.name : '-').replace(/[^a-zA-Z0-9\u00C0-\u024F\s]/g, '').trim().replace(/\s+/g, '_');
+                document.getElementById('purComputedCode').textContent = `${purYear}/${purDateCode}_${purchaseId}_${storeName}`;
                 // Load items
                 try {
                     const iresp = await apiFetch(apiUrl('purchase-items', {per_page: 200, purchase_id: purchaseId}));
@@ -1351,6 +1406,9 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
     const shipping = document.getElementById('purShipping').value || '0';
     const currency = document.getElementById('purCurrency').value;
     const ref = document.getElementById('purRef').value.trim();
+    const tracking = document.getElementById('purTracking').value.trim();
+    const shippingStatusId = document.getElementById('purShippingStatus').value;
+    const shippingCompanyId = document.getElementById('purShippingCompany').value;
     const notes = document.getElementById('purNotes').value.trim();
 
     if (!entityId) { alert('La tienda es obligatoria'); return; }
@@ -1386,6 +1444,9 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
             shipping_cost: shipping,
             currency: currency,
             ...(ref ? {external_reference: ref} : {}),
+            ...(tracking ? {tracking_code: tracking} : {}),
+            ...(shippingStatusId ? {shipping_status_id: parseInt(shippingStatusId)} : {}),
+            ...(shippingCompanyId ? {shipping_company_id: parseInt(shippingCompanyId)} : {}),
             ...(notes ? {notes: notes} : {})
         };
 

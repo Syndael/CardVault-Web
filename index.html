@@ -257,10 +257,15 @@
                         <tr>
                             <th>Fecha</th>
                             <th>Tienda</th>
+                            <th>Seguimiento</th>
+                            <th>Estado</th>
+                            <th>Transporte</th>
                             <th>Total</th>
                             <th>Gastos envío</th>
                             <th>Moneda</th>
                             <th>Items</th>
+                            <th></th>
+                            <th></th>
                             <th></th>
                         </tr>
                     </thead>
@@ -383,6 +388,11 @@
                         </select>
                     </div>
                 </div>
+                <div class="form-row" style="margin-top:-8px">
+                    <div class="field" style="flex:1">
+                        <div id="purComputedCode" style="font-size:12px;color:var(--muted);font-family:monospace"></div>
+                    </div>
+                </div>
                 <div class="form-row">
                     <div class="field" style="flex:1">
                         <label for="purTotal">Total</label>
@@ -405,6 +415,29 @@
                 <div class="field">
                     <label for="purRef">Referencia externa</label>
                     <input id="purRef" type="text" placeholder="Nº de pedido, factura...">
+                </div>
+                <div class="field">
+                    <label for="purTracking">Código de seguimiento</label>
+                    <div style="display:flex;gap:6px;align-items:stretch">
+                        <input id="purTracking" type="text" placeholder="Nº de seguimiento" style="flex:1">
+                        <button type="button" id="purTrackingBtn" title="Abrir seguimiento" disabled style="flex-shrink:0;padding:4px 8px;cursor:pointer;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--cyan);font-size:13px;display:flex;align-items:center">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label for="purShippingStatus">Estado del pedido</label>
+                        <select id="purShippingStatus">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label for="purShippingCompany">Empresa de transporte</label>
+                        <select id="purShippingCompany">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="field">
                     <label for="purNotes">Notas</label>
@@ -436,6 +469,12 @@
                 </div>
                 <div style="margin-bottom:12px">
                     <button type="button" id="addItemBtn" class="btn-secondary">+ Añadir item</button>
+                </div>
+                <h3>Documentos</h3>
+                <div class="field">
+                    <div id="purDocs" class="doc-list"></div>
+                    <input type="file" id="purDocInput" accept="image/*,.pdf" hidden>
+                    <button type="button" id="purUploadDocBtn" class="btn-secondary">+ Subir documento</button>
                 </div>
                 <h3>Fotos</h3>
                 <div class="field">
@@ -469,6 +508,11 @@
                             <div id="entryProductDisplay" class="readonly-field" style="flex:1"></div>
                             <div id="entryGoogleSearch" class="detail-actions" style="margin-bottom:0;flex-shrink:0"></div>
                         </div>
+                    </div>
+                </div>
+                <div class="form-row" style="margin-top:-8px">
+                    <div class="field" style="flex:1">
+                        <div id="entryInvCode" style="font-size:12px;color:var(--muted);font-family:monospace"></div>
                     </div>
                 </div>
                 <div class="form-row" style="flex-wrap:wrap">
