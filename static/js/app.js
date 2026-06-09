@@ -1064,7 +1064,8 @@ const invState = {
 };
 
 const purState = {
-    page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true
+    page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
+    date_from: '', date_to: '', entity_id: '', shipping_status_id: '', shipping_company_id: ''
 };
 
 const invBody = document.getElementById('inventoryBody');
@@ -1123,8 +1124,9 @@ function renderInvRow(item) {
     const maxPrice = item.max_price != null ? parseFloat(item.max_price).toFixed(2) + '\u20AC' : '';
     const codeNum = esc(col.code || '-') + (prod.product_number ? ' ' + esc(prod.product_number) : '');
     const nameDisplay = prodNameFmt ? `<strong>${prodNameFmt}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>';
+    const noteDisplay = item.notes ? `<br><span class="inv-note">${esc(item.notes)}</span>` : '';
     const tagsHtml = renderTagBadges(item.tags);
-    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td>${tagsHtml}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}${noteDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td>${tagsHtml}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function renderTagBadges(tags) {
@@ -2087,7 +2089,13 @@ async function loadPurchases({reset = false} = {}) {
     if (reset) { s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true; purBody.innerHTML = ''; purEmpty.hidden = true; renderPurLoading(); }
     s.loading = true;
     try {
-        const resp = await apiFetch(apiUrl('purchases', {page: s.page, per_page: s.perPage, q: s.q}));
+        const params = {page: s.page, per_page: s.perPage, q: s.q};
+        if (s.date_from) params.date_from = s.date_from;
+        if (s.date_to) params.date_to = s.date_to;
+        if (s.entity_id) params.entity_id = s.entity_id;
+        if (s.shipping_status_id) params.shipping_status_id = s.shipping_status_id;
+        if (s.shipping_company_id) params.shipping_company_id = s.shipping_company_id;
+        const resp = await apiFetch(apiUrl('purchases', params));
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
         if (reset) purBody.innerHTML = '';
@@ -2129,6 +2137,7 @@ async function openPurchaseModal(purchaseId) {
     document.getElementById('modalPurchaseId').value = purchaseId || '';
     document.getElementById('purModalTitle').textContent = purchaseId ? 'Editar compra' : 'Nueva compra';
     document.getElementById('purDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('purDeliveryDate').value = '';
     document.getElementById('purTotal').value = '';
     document.getElementById('purShipping').value = '';
     document.getElementById('purCurrency').value = 'EUR';
@@ -2205,6 +2214,7 @@ async function openPurchaseModal(purchaseId) {
             if (resp.ok) {
                 const p = await resp.json();
                 document.getElementById('purDate').value = p.purchase_date ? p.purchase_date.slice(0,10) : '';
+                document.getElementById('purDeliveryDate').value = p.delivery_date ? p.delivery_date.slice(0,10) : '';
                 document.getElementById('purEntity').value = (p.entity && p.entity.id) || '';
                 document.getElementById('purTotal').value = p.total_amount || '';
                 document.getElementById('purShipping').value = p.shipping_cost || '';
@@ -2381,6 +2391,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
     ev.preventDefault();
     const purchaseId = document.getElementById('modalPurchaseId').value;
     const date = document.getElementById('purDate').value;
+    const deliveryDate = document.getElementById('purDeliveryDate').value;
     const entityId = document.getElementById('purEntity').value;
     const total = document.getElementById('purTotal').value;
     const shipping = document.getElementById('purShipping').value || '0';
@@ -2406,6 +2417,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
         let purResp;
         const payload = {
             entity_id: parseInt(entityId), purchase_date: date || null,
+            delivery_date: deliveryDate || null,
             total_amount: total || null, shipping_cost: shipping, currency: currency,
             ...(ref ? {external_reference: ref} : {}),
             ...(tracking ? {tracking_code: tracking} : {}),
@@ -3273,6 +3285,124 @@ async function loadInvFilterTypes() {
         }
     } catch (e) { console.error('Error loading types', e); }
 }
+
+// Purchase filters
+let purFilterTimers = {};
+let purStatusTypes = [];
+
+function setupPurFilters() {
+    const dateFromInput = document.getElementById('purFilterDateFrom');
+    const dateToInput = document.getElementById('purFilterDateTo');
+    const entitySelect = document.getElementById('purFilterEntity');
+    const statusSelect = document.getElementById('purFilterStatus');
+    const companySelect = document.getElementById('purFilterCompany');
+
+    if (dateFromInput) {
+        dateFromInput.addEventListener('change', () => {
+            purState.date_from = dateFromInput.value;
+            loadPurchases({reset: true});
+        });
+    }
+    if (dateToInput) {
+        dateToInput.addEventListener('change', () => {
+            purState.date_to = dateToInput.value;
+            loadPurchases({reset: true});
+        });
+    }
+    if (entitySelect) {
+        entitySelect.addEventListener('change', () => {
+            purState.entity_id = entitySelect.value;
+            loadPurchases({reset: true});
+        });
+    }
+    if (statusSelect) {
+        statusSelect.addEventListener('change', () => {
+            const val = statusSelect.value;
+            if (val === '__in_progress__') {
+                const ids = purStatusTypes
+                    .filter(t => ['reservado', 'pedido', 'enviado'].includes(t.name.toLowerCase()))
+                    .map(t => t.id);
+                purState.shipping_status_id = ids.length ? ids.join(',') : '';
+            } else {
+                purState.shipping_status_id = val;
+            }
+            loadPurchases({reset: true});
+        });
+    }
+    if (companySelect) {
+        companySelect.addEventListener('change', () => {
+            purState.shipping_company_id = companySelect.value;
+            loadPurchases({reset: true});
+        });
+    }
+}
+
+async function loadPurFilterData() {
+    try {
+        const [entResp, typesResp] = await Promise.all([
+            apiFetch(apiUrl('entities', {per_page: 200})),
+            apiFetch(apiUrl('types', {per_page: 200}))
+        ]);
+        const [entData, typesData] = await Promise.all([
+            entResp.ok ? entResp.json() : {items: []},
+            typesResp.ok ? typesResp.json() : {items: []}
+        ]);
+        const allTypes = typesData.items || [];
+        const allEntities = entData.items || [];
+
+        purStatusTypes = allTypes.filter(t => t.type === 'p_status');
+
+        // Entity/Store dropdown
+        const entitySel = document.getElementById('purFilterEntity');
+        if (entitySel) {
+            entitySel.innerHTML = '<option value="">Todas</option>';
+            allEntities.slice().sort((a, b) => (a.name || '').localeCompare(b.name)).forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.id;
+                opt.textContent = e.name;
+                entitySel.appendChild(opt);
+            });
+        }
+
+        // Status dropdown
+        const statusSel = document.getElementById('purFilterStatus');
+        if (statusSel) {
+            statusSel.innerHTML = '<option value="">Todos</option>';
+            purStatusTypes.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name;
+                statusSel.appendChild(opt);
+            });
+            const inProgressOpt = document.createElement('option');
+            inProgressOpt.value = '__in_progress__';
+            inProgressOpt.textContent = 'En curso';
+            statusSel.appendChild(inProgressOpt);
+        }
+
+        // Shipping company dropdown
+        const shipType = allTypes.find(t => t.type === 'entity' && t.name === 'shipping_company');
+        const shippingCompanyTypeId = shipType ? shipType.id : null;
+        const companySel = document.getElementById('purFilterCompany');
+        if (companySel) {
+            companySel.innerHTML = '<option value="">Todos</option>';
+            const shippingEntities = shippingCompanyTypeId
+                ? allEntities.filter(e => e.entity_type === shippingCompanyTypeId)
+                : [];
+            shippingEntities.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.id;
+                opt.textContent = e.name;
+                companySel.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        console.error('Error loading purchase filter data', e);
+    }
+}
+
+setupPurFilters();
+loadPurFilterData();
 
 // Inline detail styles
 (function injectDetailStyles() {

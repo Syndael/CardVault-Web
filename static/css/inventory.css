@@ -441,6 +441,14 @@ tr:hover td {
     color: var(--muted);
 }
 
+.inv-note {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+    padding-top: 2px;
+}
+
 .product-name-view {
     display: block;
     color: var(--text);

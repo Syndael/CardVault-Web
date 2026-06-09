@@ -295,6 +295,7 @@ function renderInvRow(item) {
     const cls = stock > 0 ? 'stock-positive' : stock < 0 ? 'stock-negative' : 'stock-zero';
     const prodName = getFormattedProductName(prod.translations, lang.id);
     const nameHtml = prodName ? `<br><span class="product-name-sub">${prodName}</span>` : '';
+    const noteHtml = item.notes ? `<br><span class="inv-note">${esc(item.notes)}</span>` : '';
     const sealedIcon = item.is_sealed ? '&#10003;' : '';
     const igIcon = item.posted_instagram ? '&#10003;' : '';
     let price = '';
@@ -315,7 +316,7 @@ function renderInvRow(item) {
     return `<tr class="clickable-row" data-inv-id="${item.id}">
         <td class="inv-img-cell">${invImageCell(item.product_image_url)}</td>
         <td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td>
-        <td><strong>${esc(prod.product_number || '-')}</strong>${nameHtml}</td>
+        <td><strong>${esc(prod.product_number || '-')}</strong>${nameHtml}${noteHtml}</td>
         <td>${esc(col.code || col.name || '-')}</td>
         <td>${esc(lang.name || '')}</td>
         <td>${esc(cond.name || '')}</td>
