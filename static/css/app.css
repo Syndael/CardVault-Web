@@ -789,3 +789,107 @@ tr:hover td { background: var(--surface-soft); }
     object-fit: contain;
     display: block;
 }
+
+/* ==================== STATISTICS ==================== */
+.stats-dashboard {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    align-items: start;
+    padding: 8px 0 40px;
+}
+
+.stats-section--wide {
+    grid-column: 1 / -1;
+}
+
+.stats-section h2 {
+    font-size: 13px;
+    font-weight: 640;
+    color: var(--cyan);
+    margin: 0 0 4px 0;
+    padding-bottom: 3px;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.stats-subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 6px 0 0 0;
+}
+
+.stats-cards {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+}
+
+.stat-card {
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+}
+
+.stat-icon {
+    font-size: 18px;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.stat-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 1px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.stats-section .table-wrap { min-height: 0; }
+
+.stats-section table {
+    font-size: 11px;
+    width: 100%;
+}
+
+.stats-section table th {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.stats-section .child-row td {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 1px 6px;
+}
+
+.stats-section .child-row td:first-child {
+    padding-left: 20px;
+}
+
+.stats-expand {
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--cyan);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 2px 10px;
+    border-radius: 4px;
+    width: 100%;
+}
+.stats-expand:hover { background: var(--surface-hover); }
+
+.diff-pos { color: var(--green, #4caf50); font-weight: 600; }
+.diff-neg { color: var(--red, #f44336); font-weight: 600; }

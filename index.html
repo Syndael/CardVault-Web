@@ -34,6 +34,7 @@
             <button class="tab active" data-tab="inventory">Inventario</button>
             <button class="tab" data-tab="purchases">Compras</button>
             <button class="tab" data-tab="scheduledTasks">Tareas</button>
+            <button class="tab" data-tab="statistics">Estadísticas</button>
         </nav>
 
         <!-- Products tab -->
@@ -297,6 +298,11 @@
                 <div class="empty-state" id="purEmpty" hidden>No hay compras.</div>
             </div>
             <div class="load-sentinel" id="purSentinel"></div>
+        </section>
+
+        <!-- Statistics tab -->
+        <section class="tab-content" id="tabStatistics">
+            <div id="statsContainer"></div>
         </section>
 
         <!-- Scheduled Tasks tab (task executions) -->
@@ -811,5 +817,6 @@
 
     <script src="static/js/api-config.js"></script>
     <script src="static/js/app.js"></script>
+    <script src="static/js/statistics.js"></script>
 </body>
 </html>

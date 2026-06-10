@@ -239,6 +239,7 @@ function loadTab(tab) {
     else if (tab === 'products') loadProducts({reset: true});
     else if (tab === 'inventory') loadInventory({reset: true});
     else if (tab === 'scheduledTasks') loadScheduledTasks({reset: true});
+    else if (tab === 'statistics') loadStatisticsTab();
     else loadPurchases({reset: true});
 }
 
