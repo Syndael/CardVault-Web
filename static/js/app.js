@@ -2633,7 +2633,7 @@ const colSummary = document.getElementById('colSummary');
 const colSentinel = document.getElementById('colSentinel');
 
 function renderColLoading() {
-    colBody.innerHTML = `<tr><td colspan="6" class="loading-state">Cargando colecciones...</td></tr>`;
+    colBody.innerHTML = `<tr><td colspan="7" class="loading-state">Cargando colecciones...</td></tr>`;
     colEmpty.hidden = true;
 }
 
@@ -2641,6 +2641,7 @@ function renderColRow(item) {
     const cardType = item.card_type ? (item.card_type.name + (item.card_type.short_name ? ' (' + item.card_type.short_name + ')' : '')) : '-';
     const manual = item.is_manual ? '\u2713' : '';
     const releaseDate = item.release_date ? item.release_date.slice(0, 10) : '-';
+    const forceDl = item.force_url ? (item.force_download ? '\u26A1' : '\u2139\uFE0F') : '';
     const displayName = formatName(item.name, item.name_alter) || '-';
     return `<tr class="clickable-row" data-col-id="${item.id}">
         <td><strong>${esc(item.code)}</strong></td>
@@ -2648,6 +2649,7 @@ function renderColRow(item) {
         <td>${esc(cardType)}</td>
         <td>${manual}</td>
         <td>${releaseDate}</td>
+        <td style="text-align:center;font-size:16px" title="${item.force_url ? (item.force_download ? 'Descarga forzada pendiente' : 'URL asignada') : ''}">${forceDl}</td>
         <td style="text-align:center"><button type="button" class="btn-delete-col" data-col-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
     </tr>`;
 }
@@ -2728,6 +2730,8 @@ async function openCollectionModal(collectionId) {
     document.getElementById('colCode').value = '';
     document.getElementById('colManual').checked = true;
     document.getElementById('colReleaseDate').value = '';
+    document.getElementById('colForceUrl').value = '';
+    document.getElementById('colForceDownload').checked = false;
     colTranslations = [];
     renderColTranslations();
 
@@ -2769,6 +2773,8 @@ async function openCollectionModal(collectionId) {
                 document.getElementById('colCode').value = col.code || '';
                 document.getElementById('colManual').checked = !!col.is_manual;
                 document.getElementById('colReleaseDate').value = col.release_date ? col.release_date.slice(0, 10) : '';
+                document.getElementById('colForceUrl').value = col.force_url || '';
+                document.getElementById('colForceDownload').checked = !!col.force_download;
                 const cardTypeEl = document.getElementById('colCardType');
                 if (col.card_type_id) cardTypeEl.value = col.card_type_id;
                 else if (col.card_type && col.card_type.id) cardTypeEl.value = col.card_type.id;
@@ -2839,11 +2845,15 @@ document.getElementById('collectionForm').addEventListener('submit', async (ev) 
     const btn = ev.target.querySelector('button[type="submit"]');
     btn.disabled = true; btn.textContent = 'Guardando...';
     try {
+        const forceUrl = document.getElementById('colForceUrl').value.trim();
+        const forceDownload = document.getElementById('colForceDownload').checked;
         const payload = {
             code: code,
             card_type_id: parseInt(cardTypeId),
             is_manual: isManual,
-            ...(releaseDate ? {release_date: releaseDate} : {})
+            ...(releaseDate ? {release_date: releaseDate} : {}),
+            force_url: forceUrl || null,
+            force_download: forceDownload
         };
         let savedCol;
         if (collectionId) {

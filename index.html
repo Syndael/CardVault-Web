@@ -146,6 +146,7 @@
                             <th>Tipo</th>
                             <th>Manual</th>
                             <th>Fecha lanzamiento</th>
+                            <th>DL</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -714,39 +715,64 @@
             <h2 id="colModalTitle">Nueva colección</h2>
             <form id="collectionForm">
                 <input type="hidden" id="modalCollectionId">
+
                 <div class="form-row">
-                    <div class="field" style="flex:1">
-                        <label for="colCode">Código</label>
-                        <input id="colCode" type="text" placeholder="swsh12, base1, ..." required>
-                    </div>
-                    <div class="field" style="flex:1">
+                    <div class="field">
                         <label for="colCardType">Tipo de carta</label>
                         <select id="colCardType" required>
                             <option value="">Seleccionar...</option>
                         </select>
                     </div>
-                </div>
-                <div class="form-row">
-                    <div class="field" style="flex:1">
-                        <label class="checkbox-label">
-                            <input id="colManual" type="checkbox" checked>
-                            Manual
-                        </label>
+                    <div class="field">
+                        <label for="colCode">Código</label>
+                        <input id="colCode" type="text" placeholder="swsh12, base1, ..." required>
                     </div>
-                    <div class="field" style="flex:1">
+                    <div class="field">
                         <label for="colReleaseDate">Fecha de lanzamiento</label>
                         <input id="colReleaseDate" type="date">
                     </div>
+                    <div class="field field-check">
+                        <label>Manual</label>
+                        <label class="checkbox-label">
+                            <input id="colManual" type="checkbox" checked>
+                            Sí
+                        </label>
+                    </div>
                 </div>
+
+                <div class="form-row">
+                    <div class="field" style="grid-column:span 2">
+                        <label for="colForceUrl">URL forzada</label>
+                        <input id="colForceUrl" type="url" placeholder="https://jp.pokellector.com/...">
+                    </div>
+                    <div class="field field-check">
+                        <label>Descarga forzada</label>
+                        <label class="checkbox-label">
+                            <input id="colForceDownload" type="checkbox">
+                            Sí
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="field">
+                        <label for="colTransLang">Idioma</label>
+                        <select id="colTransLang">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                    </div>
+                    <div class="field" style="grid-column:span 2">
+                        <label for="colTransName">Nombre</label>
+                        <div class="input-group">
+                            <input id="colTransName" type="text" placeholder="Nombre">
+                            <button type="button" id="addColTransBtn" class="btn-secondary">+</button>
+                        </div>
+                    </div>
+                </div>
+
                 <h3>Traducciones</h3>
                 <div id="colTransList"></div>
-                <div class="trans-add">
-                    <select id="colTransLang">
-                        <option value="">Idioma...</option>
-                    </select>
-                    <input id="colTransName" type="text" placeholder="Nombre">
-                    <button type="button" id="addColTransBtn" class="btn-secondary">+</button>
-                </div>
+
                 <div class="actions">
                     <button type="submit">Guardar</button>
                     <button type="button" id="colCancel">Cancelar</button>
