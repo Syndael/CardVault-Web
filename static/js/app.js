@@ -1061,7 +1061,7 @@ if (createForm) {
 
 const invState = {
     page: 1, perPage: 50, q: '', sort: 'newest', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
-    collection_code: '', product_number: '', product_name: '', card_type_id: '', tag_name: ''
+    collection_code: '', product_number: '', product_name: '', card_type_id: '', tag_name: '', is_sealed: '', posted_instagram: ''
 };
 
 const purState = {
@@ -1184,6 +1184,8 @@ async function loadInventory({reset = false} = {}) {
         if (s.product_name) params.product_name = s.product_name;
         if (s.card_type_id) params.card_type_id = s.card_type_id;
         if (s.tag_name) params.tag_name = s.tag_name;
+        if (s.is_sealed !== null && s.is_sealed !== '') params.is_sealed = s.is_sealed;
+        if (s.posted_instagram !== null && s.posted_instagram !== '') params.posted_instagram = s.posted_instagram;
         const showAllCb = document.getElementById('showAllInv');
         if (showAllCb && showAllCb.checked) params.all = 'true';
         const resp = await apiFetch(apiUrl('inventory', params));
@@ -2054,13 +2056,6 @@ function renderPurRow(item) {
     const total = item.total_amount || '0.00';
     const ship = item.shipping_cost || '0.00';
     const tracking = item.tracking_code || '-';
-    let trackingDisplay = esc(tracking);
-    let trackingBtn = '';
-    if (item.tracking_code && item.shipping_company && item.shipping_company.url) {
-        const url = item.shipping_company.url.replace('<SEGUIMIENTO>', encodeURIComponent(item.tracking_code));
-        trackingDisplay = `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:underline" title="Abrir seguimiento">${esc(tracking)}</a>`;
-        trackingBtn = `<button class="tracker-button" data-tracking-url="${esc(url)}" title="Abrir seguimiento" aria-label="Abrir seguimiento" style="background:none;border:none;cursor:pointer;color:var(--cyan);vertical-align:middle;padding:0 4px"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>`;
-    }
     const status = item.shipping_status ? item.shipping_status.name : '-';
     const company = item.shipping_company ? item.shipping_company.name : '-';
     const docIcon = item.has_docs
@@ -2069,7 +2064,9 @@ function renderPurRow(item) {
     const photoIcon = item.has_photos
         ? `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle" title="Tiene fotos"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`
         : '';
-    return `<tr class="clickable-row" data-pur-id="${item.id}"><td>${esc(item.purchase_date ? item.purchase_date.slice(0,10) : '-')}</td><td>${esc(item.entity ? item.entity.name : '-')}</td><td>${trackingDisplay}${trackingBtn}</td><td>${esc(status)}</td><td>${esc(company)}</td><td>${total}</td><td>${ship}</td><td>${esc(item.currency || 'EUR')}</td><td>${itemsCount}</td><td style="text-align:center">${docIcon}</td><td style="text-align:center">${photoIcon}</td><td style="text-align:center"><button type="button" class="btn-delete-pur" data-pur-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+    const delivery = item.delivery_date ? item.delivery_date.slice(0,10) : null;
+    const dateHtml = `${esc(item.purchase_date ? item.purchase_date.slice(0,10) : '-')}${delivery ? ` <span style="font-size:9px;color:var(--text-muted)">/\u2009${esc(delivery)}</span>` : ''}`;
+    return `<tr class="clickable-row" data-pur-id="${item.id}"><td>${dateHtml}</td><td>${esc(item.entity ? item.entity.name : '-')}</td><td>${esc(tracking)}</td><td>${esc(status)}</td><td>${esc(company)}</td><td>${total}</td><td>${ship}</td><td>${esc(item.currency || 'EUR')}</td><td>${itemsCount}</td><td style="text-align:center">${docIcon}</td><td style="text-align:center">${photoIcon}</td><td style="text-align:center"><button type="button" class="btn-delete-pur" data-pur-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function appendPur(items) {
@@ -2624,7 +2621,7 @@ if (document.getElementById('execOutputClose')) document.getElementById('execOut
 
 const colState = {
     page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
-    code: '', name: '', card_type_id: '', is_manual: '', sort: 'code'
+    code: '', name: '', card_type_id: '', is_manual: '', force_download: '', sort: 'code'
 };
 
 const colBody = document.getElementById('collectionsBody');
@@ -2678,6 +2675,7 @@ async function loadCollections({reset = false} = {}) {
         if (s.name) params.name = s.name;
         if (s.card_type_id) params.card_type_id = s.card_type_id;
         if (s.is_manual !== null && s.is_manual !== '') params.is_manual = s.is_manual;
+        if (s.force_download !== null && s.force_download !== '') params.force_download = s.force_download;
         if (s.sort) params.sort_by = s.sort;
         const resp = await apiFetch(apiUrl('collections', params));
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -2933,6 +2931,13 @@ function setupColFilters() {
             loadCollections({reset: true});
         });
     }
+    const forceDlSelect = document.getElementById('colFilterForceDl');
+    if (forceDlSelect) {
+        forceDlSelect.addEventListener('change', () => {
+            colState.force_download = forceDlSelect.value;
+            loadCollections({reset: true});
+        });
+    }
     const sortSelect = document.getElementById('colSortOrder');
     if (sortSelect) {
         sortSelect.addEventListener('change', () => {
@@ -3048,13 +3053,6 @@ document.getElementById('tabScheduledTasks').addEventListener('click', async (e)
 });
 
 document.getElementById('tabPurchases').addEventListener('click', async (e) => {
-    const trackingBtn = e.target.closest('button[data-tracking-url]');
-    if (trackingBtn) {
-        e.stopPropagation();
-        const url = trackingBtn.getAttribute('data-tracking-url');
-        if (url) window.open(url, '_blank', 'noopener');
-        return;
-    }
     const delBtn = e.target.closest('.btn-delete-pur');
     if (delBtn) {
         e.stopPropagation();
@@ -3266,6 +3264,20 @@ function setupInvFilters() {
                 invState.tag_name = tagInput.value.trim();
                 loadInventory({reset: true});
             }, 300);
+        });
+    }
+    const sealedSelect = document.getElementById('invFilterSealed');
+    if (sealedSelect) {
+        sealedSelect.addEventListener('change', () => {
+            invState.is_sealed = sealedSelect.value;
+            loadInventory({reset: true});
+        });
+    }
+    const igSelect = document.getElementById('invFilterIg');
+    if (igSelect) {
+        igSelect.addEventListener('change', () => {
+            invState.posted_instagram = igSelect.value;
+            loadInventory({reset: true});
         });
     }
     const sortEl = document.getElementById('invSortOrder');

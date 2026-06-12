@@ -122,6 +122,14 @@
                             <option value="0">No</option>
                         </select>
                     </label>
+                    <label class="filter-check">
+                        Descarga forzada
+                        <select id="colFilterForceDl" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">Todos</option>
+                            <option value="1">Sí</option>
+                            <option value="0">No</option>
+                        </select>
+                    </label>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center">
                     <div style="display:flex;gap:8px;align-items:center">
@@ -182,11 +190,27 @@
                             <option value="">Todos</option>
                         </select>
                     </label>
-                    <label class="filter-check">
-                        Tag
-                        <input id="invFilterTag" type="text" placeholder="tag1, tag2..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                    </label>
-                </div>
+            <label class="filter-check">
+                Tag
+                <input id="invFilterTag" type="text" placeholder="tag1, tag2..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+            </label>
+            <label class="filter-check">
+                Sellado
+                <select id="invFilterSealed" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    <option value="">Todos</option>
+                    <option value="1">Sí</option>
+                    <option value="0">No</option>
+                </select>
+            </label>
+            <label class="filter-check">
+                Publicado IG
+                <select id="invFilterIg" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    <option value="">Todos</option>
+                    <option value="1">Sí</option>
+                    <option value="0">No</option>
+                </select>
+            </label>
+        </div>
                 <div style="display:flex;justify-content:space-between;align-items:center">
                     <div style="display:flex;gap:8px;align-items:center">
                         <label id="showAllLabel" style="display:none;font-size:13px;cursor:pointer">
@@ -280,7 +304,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Fecha</th>
+                            <th>Fecha <span style="font-weight:normal;font-size:10px">/ Entrega</span></th>
                             <th>Tienda</th>
                             <th>Seguimiento</th>
                             <th>Estado</th>
