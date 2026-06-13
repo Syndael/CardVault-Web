@@ -834,6 +834,10 @@
         <div class="modal-backdrop" id="execOutputBackdrop"></div>
         <div class="modal-body" role="dialog" aria-modal="true" style="width:min(700px,calc(100%-40px));height:90vh;display:flex;flex-direction:column">
             <h2 id="execOutputTitle">Salida de ejecuci&oacute;n</h2>
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+                <button type="button" id="execOutputViewLog" style="display:none">Ver log completo</button>
+                <span id="execLogStatus" style="font-size:12px;color:var(--muted);align-self:center"></span>
+            </div>
             <div class="field" style="flex:1;display:flex;flex-direction:column">
                 <textarea id="execOutputText" readonly style="flex:1;width:100%;min-height:200px;font-family:monospace;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);resize:none"></textarea>
             </div>

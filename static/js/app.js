@@ -3044,11 +3044,38 @@ document.getElementById('tabScheduledTasks').addEventListener('click', async (e)
                 const exec = await resp.json();
                 document.getElementById('execOutputTitle').textContent = 'Salida de ejecuci\u00f3n #' + execId;
                 document.getElementById('execOutputText').value = exec.output || '(sin salida)';
+                const logBtn = document.getElementById('execOutputViewLog');
+                const logStatus = document.getElementById('execLogStatus');
+                logBtn.style.display = exec.log_file_path ? '' : 'none';
+                logStatus.textContent = '';
+                logBtn.dataset.execId = execId;
                 const m = document.getElementById('execOutputModal');
                 m.hidden = false;
                 document.body.style.overflow = 'hidden';
             }
         } catch (e) { console.error(e); }
+    }
+});
+
+document.getElementById('execOutputViewLog').addEventListener('click', async () => {
+    const execId = document.getElementById('execOutputViewLog').dataset.execId;
+    if (!execId) return;
+    const logStatus = document.getElementById('execLogStatus');
+    logStatus.textContent = 'Cargando...';
+    try {
+        const resp = await apiFetch(apiUrl(`task-executions/${execId}/log`));
+        if (resp.ok) {
+            const data = await resp.json();
+            const textarea = document.getElementById('execOutputText');
+            textarea.value = data.content || '(log vac\u00edo)';
+            textarea.scrollTop = textarea.scrollHeight;
+            logStatus.textContent = 'Log completo cargado';
+        } else {
+            logStatus.textContent = 'Error al cargar log';
+        }
+    } catch (e) {
+        logStatus.textContent = 'Error de red';
+        console.error(e);
     }
 });
 
