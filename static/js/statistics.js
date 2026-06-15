@@ -56,12 +56,15 @@ function renderStats(container, data) {
     // Fila 1 — Resumen general (wide)
     html += '<section class="stats-section stats-section--wide"><h2>Resumen general</h2><div class="stats-cards">';
     if (summary) {
-        html += statCard('Items', summary.total_inventory_items, '📦');
-        html += statCard('Productos', summary.total_products, '🃏');
-        html += statCard('Compras', summary.total_purchases, '🛒');
-        html += statCard('Total gastado', formatEuro(summary.total_spent), '💰');
-        html += statCard('Envío', formatEuro(summary.total_shipping_costs), '📬');
-        html += statCard('Trackeados', summary.price_tracked_items, '📊');
+        html += statCard('Items', summary.total_inventory_items, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>');
+        html += statCard('Productos', summary.total_products, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>');
+        html += statCard('Compras', summary.total_purchases, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>');
+        html += statCard('Total productos', formatEuro(summary.total_purchase_amount), '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>');
+        html += statCard('Envío', formatEuro(summary.total_shipping_costs), '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>');
+        html += statCard('Total gastado', formatEuro(summary.total_spent), '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="18"/><path d="M16 10c0-2.21-1.79-4-4-4s-4 1.79-4 4c0 1.5 1.5 2 4 2s4 .5 4 2-1.79 4-4 4-4-1.79-4-4"/></svg>');
+        html += statCard('Valor actual', formatEuro(summary.total_balance), '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>');
+        html += statCard('Balance', formatEuro(summary.total_balance - summary.total_spent), '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M6 8l3 4h6l3-4"/></svg>');
+        html += statCard('Trackeados', summary.price_tracked_items, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>');
     }
     html += '</div></section>';
 
@@ -90,14 +93,14 @@ function renderStats(container, data) {
 
     if (valueByType) {
         html += '<section class="stats-section"><h2>Valoración del inventario</h2>';
-        html += '<div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Items</th><th>Unidades</th><th>Valor adquisición</th><th>%</th></tr></thead><tbody>';
-        valueByType.types.slice(0, 5).forEach((t, i) => { html += `<tr><td><strong>${esc(t.type_name)}</strong>${t.type_short ? ` <span class="detail-meta">(${esc(t.type_short)})</span>` : ''}</td><td>${t.item_count}</td><td>${t.total_quantity}</td><td>${formatEuro(t.acquisition_value)}</td><td>${t.percentage}%</td></tr>`; });
+        html += '<div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Items</th><th>Unidades</th><th>Valor adquisición</th><th>Valor actual</th><th>%</th></tr></thead><tbody>';
+        valueByType.types.slice(0, 5).forEach((t, i) => { html += `<tr><td><strong>${esc(t.type_name)}</strong>${t.type_short ? ` <span class="detail-meta">(${esc(t.type_short)})</span>` : ''}</td><td>${t.item_count}</td><td>${t.total_quantity}</td><td>${formatEuro(t.acquisition_value)}</td><td>${formatEuro(t.current_value)}</td><td>${t.percentage}%</td></tr>`; });
         if (valueByType.types.length > 5) {
-            valueByType.types.slice(5).forEach((t, i) => { html += `<tr class="valTypeMore" style="display:none"><td><strong>${esc(t.type_name)}</strong>${t.type_short ? ` <span class="detail-meta">(${esc(t.type_short)})</span>` : ''}</td><td>${t.item_count}</td><td>${t.total_quantity}</td><td>${formatEuro(t.acquisition_value)}</td><td>${t.percentage}%</td></tr>`; });
-            html += `<tr><td colspan="5"><button class="stats-expand" onclick="toggleRows('valTypeMore',this)">+${valueByType.types.length - 5} más</button></td></tr>`;
+            valueByType.types.slice(5).forEach((t, i) => { html += `<tr class="valTypeMore" style="display:none"><td><strong>${esc(t.type_name)}</strong>${t.type_short ? ` <span class="detail-meta">(${esc(t.type_short)})</span>` : ''}</td><td>${t.item_count}</td><td>${t.total_quantity}</td><td>${formatEuro(t.acquisition_value)}</td><td>${formatEuro(t.current_value)}</td><td>${t.percentage}%</td></tr>`; });
+            html += `<tr><td colspan="6"><button class="stats-expand" onclick="toggleRows('valTypeMore',this)">+${valueByType.types.length - 5} más</button></td></tr>`;
         }
         html += '</tbody></table></div>';
-        html += `<p class="stats-subtitle">Total valor adquisición: <strong>${formatEuro(valueByType.total_value)}</strong> · Total unidades: <strong>${valueByType.total_quantity}</strong></p>`;
+        html += `<p class="stats-subtitle">Total adquisición: <strong>${formatEuro(valueByType.total_acquisition)}</strong> · Total actual: <strong>${formatEuro(valueByType.total_current)}</strong> · Total unidades: <strong>${valueByType.total_quantity}</strong></p>`;
         html += '</section>';
     }
 
@@ -149,7 +152,17 @@ function renderStats(container, data) {
         html += '</tbody></table></div></section>';
     }
 
-    // Fila 4 — Items más valiosos | Mayor rentabilidad | Mejores entidades (3 cols)
+    // Fila 4 — Mejores entidades | Items más valiosos | Mayor rentabilidad (3 cols)
+    if (bestInv && bestInv.length) {
+        html += '<section class="stats-section"><h2>Mejores entidades de inversión</h2>';
+        html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Entidad</th><th>Items</th><th>Coste</th><th>Valor actual</th><th>Beneficio</th><th>%</th></tr></thead><tbody>';
+        bestInv.forEach((e, i) => {
+            const cls = e.profit >= 0 ? 'diff-pos' : 'diff-neg';
+            html += `<tr><td>${i + 1}</td><td><strong>${esc(e.name)}</strong></td><td>${e.items_count}</td><td>${formatEuro(e.acquisition_cost)}</td><td>${formatEuro(e.current_value)}</td><td class="${cls}">${formatEuro(e.profit)}</td><td class="${cls}">${e.profit_pct}%</td></tr>`;
+        });
+        html += '</tbody></table></div></section>';
+    }
+
     if (topValue && topValue.length) {
         html += '<section class="stats-section"><h2>Items más valiosos</h2>';
         html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Producto</th><th>Colección</th><th>Tipo</th><th>Ud.</th><th>Precio ud.</th><th>Total</th></tr></thead><tbody>';
@@ -174,23 +187,6 @@ function renderStats(container, data) {
                 html += `<tr class="topProfMore" style="display:none"><td>${i + 6}</td><td><strong>${esc(item.product_number)}</strong> ${esc(item.product_name)}</td><td>${esc(item.collection_code)}</td><td>${esc(item.type)}</td><td>${item.quantity}</td><td>${formatEuro(item.unit_price)}</td><td>${formatEuro(item.current_price)}</td><td class="${cls}">${formatEuro(item.total_profit)}</td></tr>`;
             });
             html += `<tr><td colspan="8"><button class="stats-expand" onclick="toggleRows('topProfMore',this)">+${topProfit.length - 5} más</button></td></tr>`;
-        }
-        html += '</tbody></table></div></section>';
-    }
-
-    if (bestInv && bestInv.length) {
-        html += '<section class="stats-section"><h2>Mejores entidades de inversión</h2>';
-        html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Entidad</th><th>Items</th><th>Coste</th><th>Valor actual</th><th>Beneficio</th><th>%</th></tr></thead><tbody>';
-        bestInv.slice(0, 5).forEach((e, i) => {
-            const cls = e.profit >= 0 ? 'diff-pos' : 'diff-neg';
-            html += `<tr><td>${i + 1}</td><td><strong>${esc(e.name)}</strong></td><td>${e.items_count}</td><td>${formatEuro(e.acquisition_cost)}</td><td>${formatEuro(e.current_value)}</td><td class="${cls}">${formatEuro(e.profit)}</td><td class="${cls}">${e.profit_pct}%</td></tr>`;
-        });
-        if (bestInv.length > 5) {
-            bestInv.slice(5).forEach((e, i) => {
-                const cls = e.profit >= 0 ? 'diff-pos' : 'diff-neg';
-                html += `<tr class="bestInvMore" style="display:none"><td>${i + 6}</td><td><strong>${esc(e.name)}</strong></td><td>${e.items_count}</td><td>${formatEuro(e.acquisition_cost)}</td><td>${formatEuro(e.current_value)}</td><td class="${cls}">${formatEuro(e.profit)}</td><td class="${cls}">${e.profit_pct}%</td></tr>`;
-            });
-            html += `<tr><td colspan="7"><button class="stats-expand" onclick="toggleRows('bestInvMore',this)">+${bestInv.length - 5} más</button></td></tr>`;
         }
         html += '</tbody></table></div></section>';
     }

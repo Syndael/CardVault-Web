@@ -370,7 +370,7 @@ function manualIcon(isManual) {
 
     return `
         <span class="manual-badge" title="Manual" aria-label="Manual">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 3v10"></path>
                 <path d="M8 7v8"></path>
                 <path d="M16 7v6"></path>
@@ -386,7 +386,7 @@ function verifiedIcon(isVerified) {
     }
     return `
         <span class="verified-badge" title="Verificado" aria-label="Verificado">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
             </svg>
@@ -402,7 +402,7 @@ function imageCell(item) {
         // so updateProductImage can find and replace it when an image is added.
         return `
             <div class="thumb">
-                <svg class="thumb-placeholder" viewBox="0 0 24 24" aria-hidden="true">
+                <svg class="thumb-placeholder" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="3" y="3" width="18" height="18" rx="2"></rect>
                     <path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path>
                     <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -462,7 +462,7 @@ function itemCard(item) {
                     <span class="product-name" title="${escapeHtml(item.product_name || "-")}" data-product-id="${item.product_id}">
                         ${escapeHtml(item.product_name || "-")}
                     </span>
-                    ${item.tracker_url ? `<button class="tracker-button" data-tracker-url="${escapeHtml(item.tracker_url)}" title="Abrir precio" aria-label="Abrir precio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h12"></path><path d="M15 6l6 6-6 6"></path></svg></button>` : ''}
+                    ${item.tracker_url ? `<button class="tracker-button" data-tracker-url="${escapeHtml(item.tracker_url)}" title="Abrir precio" aria-label="Abrir precio"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h12"></path><path d="M15 6l6 6-6 6"></path></svg></button>` : ''}
                 </div>
             </div>
         </article>
@@ -955,15 +955,26 @@ async function loadProductDetails(productId) {
             const colName = (prod.collection && (prod.collection.name || prod.collection.code)) || '';
             const searchParts = [prodName, prod.product_number, colCode].filter(Boolean).join(' ');
             const searchQ = searchParts ? encodeURIComponent(searchParts) : '';
+            const invDisplay = `${escapeHtml(colCode)} ${escapeHtml(prod.product_number || '')}${prodName ? ' ' + escapeHtml(prodName) : ''}`;
+            const invCopy = `${colCode} ${prod.product_number || ''}${prodName ? ' ' + prodName : ''}`.replace(/'/g, "\\'");
             html += `<div class="detail-grid">
-                <div><strong>Producto:</strong> ${escapeHtml(prodName || prod.product_number || '-')}</div>
-                <div><strong>Número:</strong> ${escapeHtml(prod.product_number || '-')}</div>
-                <div><strong>Colección:</strong> ${escapeHtml(colName)} (${escapeHtml(colCode)})</div>
-                <div><strong>Force download:</strong> ${prod.force_download ? 'Sí' : 'No'}</div>
-                <div><strong>Verificado:</strong> <label class="checkbox-label"><input type="checkbox" class="verified-check" data-product-id="${prod.id}" ${prod.is_verified ? 'checked' : ''}></label></div>
-            </div>
-            <div class="detail-actions">
-                ${searchQ ? `<a class="google-search-btn" href="https://www.google.com/search?q=${searchQ}" target="_blank" rel="noopener" title="Buscar en Google">Buscar en Google</a>` : ''}
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+                <div style="padding-top:7px;overflow:hidden"><strong>Colección:</strong> ${escapeHtml(colName)} (${escapeHtml(colCode)})</div>
+                <div style="padding-top:7px;overflow:hidden"><strong>Número:</strong> ${escapeHtml(prod.product_number || '-')}</div>
+                <div style="padding-top:7px;overflow:hidden"><strong>Producto:</strong> ${escapeHtml(prodName || prod.product_number || '-')}</div>
+                <div style="text-align:right;overflow:hidden">
+                   <code style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;vertical-align:top" onclick="navigator.clipboard.writeText('${invCopy}')" title="Copiar">
+                    <span>${invDisplay}</span>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  </code>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:center;margin-top:6px">
+                <label class="checkbox-label" style="overflow:hidden"><strong>Forzar descarga:</strong> <input type="checkbox" class="force-download-check" data-product-id="${prod.id}" ${prod.force_download ? 'checked' : ''}></label>
+                <label class="checkbox-label" style="overflow:hidden"><strong>Verificado:</strong> <input type="checkbox" class="verified-check" data-product-id="${prod.id}" ${prod.is_verified ? 'checked' : ''}></label>
+                <label class="checkbox-label" style="overflow:hidden"><strong>Manual:</strong> <input type="checkbox" class="manual-check" data-product-id="${prod.id}" ${prod.is_manual ? 'checked' : ''}></label>
+                ${searchQ ? `<button type="button" class="btn-google-search" style="overflow:hidden" onclick="window.open('https://www.google.com/search?q=${searchQ}', '_blank', 'noopener')" title="Buscar en Google">Buscar en Google</button>` : `<span style="overflow:hidden"></span>`}
+              </div>
             </div>`;
         }
 
@@ -1029,19 +1040,65 @@ async function loadProductDetails(productId) {
 
         modalDetail.innerHTML = html;
 
-        // Check verificado - autoguardado al toggle
-        const verifiedCheck = modalDetail.querySelector('.verified-check');
-        if (verifiedCheck) {
-            verifiedCheck.addEventListener('change', async function () {
+        (function addDigimonUrls() {
+            const existing = document.getElementById('digimonUrls');
+            if (existing) existing.remove();
+            if (!prod || !prod.product_type || prod.product_type.short_name !== 'DIG') return;
+            const digiSetCode = (prod.collection && prod.collection.code) || '';
+            const digiPnum = prod.product_number || '';
+            const isJp = /jp$/i.test(digiPnum);
+            const rawPnum = isJp ? digiPnum.replace(/jp$/i, '') : digiPnum;
+            const cardId = digiSetCode + '-' + rawPnum;
+            const bandaiBase = 'https://s3.amazonaws.com/prod.bandaitcgplus.files.api/card_image/DG-EN/' + digiSetCode + '/';
+
+            function link(url) {
+                return '<span class="digi-url-wrap"><a href="' + url + '" target="_blank" rel="noopener">' + url + '</a><span class="digi-preview"><img src="' + url + '" alt="" loading="lazy" onerror="this.parentElement.style.display=\'none\'"></span></span>';
+            }
+
+            let dh = '<div id="digimonUrls"><h3 style="margin-top:12px">Posibles URLs de imagen <span style="font-size:11px;color:var(--muted)">(Digimon)</span></h3>';
+            dh += '<div class="digimon-urls" style="font-size:12px;word-break:break-all;line-height:1.8;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px">';
+
+            dh += '<div><strong>world.digimoncard.com:</strong><br>' + link('https://world.digimoncard.com/images/cardlist/card/' + cardId + '.png') + '</div>';
+
+            dh += '<div style="margin-top:6px"><strong>Bandai S3 (Amazon):</strong><br>';
+            const bFmts = [cardId, cardId + '_dummy', 'e_' + cardId + '_dummy', 'e_' + cardId + '_D', 'e_' + cardId + '_D_sam'];
+            for (let j = 0; j < bFmts.length; j++) {
+                dh += link(bandaiBase + bFmts[j] + '.png') + '<br>';
+            }
+            if (rawPnum.indexOf('_P') !== -1) {
+                const stdId = rawPnum.split('_P')[0];
+                const pFmts = ['e_' + stdId + 'p_D', 'e_' + stdId + 'P_D_sam', stdId + 'P_dummy', stdId + 'P'];
+                for (let k = 0; k < pFmts.length; k++) {
+                    dh += link(bandaiBase + pFmts[k] + '.png') + '<br>';
+                }
+            }
+            dh += '</div>';
+
+            dh += '<div style="margin-top:6px"><strong>digimoncard.com (JP):</strong><br>' + link('https://digimoncard.com/images/cardlist/card/' + cardId + '.png') + '</div>';
+
+            dh += '<div style="margin-top:6px"><strong>digimoncard.io:</strong><br>' + link('https://images.digimoncard.io/images/cards/' + cardId + '.jpg') + '</div>';
+
+            dh += '</div></div>';
+            const form = document.getElementById('productForm');
+            if (form) form.insertAdjacentHTML('afterend', dh);
+        })();
+
+        // Checkboxes autoguardado
+        modalDetail.querySelectorAll('.force-download-check, .verified-check, .manual-check').forEach(cb => {
+            cb.addEventListener('change', async function () {
                 const pid = this.dataset.productId;
                 const checked = this.checked;
+                let field;
+                if (this.classList.contains('force-download-check')) field = 'force_download';
+                else if (this.classList.contains('verified-check')) field = 'is_verified';
+                else if (this.classList.contains('manual-check')) field = 'is_manual';
                 const resp = await apiFetch(apiUrl(`products/${pid}`), {
                     method: 'PATCH', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({is_verified: checked})
+                    body: JSON.stringify({[field]: checked})
                 });
-                if (!resp.ok) { this.checked = !checked; alert('Error al actualizar verificado'); }
+                if (!resp.ok) { this.checked = !checked; alert('Error al actualizar ' + field); }
             });
-        }
+        });
 
         // Botones borrar fichero
         modalDetail.querySelectorAll('.btn-delete-file').forEach(btn => {

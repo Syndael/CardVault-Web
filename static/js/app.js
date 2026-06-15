@@ -59,8 +59,9 @@ async function loadCurrentUser() {
         }
         const user = await resp.json();
         currentUserRoles = user.roles || [];
-        el.innerHTML = `<span id="userDisplay">${esc(user.display_name || user.username)}</span> <button id="logoutButton">Cerrar sesi\u00f3n</button>`;
+        el.innerHTML = `<span id="userDisplay">${esc(user.display_name || user.username)}</span> <button id="profileButton" title="Configuraci\u00f3n"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button> <button id="logoutButton">Cerrar sesi\u00f3n</button>`;
         document.getElementById('logoutButton').addEventListener('click', logout);
+        document.getElementById('profileButton').addEventListener('click', showUserProfile);
         appStarted = true;
         applyRoleUI();
     const validRoles = ['product_read', 'product_write', 'inventory_manage', 'collection_read', 'collection_write', 'scheduled_task_read', 'scheduled_task_write', 'admin'];
@@ -240,7 +241,44 @@ function loadTab(tab) {
     else if (tab === 'inventory') loadInventory({reset: true});
     else if (tab === 'scheduledTasks') loadScheduledTasks({reset: true});
     else if (tab === 'statistics') loadStatisticsTab();
+    else if (tab === 'wishlist') loadWishlist({reset: true});
     else loadPurchases({reset: true});
+}
+
+function showModal(id) {
+    const m = document.getElementById(id);
+    if (!m) return;
+    m.hidden = false;
+    document.body.style.overflow = 'hidden';
+}
+
+function hideModal(id) {
+    const m = document.getElementById(id);
+    if (!m) return;
+    m.hidden = true;
+    document.body.style.overflow = '';
+}
+
+async function loadSelectOptions(select, url, labelKey, valueKey, emptyLabel) {
+    try {
+        const resp = await apiFetch(url);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        select.innerHTML = '';
+        if (emptyLabel) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = emptyLabel;
+            select.appendChild(opt);
+        }
+        const items = Array.isArray(data) ? data : (data.items || data);
+        items.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item[valueKey];
+            opt.textContent = item[labelKey];
+            select.appendChild(opt);
+        });
+    } catch (e) { console.error(e); }
 }
 
 // ==================== PRODUCT CATALOG ====================
@@ -263,18 +301,18 @@ let resizeTimer = null;
 
 function manualIcon(isManual) {
     if (!isManual) return "";
-    return `<span class="manual-badge" title="Manual" aria-label="Manual"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10"></path><path d="M8 7v8"></path><path d="M16 7v6"></path><path d="M5 12v3a7 7 0 0 0 14 0v-4"></path></svg></span>`;
+    return `<span class="manual-badge" title="Manual" aria-label="Manual"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v10"></path><path d="M8 7v8"></path><path d="M16 7v6"></path><path d="M5 12v3a7 7 0 0 0 14 0v-4"></path></svg></span>`;
 }
 
 function verifiedIcon(isVerified) {
     if (!isVerified) return "";
-    return `<span class="verified-badge" title="Verificado" aria-label="Verificado"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></span>`;
+    return `<span class="verified-badge" title="Verificado" aria-label="Verificado"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></span>`;
 }
 
 function imageCell(item) {
     const placeholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
     if (!item.image_url) {
-        return `<div class="thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg><img class="product-thumb-img" src="${placeholder}" data-product-id="${item.product_id}" data-product-name="${esc(item.product_name || "")}" alt="" style="display:none"></div>`;
+        return `<div class="thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg><img class="product-thumb-img" src="${placeholder}" data-product-id="${item.product_id}" data-product-name="${esc(item.product_name || "")}" alt="" style="display:none"></div>`;
     }
     const baseUrl = assetUrl(item.image_url);
     const sep = baseUrl.includes('?') ? '&' : '?';
@@ -285,7 +323,7 @@ function imageCell(item) {
 }
 
 function itemCard(item) {
-    return `<article class="product-card"><div class="thumb-wrap">${imageCell(item)}${verifiedIcon(item.is_verified)}</div><div class="card-body"><div class="collection-line" style="grid-template-columns:auto auto 1fr auto"><span class="code">${esc(item.collection_code)}</span>${manualIcon(item.collection_is_manual)}<span class="collection-name" title="${esc(item.collection_name || "-")}">${esc(item.collection_name || "-")}</span><button type="button" class="btn-delete-prod" data-product-id="${item.product_id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;justify-self:end">&times;</button></div><div class="product-line"><span class="number">${esc(item.product_number || "-")}</span><span class="product-name" title="${esc(item.product_name || "-")}" data-product-id="${item.product_id}">${esc(item.product_name || "-")}</span>${manualIcon(item.product_is_manual)}${item.tracker_url ? `<button class="tracker-button" data-tracker-url="${esc(item.tracker_url)}" title="Abrir precio" aria-label="Abrir precio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h12"></path><path d="M15 6l6 6-6 6"></path></svg></button>` : ''}</div></div></article>`;
+    return `<article class="product-card"><div class="thumb-wrap">${imageCell(item)}${verifiedIcon(item.is_verified)}</div><div class="card-body"><div class="collection-line" style="grid-template-columns:auto auto 1fr auto"><span class="code">${esc(item.collection_code)}</span>${manualIcon(item.collection_is_manual)}<span class="collection-name" title="${esc(item.collection_name || "-")}">${esc(item.collection_name || "-")}</span><button type="button" class="btn-delete-prod" data-product-id="${item.product_id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;justify-self:end">&times;</button></div><div class="product-line"><span class="number">${esc(item.product_number || "-")}</span><span class="product-name" title="${esc(item.product_name || "-")}" data-product-id="${item.product_id}">${esc(item.product_name || "-")}</span>${manualIcon(item.product_is_manual)}${item.tracker_url ? `<button class="tracker-button" data-tracker-url="${esc(item.tracker_url)}" title="Abrir precio" aria-label="Abrir precio"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h12"></path><path d="M15 6l6 6-6 6"></path></svg></button>` : ''}</div></div></article>`;
 }
 
 function appendItems(items) {
@@ -604,8 +642,27 @@ async function loadProductDetails(productId) {
             const colName = (prod.collection && (prod.collection.name || prod.collection.code)) || '';
             const searchParts = [prodName, prod.product_number, colCode].filter(Boolean).join(' ');
             const searchQ = searchParts ? encodeURIComponent(searchParts) : '';
-            html += `<div class="detail-grid"><div><strong>Producto:</strong> ${esc(prodName || prod.product_number || '-')}</div><div><strong>N\u00famero:</strong> ${esc(prod.product_number || '-')}</div><div><strong>Colecci\u00f3n:</strong> ${esc(colName)} (${esc(colCode)})</div><div><label class="checkbox-label"><strong>Forzar descarga:</strong> <input type="checkbox" class="force-download-check" data-product-id="${prod.id}" ${prod.force_download ? 'checked' : ''}></label></div><div><label class="checkbox-label"><strong>Verificado:</strong> <input type="checkbox" class="verified-check" data-product-id="${prod.id}" ${prod.is_verified ? 'checked' : ''}></label></div><div><label class="checkbox-label"><strong>Manual:</strong> <input type="checkbox" class="manual-check" data-product-id="${prod.id}" ${prod.is_manual ? 'checked' : ''}></label></div></div>`;
-            html += searchQ ? `<div class="detail-actions"><a class="google-search-btn" href="https://www.google.com/search?q=${searchQ}" target="_blank" rel="noopener" title="Buscar en Google">Buscar en Google</a></div>` : '';
+            const invDisplay = `${esc(colCode)} ${esc(prod.product_number || '')}${prodName ? ' ' + esc(prodName) : ''}`;
+            const invCopy = `${colCode} ${prod.product_number || ''}${prodName ? ' ' + prodName : ''}`.replace(/'/g, "\\'");
+            html += `<div class="detail-grid">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+                <div style="padding-top:7px;overflow:hidden"><strong>Colecci\u00f3n:</strong> ${esc(colName)} (${esc(colCode)})</div>
+                <div style="padding-top:7px;overflow:hidden"><strong>N\u00famero:</strong> ${esc(prod.product_number || '-')}</div>
+                <div style="padding-top:7px;overflow:hidden"><strong>Producto:</strong> ${esc(prodName || prod.product_number || '-')}</div>
+                <div style="text-align:right;overflow:hidden">
+                   <code style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;vertical-align:top" onclick="navigator.clipboard.writeText('${invCopy}')" title="Copiar">
+                    <span>${invDisplay}</span>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  </code>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:center;margin-top:6px">
+                <label class="checkbox-label" style="overflow:hidden"><strong>Forzar descarga:</strong> <input type="checkbox" class="force-download-check" data-product-id="${prod.id}" ${prod.force_download ? 'checked' : ''}></label>
+                <label class="checkbox-label" style="overflow:hidden"><strong>Verificado:</strong> <input type="checkbox" class="verified-check" data-product-id="${prod.id}" ${prod.is_verified ? 'checked' : ''}></label>
+                <label class="checkbox-label" style="overflow:hidden"><strong>Manual:</strong> <input type="checkbox" class="manual-check" data-product-id="${prod.id}" ${prod.is_manual ? 'checked' : ''}></label>
+                ${searchQ ? `<button type="button" class="btn-google-search" style="overflow:hidden" onclick="window.open('https://www.google.com/search?q=${searchQ}', '_blank', 'noopener')" title="Buscar en Google">Buscar en Google</button>` : `<span style="overflow:hidden"></span>`}
+              </div>
+            </div>`;
         }
         html += `<h3>Traducciones (${translations.length})</h3><div class="trans-list" id="transList">`;
         if (translations.length === 0) html += '<div class="empty-state">Sin traducciones</div>';
@@ -637,6 +694,49 @@ async function loadProductDetails(productId) {
         }
         html += '</ul>';
         modalDetail.innerHTML = html;
+
+        (function addDigimonUrls() {
+            const existing = document.getElementById('digimonUrls');
+            if (existing) existing.remove();
+            if (!prod || !prod.product_type || prod.product_type.short_name !== 'DIG') return;
+            const digiSetCode = (prod.collection && prod.collection.code) || '';
+            const digiPnum = prod.product_number || '';
+            const isJp = /jp$/i.test(digiPnum);
+            const rawPnum = isJp ? digiPnum.replace(/jp$/i, '') : digiPnum;
+            const cardId = digiSetCode + '-' + rawPnum;
+            const bandaiBase = 'https://s3.amazonaws.com/prod.bandaitcgplus.files.api/card_image/DG-EN/' + digiSetCode + '/';
+
+            function link(url) {
+                return '<span class="digi-url-wrap"><a href="' + url + '" target="_blank" rel="noopener">' + url + '</a><span class="digi-preview"><img src="' + url + '" alt="" loading="lazy" onerror="this.parentElement.style.display=\'none\'"></span></span>';
+            }
+
+            let dh = '<div id="digimonUrls"><h3 style="margin-top:12px">Posibles URLs de imagen <span style="font-size:11px;color:var(--muted)">(Digimon)</span></h3>';
+            dh += '<div class="digimon-urls" style="font-size:12px;word-break:break-all;line-height:1.8;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px">';
+
+            dh += '<div><strong>world.digimoncard.com:</strong><br>' + link('https://world.digimoncard.com/images/cardlist/card/' + cardId + '.png') + '</div>';
+
+            dh += '<div style="margin-top:6px"><strong>Bandai S3 (Amazon):</strong><br>';
+            const bFmts = [cardId, cardId + '_dummy', 'e_' + cardId + '_dummy', 'e_' + cardId + '_D', 'e_' + cardId + '_D_sam'];
+            for (let j = 0; j < bFmts.length; j++) {
+                dh += link(bandaiBase + bFmts[j] + '.png') + '<br>';
+            }
+            if (rawPnum.indexOf('_P') !== -1) {
+                const stdId = rawPnum.split('_P')[0];
+                const pFmts = ['e_' + stdId + 'p_D', 'e_' + stdId + 'P_D_sam', stdId + 'P_dummy', stdId + 'P'];
+                for (let k = 0; k < pFmts.length; k++) {
+                    dh += link(bandaiBase + pFmts[k] + '.png') + '<br>';
+                }
+            }
+            dh += '</div>';
+
+            dh += '<div style="margin-top:6px"><strong>digimoncard.com (JP):</strong><br>' + link('https://digimoncard.com/images/cardlist/card/' + cardId + '.png') + '</div>';
+
+            dh += '<div style="margin-top:6px"><strong>digimoncard.io:</strong><br>' + link('https://images.digimoncard.io/images/cards/' + cardId + '.jpg') + '</div>';
+
+            dh += '</div></div>';
+            const form = document.getElementById('productForm');
+            if (form) form.insertAdjacentHTML('afterend', dh);
+        })();
 
         const verifiedCheck = modalDetail.querySelector('.verified-check');
         if (verifiedCheck) {
@@ -794,7 +894,11 @@ const createForm = document.getElementById('createProductForm');
 const createCancel = document.getElementById('createCancel');
 const newColCode = document.getElementById('newColCode');
 const newProductNumber = document.getElementById('newProductNumber');
+const newProductName = document.getElementById('newProductName');
+const newForceDownload = document.getElementById('newForceDownload');
 const newIsManual = document.getElementById('newIsManual');
+const newIsVerified = document.getElementById('newIsVerified');
+const createSearchBtn = document.getElementById('createSearchBtn');
 const colSuggestions = document.getElementById('colSuggestions');
 
 const addProductBtn = document.getElementById('addProductBtn');
@@ -852,7 +956,11 @@ function closeCreateModal() {
 
 function openCreateModal() {
     newColCode.value = ''; delete newColCode.dataset.collectionId; delete newColCode.dataset.isManual;
-    newProductNumber.value = ''; newIsManual.checked = true;
+    newProductNumber.value = ''; if (newProductName) newProductName.value = '';
+    if (newForceDownload) newForceDownload.checked = false;
+    if (newIsVerified) newIsVerified.checked = false;
+    newIsManual.checked = true;
+    if (createSearchBtn) createSearchBtn.style.display = 'none';
     closeColSuggestions();
     const preview = document.getElementById('cardPreview');
     if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
@@ -866,6 +974,7 @@ if (newColCode) {
     newColCode.addEventListener('input', () => {
         clearTimeout(colSearchTimeout);
         delete newColCode.dataset.collectionId; delete newColCode.dataset.isManual;
+        if (createSearchBtn) createSearchBtn.style.display = 'none';
         const preview = document.getElementById('cardPreview');
         if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
         const q = newColCode.value.trim();
@@ -960,10 +1069,20 @@ async function checkCardInApi(collectionCode, productNumber) {
             html += '<div><span style="color:var(--red)">Sin imagen</span></div>';
         }
         preview.innerHTML = html;
+        if (name && newProductName) newProductName.value = name;
     } catch (e) {
         console.error(e);
         preview.innerHTML = '<span style="color:var(--red)">Error al consultar API</span>';
     }
+}
+
+function updateCreateSearchBtn() {
+    if (!createSearchBtn) return;
+    const code = newColCode ? newColCode.value.trim() : '';
+    const num = newProductNumber ? newProductNumber.value.trim() : '';
+    const hasCol = newColCode && newColCode.dataset.collectionId;
+    const isManual = newColCode && newColCode.dataset.isManual === 'true';
+    createSearchBtn.style.display = (code && num && hasCol && !isManual) ? '' : 'none';
 }
 
 if (newProductNumber) {
@@ -971,12 +1090,21 @@ if (newProductNumber) {
         clearTimeout(prodNumCheckTimeout);
         const preview = document.getElementById('cardPreview');
         if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+        updateCreateSearchBtn();
         const num = newProductNumber.value.trim();
         const code = newColCode ? newColCode.value.trim() : '';
         if (!num || !code) return;
         const isManual = newColCode && newColCode.dataset.isManual === 'true';
         if (isManual) return;
         prodNumCheckTimeout = setTimeout(() => checkCardInApi(code, num), 500);
+    });
+}
+
+if (createSearchBtn) {
+    createSearchBtn.addEventListener('click', () => {
+        const code = newColCode ? newColCode.value.trim() : '';
+        const num = newProductNumber ? newProductNumber.value.trim() : '';
+        if (code && num) checkCardInApi(code, num);
     });
 }
 
@@ -1013,6 +1141,7 @@ function showColSuggestions(items) {
             newColCode.dataset.isManual = el.dataset.isManual;
             newColCode.dataset.cardType = el.dataset.cardType;
             closeColSuggestions();
+            updateCreateSearchBtn();
             if (newProductNumber && newProductNumber.value.trim()) {
                 clearTimeout(prodNumCheckTimeout);
                 const num = newProductNumber.value.trim();
@@ -1032,6 +1161,7 @@ if (createForm) {
         ev.preventDefault();
         const code = newColCode.value.trim();
         const productNumber = newProductNumber.value.trim();
+        const forceDownload = newForceDownload ? newForceDownload.checked : false;
         const isManual = newIsManual.checked;
         if (!code) { alert('El c\u00f3digo de colecci\u00f3n es obligatorio'); return; }
         const btn = createForm.querySelector('button[type="submit"]');
@@ -1047,7 +1177,14 @@ if (createForm) {
             if (!cardTypeId) { alert('La colecci\u00f3n no tiene tipo de carta'); btn.disabled = false; btn.textContent = 'Crear producto'; return; }
             const prodResp = await apiFetch(apiUrl('products'), {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({collection_id: collectionId, product_type_id: parseInt(cardTypeId), ...(productNumber ? {product_number: productNumber} : {}), is_manual: isManual})
+                body: JSON.stringify({
+                    collection_id: collectionId,
+                    product_type_id: parseInt(cardTypeId),
+                    ...(productNumber ? {product_number: productNumber} : {}),
+                    force_download: forceDownload,
+                    is_verified: newIsVerified ? newIsVerified.checked : false,
+                    is_manual: isManual
+                })
             });
             if (!prodResp.ok) { const t = await prodResp.text().catch(()=>null); alert('Error al crear producto: ' + prodResp.status + ' ' + (t||'')); return; }
             closeCreateModal();
@@ -1146,7 +1283,7 @@ function renderEntryTagBadge(tag, invId) {
 function invImageCell(url) {
     const placeholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
     if (!url) {
-        return `<div class="inv-img-thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg></div>`;
+        return `<div class="inv-img-thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg></div>`;
     }
     const imgUrl = assetUrl(url);
     const sep = imgUrl.includes('?') ? '&' : '?';
@@ -1342,7 +1479,7 @@ async function openEntryModal(invId) {
                 const searchParts = [prodName, prod.product_number, col.code].filter(Boolean).join(' ');
                 const searchQ = searchParts ? encodeURIComponent(searchParts) : '';
                 const gs = document.getElementById('entryGoogleSearch');
-                if (gs) gs.innerHTML = searchQ ? `<a class="google-search-btn" href="https://www.google.com/search?q=${searchQ}" target="_blank" rel="noopener" title="Buscar en Google">Buscar en Google</a>` : '';
+                if (gs) gs.innerHTML = searchQ ? `<button type="button" class="btn-google-search" onclick="window.open('https://www.google.com/search?q=${searchQ}', '_blank', 'noopener')" title="Buscar en Google">Buscar en Google</button>` : '';
                 // Price trackers
                 const trackersContainer = document.getElementById('entryTrackers');
                 if (trackersContainer && prod.id) {
@@ -1854,6 +1991,8 @@ let addInvSelectedPurchaseItemId = null;
 async function openAddInvModal() {
     document.getElementById('addInvProduct').value = '';
     delete document.getElementById('addInvProduct').dataset.productId;
+    document.getElementById('addInvProductSearch').style.display = '';
+    document.getElementById('addInvProductSection').style.display = 'none';
     document.getElementById('addInvQty').value = '1';
     document.getElementById('addInvPurchase').value = '';
     addInvSelectedPurchaseId = null;
@@ -1926,11 +2065,15 @@ function showAddInvSuggestions(items) {
     addInvSuggestions.style.left = (rect.left + window.scrollX) + 'px';
     addInvSuggestions.style.width = rect.width + 'px';
     addInvSuggestions.innerHTML = items.map(item =>
-        `<div class="suggestion-item" data-id="${item.product_id}" data-name="${esc(item.collection_code || '')} ${esc(item.product_number || '')}" data-collection="${esc(item.collection_code || '')}"><span style="color:var(--muted)">(${esc(item.collection_code || '-')} ${esc(item.product_number || '-')})</span> ${esc(item.product_name || '')}</div>`
+        `<div class="suggestion-item" data-id="${item.product_id}" data-name="${esc(item.collection_code || '')} ${esc(item.product_number || '')}" data-collection="${esc(item.collection_code || '')}" data-number="${esc(item.product_number || '')}" data-productname="${esc(item.product_name || '')}"><span style="color:var(--muted)">(${esc(item.collection_code || '-')} ${esc(item.product_number || '-')})</span> ${esc(item.product_name || '')}</div>`
     ).join('');
     addInvSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
         el.addEventListener('click', () => {
-            addInvProductInput.value = el.dataset.name || el.textContent;
+            const colCode = el.dataset.collection || '';
+            const num = el.dataset.number || '';
+            const prodName = el.dataset.productname || '';
+            const parts = [colCode, num, prodName].filter(Boolean);
+            addInvProductInput.value = parts.join(' ');
             addInvProductInput.dataset.productId = el.dataset.id;
             closeAddInvSuggestions();
         });
@@ -2503,7 +2646,7 @@ function renderScheduledRow(item) {
         <td>${startedAt}</td>
         <td>${finishedAt}</td>
         <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(output)}">${esc(output)}</td>
-        <td style="text-align:center"><button type="button" class="btn-delete-scheduled" data-exec-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
+        <td style="text-align:center"><button type="button" class="btn-delete-scheduled" data-exec-id="${item.id}" title="Eliminar" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
     </tr>`;
 }
 
@@ -2638,7 +2781,7 @@ function renderColRow(item) {
     const cardType = item.card_type ? (item.card_type.name + (item.card_type.short_name ? ' (' + item.card_type.short_name + ')' : '')) : '-';
     const manual = item.is_manual ? '\u2713' : '';
     const releaseDate = item.release_date ? item.release_date.slice(0, 10) : '-';
-    const forceDl = item.force_url ? (item.force_download ? '\u26A1' : '\u2139\uFE0F') : '';
+    const forceDl = item.force_url ? (item.force_download ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>') : '';
     const displayName = formatName(item.name, item.name_alter) || '-';
     return `<tr class="clickable-row" data-col-id="${item.id}">
         <td><strong>${esc(item.code)}</strong></td>
@@ -2647,7 +2790,7 @@ function renderColRow(item) {
         <td>${manual}</td>
         <td>${releaseDate}</td>
         <td style="text-align:center;font-size:16px" title="${item.force_url ? (item.force_download ? 'Descarga forzada pendiente' : 'URL asignada') : ''}">${forceDl}</td>
-        <td style="text-align:center"><button type="button" class="btn-delete-col" data-col-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
+        <td style="text-align:center"><button type="button" class="btn-delete-col" data-col-id="${item.id}" title="Eliminar" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
     </tr>`;
 }
 
@@ -3494,3 +3637,15 @@ document.getElementById('addInvPurchaseItem').addEventListener('change', functio
 
 // Initialize
 updateAuthUI();
+
+// Scroll-to-top button
+(function() {
+    const btn = document.getElementById('scrollToTopBtn');
+    if (!btn) return;
+    window.addEventListener('scroll', () => {
+        btn.classList.toggle('visible', window.scrollY > 300);
+    }, { passive: true });
+    btn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+})();

@@ -333,7 +333,7 @@ function renderInvRow(item) {
 function invImageCell(url) {
     const placeholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
     if (!url) {
-        return `<div class="inv-img-thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg></div>`;
+        return `<div class="inv-img-thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg></div>`;
     }
     const imgUrl = assetUrl(url);
     const sep = imgUrl.includes('?') ? '&' : '?';
@@ -470,7 +470,9 @@ async function openEntryModal(invId) {
                 const prodNameFmt = getFormattedProductName(prod.translations, lang.id);
                 const codeNum = esc(col.code || '-') + (prod.product_number ? ' ' + esc(prod.product_number) : '');
                 document.getElementById('entryCollectionDisplay').textContent = esc(col.code || col.name || '-');
-                document.getElementById('entryProductDisplay').innerHTML = `<span style="color:var(--muted)">(${codeNum})</span> ${prodNameFmt ? `<strong>${prodNameFmt}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>'}`;
+                document.getElementById('entryProductDisplay').innerHTML = (codeNum !== '-')
+                    ? '<span style="color:var(--muted)">' + codeNum + '</span>' + (prodNameFmt ? ' <strong>' + prodNameFmt + '</strong>' : '')
+                    : (prodNameFmt ? '<strong>' + prodNameFmt + '</strong>' : '<em style="color:var(--muted)">(sin nombre)</em>');
                 const ctShort = prod.product_type ? (prod.product_type.short_name || '') : (item.extra_type ? (item.extra_type.short_name || '') : '');
                 const lAbbr = lang.abbreviation || '';
                 const cName = (prodName || 'unknown').replace(/[^a-zA-Z0-9\u00C0-\u024F\s-]/g, '').trim().replace(/\s+/g, '_').substring(0, 40);
@@ -479,7 +481,7 @@ async function openEntryModal(invId) {
                 const searchParts = [prodName, prod.product_number, col.code].filter(Boolean).join(' ');
                 const searchQ = searchParts ? encodeURIComponent(searchParts) : '';
                 const gs = document.getElementById('entryGoogleSearch');
-                if (gs) gs.innerHTML = searchQ ? `<a class="google-search-btn" href="https://www.google.com/search?q=${searchQ}" target="_blank" rel="noopener" title="Buscar en Google">Buscar en Google</a>` : '';
+                if (gs) gs.innerHTML = searchQ ? `<button type="button" class="btn-google-search" onclick="window.open('https://www.google.com/search?q=${searchQ}', '_blank', 'noopener')" title="Buscar en Google">Buscar en Google</button>` : '';
                 // Price trackers
                 const trackersContainer = document.getElementById('entryTrackers');
                 if (trackersContainer && prod.id) {
@@ -646,6 +648,8 @@ async function loadPurchaseItems(purchaseId, selectEl, priceDisplayId, priceValu
 async function openAddInvModal() {
     document.getElementById('addInvProduct').value = '';
     delete document.getElementById('addInvProduct').dataset.productId;
+    document.getElementById('addInvProductSearch').style.display = '';
+    document.getElementById('addInvProductSection').style.display = 'none';
     document.getElementById('addInvQty').value = '1';
     document.getElementById('addInvPurchase').value = '';
     addInvSelectedPurchaseId = null;
@@ -913,11 +917,15 @@ function showAddInvSuggestions(items) {
     addInvSuggestions.style.left = (rect.left + window.scrollX) + 'px';
     addInvSuggestions.style.width = rect.width + 'px';
     addInvSuggestions.innerHTML = items.map(item =>
-        `<div class="suggestion-item" data-id="${item.product_id}" data-name="${esc(item.collection_code || '')} ${esc(item.product_number || '')}" data-collection="${esc(item.collection_code || '')}"><span style="color:var(--muted)">(${esc(item.collection_code || '-')} ${esc(item.product_number || '-')})</span> ${esc(item.product_name || '')}</div>`
+        `<div class="suggestion-item" data-id="${item.product_id}" data-name="${esc(item.collection_code || '')} ${esc(item.product_number || '')}" data-collection="${esc(item.collection_code || '')}" data-number="${esc(item.product_number || '')}" data-productname="${esc(item.product_name || '')}"><span style="color:var(--muted)">(${esc(item.collection_code || '-')} ${esc(item.product_number || '-')})</span> ${esc(item.product_name || '')}</div>`
     ).join('');
     addInvSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
         el.addEventListener('click', () => {
-            addInvProductInput.value = el.dataset.name || el.textContent;
+            const colCode = el.dataset.collection || '';
+            const num = el.dataset.number || '';
+            const prodName = el.dataset.productname || '';
+            const parts = [colCode, num, prodName].filter(Boolean);
+            addInvProductInput.value = parts.join(' ');
             addInvProductInput.dataset.productId = el.dataset.id;
             closeAddInvSuggestions();
         });

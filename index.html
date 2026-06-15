@@ -19,7 +19,7 @@
                 <div class="search-row">
                     <input id="searchInput" name="q" type="search" autocomplete="off" placeholder="Código, colección o producto">
                     <button type="submit" aria-label="Buscar">
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="m21 21-4.3-4.3"></path>
                             <circle cx="11" cy="11" r="7"></circle>
                         </svg>
@@ -33,8 +33,9 @@
             <button class="tab" data-tab="products">Productos</button>
             <button class="tab active" data-tab="inventory">Inventario</button>
             <button class="tab" data-tab="purchases">Compras</button>
-            <button class="tab" data-tab="scheduledTasks">Tareas</button>
+            <button class="tab" data-tab="wishlist">Wishlist</button>
             <button class="tab" data-tab="statistics">Estadísticas</button>
+            <button class="tab" data-tab="scheduledTasks">Tareas</button>
         </nav>
 
         <!-- Products tab -->
@@ -173,6 +174,12 @@
                 </div>
                 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
                     <label class="filter-check">
+                        Tipo
+                        <select id="invFilterType" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">Todos</option>
+                        </select>
+                    </label>
+                    <label class="filter-check">
                         Código colección
                         <input id="invFilterColCode" type="text" placeholder="swsh12..." style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
                     </label>
@@ -185,32 +192,26 @@
                         <input id="invFilterName" type="text" placeholder="Nombre..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
                     </label>
                     <label class="filter-check">
-                        Tipo
-                        <select id="invFilterType" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                        Sellado
+                        <select id="invFilterSealed" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
                             <option value="">Todos</option>
+                            <option value="1">Sí</option>
+                            <option value="0">No</option>
                         </select>
                     </label>
-            <label class="filter-check">
-                Tag
-                <input id="invFilterTag" type="text" placeholder="tag1, tag2..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-            </label>
-            <label class="filter-check">
-                Sellado
-                <select id="invFilterSealed" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                    <option value="">Todos</option>
-                    <option value="1">Sí</option>
-                    <option value="0">No</option>
-                </select>
-            </label>
-            <label class="filter-check">
-                Publicado IG
-                <select id="invFilterIg" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                    <option value="">Todos</option>
-                    <option value="1">Sí</option>
-                    <option value="0">No</option>
-                </select>
-            </label>
-        </div>
+                    <label class="filter-check">
+                        Publicado IG
+                        <select id="invFilterIg" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">Todos</option>
+                            <option value="1">Sí</option>
+                            <option value="0">No</option>
+                        </select>
+                    </label>
+                    <label class="filter-check">
+                        Tag
+                        <input id="invFilterTag" type="text" placeholder="tag1, tag2..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </label>
+                </div>
                 <div style="display:flex;justify-content:space-between;align-items:center">
                     <div style="display:flex;gap:8px;align-items:center">
                         <label id="showAllLabel" style="display:none;font-size:13px;cursor:pointer">
@@ -330,6 +331,87 @@
             <div id="statsContainer"></div>
         </section>
 
+        <!-- Wishlist tab -->
+        <section class="tab-content" id="tabWishlist">
+            <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
+                <div class="density-note">
+                    <span id="wishlistSummary">Cargando...</span>
+                </div>
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                    <label class="filter-check">
+                        Tipo
+                        <select id="wlFilterType" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">Todos</option>
+                        </select>
+                    </label>
+                    <label class="filter-check">
+                        Código colección
+                        <input id="wlFilterColCode" type="text" placeholder="swsh12..." style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </label>
+                    <label class="filter-check">
+                        Número carta
+                        <input id="wlFilterNumber" type="text" placeholder="001..." style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </label>
+                    <label class="filter-check">
+                        Nombre
+                        <input id="wlFilterName" type="text" placeholder="Nombre..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </label>
+                    <label class="filter-check">
+                        Idioma
+                        <select id="wlFilterLang" style="width:150px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">Todos</option>
+                        </select>
+                    </label>
+                    <label class="filter-check">
+                        Estado fisico
+                        <select id="wlFilterCondition" style="width:150px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">Todos</option>
+                        </select>
+                    </label>
+                    <label class="filter-check">
+                        Estado wishlist
+                        <select id="wlFilterWState" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">Todos</option>
+                        </select>
+                    </label>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <div class="view-toggle" style="display:flex;gap:2px;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+                            <button type="button" class="wl-view-btn active" data-view="list" title="Vista lista" style="padding:4px 8px;border:none;background:var(--card-bg);cursor:pointer;font-size:13px">☰</button>
+                            <button type="button" class="wl-view-btn" data-view="cards-sm" title="Vista tarjetas pequeñas" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▦</button>
+                            <button type="button" class="wl-view-btn" data-view="cards-lg" title="Vista tarjetas grandes" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▣</button>
+                        </div>
+                    </div>
+                    <button id="addWishlistBtn" class="btn-primary">+ Añadir a wishlist</button>
+                </div>
+            </div>
+            <div class="table-wrap" id="wlTableView">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="inv-img-header">Prod</th>
+                            <th>Tipo</th>
+                            <th>Colección</th>
+                            <th>Producto</th>
+                            <th>Idioma</th>
+                            <th>Estado fisico</th>
+                            <th>W. Estado</th>
+                            <th>Precio objetivo</th>
+                            <th>Último precio</th>
+                            <th>Mín</th>
+                            <th>Máx</th>
+                            <th>Notas</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="wishlistBody"></tbody>
+                </table>
+                <div class="empty-state" id="wishlistEmpty" hidden>No hay productos en la wishlist.</div>
+            </div>
+            <div class="load-sentinel" id="wlSentinel"></div>
+        </section>
+
         <!-- Scheduled Tasks tab (task executions) -->
         <section class="tab-content" id="tabScheduledTasks">
             <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
@@ -399,23 +481,32 @@
         <div class="modal-body" role="dialog" aria-modal="true">
             <h2>Nuevo producto</h2>
             <form id="createProductForm">
-                <div class="field">
-                    <label for="newColCode">Código de colección</label>
-                    <input id="newColCode" type="text" placeholder="swsh12, base1, ..." required>
-                    <div id="colSuggestions" class="suggestions" style="display:none"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div class="field">
+                        <label for="newColCode">Colecci&oacute;n</label>
+                        <input id="newColCode" type="text" placeholder="swsh12, base1, ..." required>
+                        <div id="colSuggestions" class="suggestions" style="display:none"></div>
+                    </div>
+                    <div class="field">
+                        <label for="newProductNumber">N&uacute;mero</label>
+                        <input id="newProductNumber" type="text" placeholder="001">
+                    </div>
                 </div>
-                <div class="field">
-                    <label for="newProductNumber">Número de producto</label>
-                    <input id="newProductNumber" type="text" placeholder="001">
-                    <div id="cardPreview" style="display:none;margin-top:6px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-strong);font-size:13px"></div>
-                </div>
-                <div class="field">
-                    <label class="checkbox-label">
-                        <input id="newIsManual" type="checkbox" checked>
-                        Manual
+                <input id="newProductName" type="hidden">
+                <div id="cardPreview" style="display:none;margin-top:6px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-strong);font-size:13px"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:center;margin-top:8px">
+                    <label class="checkbox-label" style="overflow:hidden">
+                        <input id="newForceDownload" type="checkbox"> Forzar descarga
                     </label>
+                    <label class="checkbox-label" style="overflow:hidden">
+                        <input id="newIsVerified" type="checkbox"> Verificado
+                    </label>
+                    <label class="checkbox-label" style="overflow:hidden">
+                        <input id="newIsManual" type="checkbox" checked> Manual
+                    </label>
+                    <button type="button" id="createSearchBtn" class="btn-secondary" style="overflow:hidden;display:none" title="Buscar en API externa">Buscar</button>
                 </div>
-                <div class="actions">
+                <div class="actions" style="margin-top:12px">
                     <button type="submit">Crear producto</button>
                     <button type="button" id="createCancel">Cancelar</button>
                 </div>
@@ -666,7 +757,20 @@
         <div class="modal-body" role="dialog" aria-modal="true" style="width:min(520px,calc(100%-40px))">
             <h2>Nuevo inventario</h2>
             <form id="addInvForm">
-                <div class="field">
+                <div id="addInvProductSection" class="form-row" style="align-items:flex-end;display:none">
+                    <div class="field" style="flex:0 0 auto;min-width:160px">
+                        <label>Colección</label>
+                        <div id="addInvCollectionDisplay" class="readonly-field"></div>
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label>Producto</label>
+                        <div style="display:flex;align-items:center;gap:8px;width:100%">
+                            <div id="addInvProductDisplay" class="readonly-field" style="flex:1"></div>
+                            <div id="addInvGoogleSearch" class="detail-actions" style="margin-bottom:0;flex-shrink:0"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="addInvProductSearch" class="field">
                     <label for="addInvProduct">Producto</label>
                     <input id="addInvProduct" type="text" placeholder="Buscar producto..." autocomplete="off" required>
                     <div id="addInvSuggestions" class="suggestions" style="display:none"></div>
@@ -869,8 +973,97 @@
         </div>
     </div>
 
-    <script src="static/js/api-config.js"></script>
-    <script src="static/js/app.js"></script>
-    <script src="static/js/statistics.js"></script>
+    <!-- Wishlist modal -->
+    <div id="wishlistModal" class="modal" hidden>
+        <div class="modal-backdrop" id="wishlistBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:min(520px,calc(100%-40px))">
+            <h2 id="wishlistModalTitle">Añadir a wishlist</h2>
+            <form id="wishlistForm">
+                <input type="hidden" id="modalWishlistId">
+                <div id="wishlistProductSection" class="form-row" style="align-items:flex-end;display:none">
+                    <div class="field" style="flex:0 0 auto;min-width:160px">
+                        <label>Colección</label>
+                        <div id="wishlistCollectionDisplay" class="readonly-field"></div>
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label>Producto</label>
+                        <div style="display:flex;align-items:center;gap:8px;width:100%">
+                            <div id="wishlistProductDisplay" class="readonly-field" style="flex:1"></div>
+                            <div id="wishlistGoogleSearch" class="detail-actions" style="margin-bottom:0;flex-shrink:0"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="wishlistProductSearch" class="field">
+                    <label for="wishlistProduct">Producto</label>
+                    <input id="wishlistProduct" type="text" placeholder="Buscar producto..." autocomplete="off">
+                    <div id="wishlistSuggestions" class="suggestions" style="display:none"></div>
+                </div>
+                <div class="field">
+                    <label for="wishlistTargetPrice">Precio objetivo (€)</label>
+                    <input id="wishlistTargetPrice" type="number" step="0.01" min="0" placeholder="0.00">
+                </div>
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label for="wishlistLang">Idioma</label>
+                        <select id="wishlistLang">
+                            <option value="">(cualquier idioma)</option>
+                        </select>
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label for="wishlistCondition">Estado</label>
+                        <select id="wishlistCondition">
+                            <option value="">(cualquier estado)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="wishlistWState">Estado wishlist</label>
+                    <select id="wishlistWState">
+                        <option value="buscando">Buscando</option>
+                        <option value="notificado">Notificado</option>
+                        <option value="inactivo">Inactivo</option>
+                        <option value="comprado">Comprado</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="wishlistNotes">Notas</label>
+                    <input id="wishlistNotes" type="text" placeholder="Notas...">
+                </div>
+                <div class="actions">
+                    <button type="submit">Guardar</button>
+                    <button type="button" id="wishlistCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- User profile modal -->
+    <div id="userProfileModal" class="modal" hidden>
+        <div class="modal-backdrop" id="userProfileBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" >
+            <h2>Configuración de perfil</h2>
+            <form id="userProfileForm">
+                <div class="field">
+                    <label for="profileEmail">Email (para notificaciones)</label>
+                    <input id="profileEmail" type="email" placeholder="email@ejemplo.com">
+                </div>
+                <div class="field">
+                    <label for="profileTelegram">ID de Telegram</label>
+                    <input id="profileTelegram" type="text" placeholder="@usuario o ID numérico">
+                </div>
+                <div class="actions">
+                    <button type="submit">Guardar</button>
+                    <button type="button" id="userProfileCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <button class="scroll-to-top" id="scrollToTopBtn" title="Volver arriba" aria-label="Volver arriba">↑</button>
+
+    <script src="static/js/api-config.js?v=3"></script>
+    <script src="static/js/app.js?v=3"></script>
+    <script src="static/js/statistics.js?v=3"></script>
+    <script src="static/js/wishlist.js?v=3"></script>
 </body>
 </html>
