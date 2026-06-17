@@ -1613,14 +1613,24 @@ entryPurchaseInput.addEventListener('input', () => {
 entryPurchaseInput.addEventListener('blur', () => {
     setTimeout(closeEntryPurchaseSuggestions, 200);
 });
-function searchEntryPurchases(q) {
-    const matching = entryPurchasesCache.filter(p => {
-        const date = (p.purchase_date || '').slice(0, 10);
-        const entity = (p.entity && p.entity.name) || '';
-        return date.includes(q) || entity.toLowerCase().includes(q);
-    });
-    if (matching.length === 0) { closeEntryPurchaseSuggestions(); return; }
-    showEntryPurchaseSuggestions(matching);
+async function searchEntryPurchases(q) {
+    try {
+        const resp = await apiFetch(apiUrl('purchases', {per_page: 50, q}));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        const matching = data.items || [];
+        if (matching.length === 0) { closeEntryPurchaseSuggestions(); return; }
+        showEntryPurchaseSuggestions(matching);
+    } catch {
+        const matching = entryPurchasesCache.filter(p => {
+            const date = (p.purchase_date || '').slice(0, 10);
+            const entity = (p.entity && p.entity.name) || '';
+            const ref = (p.external_reference || '');
+            return date.includes(q) || entity.toLowerCase().includes(q) || ref.toLowerCase().includes(q);
+        });
+        if (matching.length === 0) { closeEntryPurchaseSuggestions(); return; }
+        showEntryPurchaseSuggestions(matching);
+    }
 }
 function showEntryPurchaseSuggestions(items) {
     closeEntryPurchaseSuggestions();
@@ -2100,14 +2110,24 @@ if (addInvPurchaseInput) {
     addInvPurchaseInput.addEventListener('blur', () => setTimeout(closeAddInvPurchaseSuggestions, 200));
 }
 
-function searchAddInvPurchases(q) {
-    const matching = addInvPurchasesCache.filter(p => {
-        const date = (p.purchase_date || '').slice(0, 10);
-        const entity = (p.entity && p.entity.name) || '';
-        return date.includes(q) || entity.toLowerCase().includes(q);
-    });
-    if (matching.length === 0) { closeAddInvPurchaseSuggestions(); return; }
-    showAddInvPurchaseSuggestions(matching);
+async function searchAddInvPurchases(q) {
+    try {
+        const resp = await apiFetch(apiUrl('purchases', {per_page: 50, q}));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        const matching = data.items || [];
+        if (matching.length === 0) { closeAddInvPurchaseSuggestions(); return; }
+        showAddInvPurchaseSuggestions(matching);
+    } catch {
+        const matching = addInvPurchasesCache.filter(p => {
+            const date = (p.purchase_date || '').slice(0, 10);
+            const entity = (p.entity && p.entity.name) || '';
+            const ref = (p.external_reference || '');
+            return date.includes(q) || entity.toLowerCase().includes(q) || ref.toLowerCase().includes(q);
+        });
+        if (matching.length === 0) { closeAddInvPurchaseSuggestions(); return; }
+        showAddInvPurchaseSuggestions(matching);
+    }
 }
 
 function showAddInvPurchaseSuggestions(items) {
