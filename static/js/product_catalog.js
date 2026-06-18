@@ -976,6 +976,29 @@ async function loadProductDetails(productId) {
                 ${searchQ ? `<button type="button" class="btn-google-search" style="overflow:hidden" onclick="window.open('https://www.google.com/search?q=${searchQ}', '_blank', 'noopener')" title="Buscar en Google">Buscar en Google</button>` : `<span style="overflow:hidden"></span>`}
               </div>
             </div>`;
+        if (hasRole('inventory_manage')) {
+            var _colId = prod.collection ? prod.collection.id : '';
+            html += '<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+            html += '<button type="button" class="add-to-inv-btn" data-pid="' + prod.id + '" data-colid="' + _colId + '">+ Añadir a inventario</button>';
+            html += '<div class="add-inv-form" style="display:none;flex:1;gap:8px;align-items:end;min-width:280px">';
+            html += '<div style="flex:1"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:2px">Idioma</label>';
+            html += '<select class="inv-lang-select" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text)">';
+            html += '<option value="">(sin idioma)</option>';
+            for (var _i = 0; _i < languages.length; _i++) {
+                html += '<option value="' + languages[_i].id + '">' + languages[_i].name + '</option>';
+            }
+            html += '</select></div>';
+            html += '<div style="flex:1"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:2px">Estado</label>';
+            html += '<select class="inv-cond-select" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text)">';
+            html += '<option value="">(sin estado)</option>';
+            for (var _j = 0; _j < conditions.length; _j++) {
+                html += '<option value="' + conditions[_j].id + '">' + conditions[_j].name + '</option>';
+            }
+            html += '</select></div>';
+            html += '<button type="button" class="inv-confirm-btn" style="padding:6px 14px;border:0;border-radius:4px;background:var(--cyan-strong);color:#021014;cursor:pointer;white-space:nowrap">Añadir</button>';
+            html += '<button type="button" class="inv-cancel-btn" style="padding:6px 14px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);cursor:pointer">Cancelar</button>';
+            html += '</div></div>';
+        }
         }
 
         html += `<h3>Traducciones (${translations.length})</h3>`;
@@ -1189,6 +1212,81 @@ async function loadProductDetails(productId) {
                 langSelect.appendChild(opt);
             });
         }
+
+        // Add-to-inventory button handlers
+        modalDetail.querySelectorAll('.add-to-inv-btn').forEach(btn => {
+            if (btn.dataset.invBound) return;
+            btn.dataset.invBound = '1';
+            btn.addEventListener('click', () => {
+                const form = btn.parentElement.querySelector('.add-inv-form');
+                if (form) {
+                    btn.style.display = 'none';
+                    form.style.display = 'flex';
+                }
+            });
+        });
+
+        modalDetail.querySelectorAll('.inv-cancel-btn').forEach(btn => {
+            if (btn.dataset.invCancelBound) return;
+            btn.dataset.invCancelBound = '1';
+            btn.addEventListener('click', () => {
+                const form = btn.closest('.add-inv-form');
+                const container = form.closest('div');
+                const addBtn = container.querySelector('.add-to-inv-btn');
+                form.style.display = 'none';
+                if (addBtn) addBtn.style.display = '';
+            });
+        });
+
+        modalDetail.querySelectorAll('.inv-confirm-btn').forEach(btn => {
+            if (btn.dataset.invConfirmBound) return;
+            btn.dataset.invConfirmBound = '1';
+            btn.addEventListener('click', async () => {
+                const form = btn.closest('.add-inv-form');
+                const container = form.closest('div');
+                const addBtn = container.querySelector('.add-to-inv-btn');
+                const pid = Number(addBtn.dataset.pid);
+                const colId = Number(addBtn.dataset.colid);
+                const langSelect = form.querySelector('.inv-lang-select');
+                const condSelect = form.querySelector('.inv-cond-select');
+
+                btn.disabled = true;
+                btn.textContent = 'Añadiendo...';
+
+                try {
+                    const body = {
+                        product_id: pid,
+                        collection_id: colId,
+                        quantity: 1,
+                    };
+                    const langId = langSelect.value;
+                    const condId = condSelect.value;
+                    if (langId) body.language_id = parseInt(langId);
+                    if (condId) body.condition_id = parseInt(condId);
+
+                    const resp = await apiFetch(apiUrl('inventory'), {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(body),
+                    });
+
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        form.style.display = 'none';
+                        if (addBtn) addBtn.style.display = '';
+                        alert(`Añadido a inventario (id=${result.id})`);
+                    } else {
+                        const text = await resp.text().catch(() => 'Error');
+                        alert('Error al añadir: ' + text);
+                    }
+                } catch (err) {
+                    alert('Error de red: ' + err.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Añadir';
+                }
+            });
+        });
     } catch (err) {
         modalDetail.innerHTML = '<div class="empty-state">Error cargando detalles</div>';
     }
@@ -1217,6 +1315,12 @@ async function loadProductDetails(productId) {
             color:#e53e3e !important; background:rgba(229,62,62,.12) !important; opacity:1;
         }
         .files-list li.detail-row { padding:4px 0 !important; }
+        .add-to-inv-btn {
+            padding:6px 14px;border:0;border-radius:4px;
+            background:var(--cyan-strong);color:#021014;cursor:pointer;white-space:nowrap;font-size:13px;font-weight:600;
+        }
+        .add-to-inv-btn:hover { background:var(--cyan); }
+        .add-inv-form select { font-size:13px; }
     `;
     const el = document.createElement('style');
     el.textContent = css;

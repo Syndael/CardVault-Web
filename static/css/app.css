@@ -963,6 +963,21 @@ tr:hover td { background: var(--surface-soft); }
     display: block;
 }
 
+.suggestion-row {
+    position: relative;
+}
+.suggestion-preview {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    pointer-events: none;
+    max-width: 340px;
+}
 .scroll-to-top {
     position: fixed;
     bottom: 30px;

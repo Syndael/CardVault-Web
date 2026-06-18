@@ -547,6 +547,34 @@ function closeModal() {
 if (modalBackdrop) modalBackdrop.addEventListener("click", closeModal);
 if (modalCancel) modalCancel.addEventListener("click", closeModal);
 
+async function addPriceTracker(productId, url) {
+    if (!url) return false;
+    try {
+        var urlObj = new URL(url);
+        var hostBase = urlObj.protocol + '//' + urlObj.host;
+        var resp = await apiFetch(apiUrl('price-sources', {per_page: 200}));
+        if (!resp.ok) return false;
+        var data = await resp.json();
+        var ps = (data.items || []).find(function(p) { return p.base_url && (hostBase === p.base_url || urlObj.href.startsWith(p.base_url)); });
+        if (!ps) {
+            var createResp = await apiFetch(apiUrl('price-sources'), {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: urlObj.hostname, base_url: hostBase})
+            });
+            if (!createResp.ok) return false;
+            ps = await createResp.json();
+        }
+        if (ps && ps.id) {
+            var trackResp = await apiFetch(apiUrl('product-price-tracking'), {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({product_id: productId, price_source_id: ps.id, url: url})
+            });
+            return trackResp.ok;
+        }
+        return false;
+    } catch (e) { return false; }
+}
+
 async function handleProductFormSubmit(ev) {
     if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
     if (!hasRole('product_write')) { alert('No tienes permisos para editar productos'); return; }
@@ -624,16 +652,18 @@ async function loadProductDetails(productId) {
         const productIdNum = Number(productId);
         const prodResp = await apiFetch(apiUrl(`products/${productId}`));
         const prod = prodResp.ok ? await prodResp.json() : null;
-        const [transResp, filesResp, trackersResp, languagesResp] = await Promise.all([
+        const [transResp, filesResp, trackersResp, languagesResp, conditionsResp] = await Promise.all([
             apiFetch(apiUrl('product-translations', {page: 1, per_page: 200, product_id: productIdNum})),
             apiFetch(apiUrl('files', {page: 1, per_page: 200, product_id: productIdNum})),
             apiFetch(apiUrl('product-price-tracking', {page: 1, per_page: 200, product_id: productIdNum})),
-            apiFetch(apiUrl('languages', {page: 1, per_page: 200}))
+            apiFetch(apiUrl('languages', {page: 1, per_page: 200})),
+            apiFetch(apiUrl('product-conditions', {page: 1, per_page: 200}))
         ]);
         const translations = transResp.ok ? (await transResp.json()).items || [] : [];
         const files = filesResp.ok ? (await filesResp.json()).items || [] : [];
         const trackers = trackersResp.ok ? (await trackersResp.json()).items || [] : [];
         const languages = languagesResp.ok ? (await languagesResp.json()).items || [] : [];
+        const conditions = conditionsResp.ok ? (await conditionsResp.json()).items || [] : [];
         let html = '';
         if (prod) {
             const firstTrans = translations.length ? translations[0].name : '';
@@ -663,6 +693,34 @@ async function loadProductDetails(productId) {
                 ${searchQ ? `<button type="button" class="btn-google-search" style="overflow:hidden" onclick="window.open('https://www.google.com/search?q=${searchQ}', '_blank', 'noopener')" title="Buscar en Google">Buscar en Google</button>` : `<span style="overflow:hidden"></span>`}
               </div>
             </div>`;
+        if (hasRole('inventory_manage')) {
+            var _colId = prod.collection ? prod.collection.id : '';
+            html += '<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+            html += '<button type="button" class="add-to-inv-btn" data-pid="' + prod.id + '" data-colid="' + _colId + '">+ Añadir a inventario</button>';
+            html += '<div class="add-inv-form" style="display:none;flex:1;gap:8px;align-items:end;min-width:280px">';
+            html += '<div style="flex:1"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:2px">Idioma</label>';
+            html += '<select class="inv-lang-select" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text)">';
+            html += '<option value="">(sin idioma)</option>';
+            for (var _i = 0; _i < languages.length; _i++) {
+                html += '<option value="' + languages[_i].id + '">' + languages[_i].name + '</option>';
+            }
+            html += '</select></div>';
+            html += '<div style="flex:1"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:2px">Estado</label>';
+            html += '<select class="inv-cond-select" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text)">';
+            html += '<option value="">(sin estado)</option>';
+            for (var _j = 0; _j < conditions.length; _j++) {
+                html += '<option value="' + conditions[_j].id + '">' + conditions[_j].name + '</option>';
+            }
+            html += '</select></div>';
+            html += '<button type="button" class="inv-confirm-btn" style="padding:6px 14px;border:0;border-radius:4px;background:var(--cyan-strong);color:#021014;cursor:pointer;white-space:nowrap">Añadir</button>';
+            html += '<button type="button" class="inv-cancel-btn" style="padding:6px 14px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);cursor:pointer">Cancelar</button>';
+            html += '</div></div>';
+        }
+        var _prodName = translations.length ? translations[0].name : (prod.product_number || '');
+        html += '<h3 style="margin-top:12px">URLs sugeridas <span style="font-size:11px;color:var(--muted)">(buscando...)</span></h3>';
+        html += '<div class="suggested-urls" id="suggestedUrls" style="font-size:13px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px">';
+        html += '<div style="color:var(--muted);text-align:center">Buscando...</div>';
+        html += '</div>';
         }
         html += `<h3>Traducciones (${translations.length})</h3><div class="trans-list" id="transList">`;
         if (translations.length === 0) html += '<div class="empty-state">Sin traducciones</div>';
@@ -694,6 +752,143 @@ async function loadProductDetails(productId) {
         }
         html += '</ul>';
         modalDetail.innerHTML = html;
+
+        (function loadSuggestedUrls() {
+            var suggContainer = document.getElementById('suggestedUrls');
+            if (!suggContainer) return;
+            var colCode = prod && prod.collection ? prod.collection.code : '';
+            var prodNum = prod ? (prod.product_number || '') : '';
+            var prodName = translations.length ? translations[0].name : '';
+            var params = {};
+            if (colCode) params.collection_code = colCode;
+            if (prodNum) params.product_number = prodNum;
+            if (prodName) params.product_name = prodName;
+            if (!colCode && !prodNum && !prodName) {
+                suggContainer.innerHTML = '<div style="color:var(--muted);text-align:center">Sin datos para buscar</div>';
+                return;
+            }
+            var qs = Object.keys(params).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
+            apiFetch(apiUrl('product-catalog/suggest-urls?' + qs)).then(function(resp) {
+                if (!resp.ok) { suggContainer.innerHTML = '<div style="color:var(--muted);text-align:center">Error al buscar</div>'; return; }
+                resp.json().then(function(data) {
+                    var cmUrl = data.cardmarket;
+                    var pcUrl = data.pricecharting;
+                    var pid = prod ? prod.id : 0;
+                    var html = '';
+                    if (cmUrl) {
+                        html += '<div class="suggestion-row">';
+                        html += '<span class="suggestion-label" style="font-weight:600;min-width:100px;display:inline-block">CardMarket</span>';
+                        html += '<a href="' + esc(cmUrl) + '" target="_blank" rel="noopener" class="suggestion-link" data-url="' + esc(cmUrl) + '" style="padding:2px 6px" title="Abrir en nueva pesta\u00f1a">\ud83d\udd17</a>';
+                        html += '<input type="url" class="suggestion-input" value="' + esc(cmUrl) + '">';
+                        html += '<button type="button" class="suggestion-add" data-pid="' + pid + '" title="A\u00f1adir tracker">+</button>';
+                        html += '<div class="suggestion-preview"></div></div>';
+                    }
+                    if (pcUrl) {
+                        html += '<div class="suggestion-row" style="margin-top:4px">';
+                        html += '<span class="suggestion-label" style="font-weight:600;min-width:100px;display:inline-block">PriceCharting</span>';
+                        html += '<a href="' + esc(pcUrl) + '" target="_blank" rel="noopener" class="suggestion-link" data-url="' + esc(pcUrl) + '" style="padding:2px 6px" title="Abrir en nueva pesta\u00f1a">\ud83d\udd17</a>';
+                        html += '<input type="url" class="suggestion-input" value="' + esc(pcUrl) + '">';
+                        html += '<button type="button" class="suggestion-add" data-pid="' + pid + '" title="A\u00f1adir tracker">+</button>';
+                        html += '<div class="suggestion-preview"></div></div>';
+                    }
+                    if (!cmUrl && !pcUrl) {
+                        html += '<div style="color:var(--muted);text-align:center">No se encontraron URLs</div>';
+                    }
+                    suggContainer.innerHTML = html;
+                    suggContainer.querySelectorAll('.suggestion-add').forEach(function(btn) {
+                        if (btn.dataset.suggBound) return;
+                        btn.dataset.suggBound = '1';
+                        btn.addEventListener('click', async function() {
+                            var input = btn.parentElement.querySelector('.suggestion-input');
+                            if (!input || !input.value) return;
+                            btn.disabled = true;
+                            btn.textContent = '...';
+                            var ok = await addPriceTracker(pid, input.value);
+                            if (ok) { btn.textContent = '\u2713'; setTimeout(function() { btn.textContent = '+'; btn.disabled = false; }, 2000); }
+                            else { btn.textContent = '\u2717'; setTimeout(function() { btn.textContent = '+'; btn.disabled = false; }, 2000); }
+                        });
+                    });
+                    suggContainer.querySelectorAll('.suggestion-link').forEach(function(link) {
+                        if (link.dataset.previewBound) return;
+                        link.dataset.previewBound = '1';
+                        var previewDiv = link.parentElement.querySelector('.suggestion-preview');
+                        if (!previewDiv) return;
+                        var loaded = false;
+                        link.addEventListener('mouseenter', function() {
+                            if (!loaded) {
+                                loaded = true;
+                                previewDiv.innerHTML = '<span style="color:var(--muted);font-size:11px">Cargando...</span>';
+                                var url = link.dataset.url;
+                                var label = link.parentElement.querySelector('.suggestion-label');
+                                var siteName = label ? label.textContent.trim() : 'Sitio';
+                                var prodName = translations.length ? translations[0].name : (prod.product_number || '');
+                                var colCode = prod && prod.collection ? prod.collection.code : '';
+                                var colName = prod && prod.collection ? (prod.collection.name || colCode) : '';
+                                var prodNum = prod ? (prod.product_number || '') : '';
+                                var cardType = prod && prod.product_type ? prod.product_type.short_name : 'POK';
+                                var imgUrl = '';
+                                if (files && files.length > 0) {
+                                    var tk = window.localStorage.getItem(TOKEN_KEY) || '';
+                                    var fileUrl = apiUrl('product-catalog/files/' + files[0].id + '/content') + (tk ? '?token=' + encodeURIComponent(tk) : '');
+                                    imgUrl = fileUrl;
+                                } else {
+                                    var colLower = (colCode || '').toLowerCase();
+                                    var numClean = prodNum.replace(/^0+/, '');
+                                    if (cardType === 'POK') {
+                                        imgUrl = 'https://images.pokemontcg.io/' + colLower + '/' + numClean + '_hires.png';
+                                    } else if (cardType === 'DIG') {
+                                        imgUrl = 'https://images.digimoncard.io/images/cards/' + colLower + '-' + numClean + '.jpg';
+                                    }
+                                }
+                                var fallbackHtml = '<div style="max-width:280px;font-size:12px;line-height:1.4">' +
+                                    '<strong>' + esc(siteName) + '</strong><br>' +
+                                    '<span style="color:var(--text)">' + esc(prodName) + '</span><br>' +
+                                    '<span style="color:var(--muted);font-size:11px">' + esc(colName) + ' - ' + prodNum + '</span><br>' +
+                                    '<span style="color:var(--muted);font-size:10px;word-break:break-all">' + esc(url) + '</span></div>';
+                                var pageHtml = fallbackHtml;
+                                apiFetch(apiUrl('proxy/external'), {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json', 'Accept': '*/*'},
+                                    body: JSON.stringify({url: url, raw: true})
+                                }).then(function(r) {
+                                    if (!r.ok) return null;
+                                    return r.text();
+                                }).then(function(html) {
+                                    if (html && html.length > 50 && !/just a moment|challenge|cloudflare/i.test(html)) {
+                                        var m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+                                        var title = m ? esc(m[1].trim()) : '';
+                                        var img = '';
+                                        var im = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i);
+                                        if (im) img = esc(im[1]);
+                                        var desc = '';
+                                        var dm = html.match(/<meta[^>]+name="description"[^>]+content="([^"]+)"/i);
+                                        if (dm) desc = esc(dm[1].substring(0, 200));
+                                        if (!desc) {
+                                            var dm2 = html.match(/<meta[^>]+property="og:description"[^>]+content="([^"]+)"/i);
+                                            if (dm2) desc = esc(dm2[1].substring(0, 200));
+                                        }
+                                        pageHtml = '<div style="max-width:320px;font-size:12px;line-height:1.4">';
+                                        if (img) pageHtml += '<img src="' + img + '" alt="" style="max-width:100%;max-height:150px;display:block;margin:0 auto 6px;border-radius:4px" onerror="this.style.display=\'none\'">';
+                                        pageHtml += '<strong>' + title + '</strong>';
+                                        if (desc) pageHtml += '<br><span style="color:var(--muted)">' + desc + '</span>';
+                                        pageHtml += '</div>';
+                                    }
+                                }).catch(function() {}).then(function() {
+                                    var showImg = imgUrl ? '<img src="' + esc(imgUrl) + '" alt="" style="max-width:180px;max-height:240px;display:block;margin:0 auto 6px;border-radius:4px" onerror="this.style.display=\'none\'">' : '';
+                                    previewDiv.innerHTML = showImg + pageHtml;
+                                });
+                            }
+                            previewDiv.style.display = 'block';
+                        });
+                        link.addEventListener('mouseleave', function() {
+                            previewDiv.style.display = 'none';
+                        });
+                    });
+                });
+            }).catch(function() {
+                suggContainer.innerHTML = '<div style="color:var(--muted);text-align:center">Error al buscar</div>';
+            });
+        })();
 
         (function addDigimonUrls() {
             const existing = document.getElementById('digimonUrls');
@@ -836,6 +1031,80 @@ async function loadProductDetails(productId) {
             langSelect.innerHTML = '<option value="">(sin idioma)</option>';
             languages.forEach(l => { const opt = document.createElement('option'); opt.value = l.id; opt.textContent = l.name; langSelect.appendChild(opt); });
         }
+
+        modalDetail.querySelectorAll('.add-to-inv-btn').forEach(function(btn) {
+            if (btn.dataset.invBound) return;
+            btn.dataset.invBound = '1';
+            btn.addEventListener('click', function() {
+                var form = btn.parentElement.querySelector('.add-inv-form');
+                if (form) {
+                    btn.style.display = 'none';
+                    form.style.display = 'flex';
+                }
+            });
+        });
+
+        modalDetail.querySelectorAll('.inv-cancel-btn').forEach(function(btn) {
+            if (btn.dataset.invCancelBound) return;
+            btn.dataset.invCancelBound = '1';
+            btn.addEventListener('click', function() {
+                var form = btn.closest('.add-inv-form');
+                var addBtn = form.parentElement.querySelector('.add-to-inv-btn');
+                form.style.display = 'none';
+                if (addBtn) addBtn.style.display = '';
+            });
+        });
+
+        modalDetail.querySelectorAll('.inv-confirm-btn').forEach(function(btn) {
+            if (btn.dataset.invConfirmBound) return;
+            btn.dataset.invConfirmBound = '1';
+            btn.addEventListener('click', async function() {
+                var form = btn.closest('.add-inv-form');
+                var addBtn = form.parentElement.querySelector('.add-to-inv-btn');
+                if (!addBtn) return;
+                var pid = Number(addBtn.dataset.pid);
+                var colId = Number(addBtn.dataset.colid);
+                var langSel = form.querySelector('.inv-lang-select');
+                var condSel = form.querySelector('.inv-cond-select');
+
+                btn.disabled = true;
+                btn.textContent = 'Añadiendo...';
+
+                try {
+                    var body = {
+                        product_id: pid,
+                        collection_id: colId,
+                        quantity: 1,
+                    };
+                    var langId = langSel.value;
+                    var condId = condSel.value;
+                    if (langId) body.language_id = parseInt(langId);
+                    if (condId) body.condition_id = parseInt(condId);
+
+                    var resp = await apiFetch(apiUrl('inventory'), {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(body),
+                    });
+
+                    if (resp.ok) {
+                        var result = await resp.json();
+                        form.style.display = 'none';
+                        if (addBtn) addBtn.style.display = '';
+                        alert('A\u00f1adido a inventario (id=' + result.id + ')');
+                    } else {
+                        var text = await resp.text().catch(function() { return 'Error'; });
+                        alert('Error al a\u00f1adir: ' + text);
+                    }
+                } catch (err) {
+                    alert('Error de red: ' + err.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'A\u00f1adir';
+                }
+            });
+        });
+
     } catch (err) { modalDetail.innerHTML = '<div class="empty-state">Error cargando detalles</div>'; }
 }
 
@@ -2801,7 +3070,8 @@ function renderColRow(item) {
     const cardType = item.card_type ? (item.card_type.name + (item.card_type.short_name ? ' (' + item.card_type.short_name + ')' : '')) : '-';
     const manual = item.is_manual ? '\u2713' : '';
     const releaseDate = item.release_date ? item.release_date.slice(0, 10) : '-';
-    const forceDl = item.force_url ? (item.force_download ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>') : '';
+    const showDlIcon = item.force_url || (!item.is_manual && item.force_download);
+    const forceDl = showDlIcon ? (item.force_download ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>') : '';
     const displayName = formatName(item.name, item.name_alter) || '-';
     return `<tr class="clickable-row" data-col-id="${item.id}">
         <td><strong>${esc(item.code)}</strong></td>
@@ -2809,7 +3079,7 @@ function renderColRow(item) {
         <td>${esc(cardType)}</td>
         <td>${manual}</td>
         <td>${releaseDate}</td>
-        <td style="text-align:center;font-size:16px" title="${item.force_url ? (item.force_download ? 'Descarga forzada pendiente' : 'URL asignada') : ''}">${forceDl}</td>
+        <td style="text-align:center;font-size:16px" title="${item.force_url ? (item.force_download ? 'Descarga forzada pendiente' : 'URL asignada') : (!item.is_manual && item.force_download ? 'Descarga forzada pendiente' : '')}">${forceDl}</td>
         <td style="text-align:center"><button type="button" class="btn-delete-col" data-col-id="${item.id}" title="Eliminar" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
     </tr>`;
 }
@@ -3640,6 +3910,22 @@ loadPurFilterData();
         }
         .files-list { list-style:none; padding-left:0; margin:6px 0 0 0; }
         .files-list li { padding:4px 0 !important; }
+        .add-to-inv-btn {
+            padding:6px 14px;border:0;border-radius:4px;
+            background:var(--cyan-strong);color:#021014;cursor:pointer;white-space:nowrap;font-size:13px;font-weight:600;
+        }
+        .add-to-inv-btn:hover { background:var(--cyan); }
+        .add-inv-form select { font-size:13px; }
+        .suggested-urls { padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px; }
+        .suggestion-row { display:flex;align-items:center;gap:6px; }
+        .suggestion-input { flex:1;min-width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:12px; }
+        .suggestion-add {
+            flex-shrink:0;width:26px;height:26px;padding:0;border:0;border-radius:4px;
+            background:var(--cyan-strong);color:#021014;cursor:pointer;font-size:16px;font-weight:700;line-height:1;
+            display:inline-flex;align-items:center;justify-content:center;
+        }
+        .suggestion-add:hover { background:var(--cyan); }
+        .suggestion-add:disabled { opacity:0.6; }
     `;
     const el = document.createElement('style');
     el.textContent = css;
