@@ -286,7 +286,7 @@ async function loadSelectOptions(select, url, labelKey, valueKey, emptyLabel) {
 const prodState = {
     page: 1, perPage: 10, q: "", is_verified: null, is_manual: null,
     pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
-    collection_code: '', product_number: '', product_name: '', product_type_id: ''
+    collection_code: '', product_number: '', product_name: '', product_type_id: '', product_format_id: ''
 };
 
 const productGrid = document.querySelector("#productGrid");
@@ -393,6 +393,7 @@ async function loadProducts({reset = false} = {}) {
         if (prodState.product_number) params.product_number = prodState.product_number;
         if (prodState.product_name) params.product_name = prodState.product_name;
         if (prodState.product_type_id) params.product_type_id = prodState.product_type_id;
+        if (prodState.product_format_id) params.product_format_id = prodState.product_format_id;
         const resp = await apiFetch(apiUrl("product-catalog", params));
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
@@ -521,8 +522,6 @@ const productModal = document.getElementById("productModal");
 const modalBackdrop = document.getElementById("modalBackdrop");
 const modalTitle = document.getElementById("modalTitle");
 const modalProductId = document.getElementById("modalProductId");
-const imageUrlInput = document.getElementById("imageUrl");
-const priceUrlInput = document.getElementById("priceUrl");
 const productForm = document.getElementById("productForm");
 const modalCancel = document.getElementById("modalCancel");
 const modalSaveButton = productForm ? productForm.querySelector('button[type="submit"]') : null;
@@ -531,12 +530,12 @@ const modalDetail = document.getElementById("modalDetail");
 function openModal(productId, productName) {
     modalProductId.value = productId;
     modalTitle.textContent = `Producto: ${productName}`;
-    imageUrlInput.value = "";
-    priceUrlInput.value = "";
+    const iu = document.getElementById("imageUrl"); if (iu) iu.value = "";
+    const pu = document.getElementById("priceUrl"); if (pu) pu.value = "";
     loadProductDetails(productId);
     productModal.hidden = false;
     document.body.style.overflow = "hidden";
-    setTimeout(() => imageUrlInput.focus(), 50);
+    setTimeout(() => { const el = document.getElementById("imageUrl"); if (el) el.focus(); }, 50);
 }
 
 function closeModal() {
@@ -579,8 +578,10 @@ async function handleProductFormSubmit(ev) {
     if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
     if (!hasRole('product_write')) { alert('No tienes permisos para editar productos'); return; }
     const productId = Number(modalProductId.value);
-    const imageUrl = imageUrlInput.value.trim();
-    const priceUrl = priceUrlInput.value.trim();
+    const imageUrlInput = document.getElementById("imageUrl");
+    const priceUrlInput = document.getElementById("priceUrl");
+    const imageUrl = imageUrlInput ? imageUrlInput.value.trim() : '';
+    const priceUrl = priceUrlInput ? priceUrlInput.value.trim() : '';
     modalSaveButton.disabled = true;
     modalSaveButton.textContent = "Guardando...";
     let success = true;
@@ -678,7 +679,7 @@ async function loadProductDetails(productId) {
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
                 <div style="padding-top:7px;overflow:hidden"><strong>Colecci\u00f3n:</strong> ${esc(colName)} (${esc(colCode)})</div>
                 <div style="padding-top:7px;overflow:hidden"><strong>N\u00famero:</strong> ${esc(prod.product_number || '-')}</div>
-                <div style="padding-top:7px;overflow:hidden"><strong>Producto:</strong> ${esc(prodName || prod.product_number || '-')}</div>
+                <div style="padding-top:7px;overflow:hidden"><strong>Producto:</strong> ${searchQ ? `<a href="https://www.google.com/search?q=${searchQ}" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:none;cursor:pointer" title="Buscar en Google">${esc(prodName || prod.product_number || '-')}</a>` : esc(prodName || prod.product_number || '-')}</div>
                 <div style="text-align:right;overflow:hidden">
                    <code style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;vertical-align:top" onclick="navigator.clipboard.writeText('${invCopy}')" title="Copiar">
                     <span>${invDisplay}</span>
@@ -690,7 +691,11 @@ async function loadProductDetails(productId) {
                 <label class="checkbox-label" style="overflow:hidden"><strong>Forzar descarga:</strong> <input type="checkbox" class="force-download-check" data-product-id="${prod.id}" ${prod.force_download ? 'checked' : ''}></label>
                 <label class="checkbox-label" style="overflow:hidden"><strong>Verificado:</strong> <input type="checkbox" class="verified-check" data-product-id="${prod.id}" ${prod.is_verified ? 'checked' : ''}></label>
                 <label class="checkbox-label" style="overflow:hidden"><strong>Manual:</strong> <input type="checkbox" class="manual-check" data-product-id="${prod.id}" ${prod.is_manual ? 'checked' : ''}></label>
-                ${searchQ ? `<button type="button" class="btn-google-search" style="overflow:hidden" onclick="window.open('https://www.google.com/search?q=${searchQ}', '_blank', 'noopener')" title="Buscar en Google">Buscar en Google</button>` : `<span style="overflow:hidden"></span>`}
+                <label style="display:flex;align-items:center;gap:6px;overflow:hidden;font-size:13px"><strong>Tipo:</strong>
+                  <select class="productFormatSelect" data-product-id="${prod.id}" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);flex:1;min-width:0">
+                    <option value="">Cargando...</option>
+                  </select>
+                </label>
               </div>
             </div>`;
         if (hasRole('inventory_manage')) {
@@ -716,11 +721,6 @@ async function loadProductDetails(productId) {
             html += '<button type="button" class="inv-cancel-btn" style="padding:6px 14px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);cursor:pointer">Cancelar</button>';
             html += '</div></div>';
         }
-        var _prodName = translations.length ? translations[0].name : (prod.product_number || '');
-        html += '<h3 style="margin-top:12px">URLs sugeridas <span style="font-size:11px;color:var(--muted)">(buscando...)</span></h3>';
-        html += '<div class="suggested-urls" id="suggestedUrls" style="font-size:13px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px">';
-        html += '<div style="color:var(--muted);text-align:center">Buscando...</div>';
-        html += '</div>';
         }
         html += `<h3>Traducciones (${translations.length})</h3><div class="trans-list" id="transList">`;
         if (translations.length === 0) html += '<div class="empty-state">Sin traducciones</div>';
@@ -743,6 +743,10 @@ async function loadProductDetails(productId) {
             html += `<li class="detail-row"><a href="${esc(fileUrl)}" target="_blank">${esc(f.original_name || f.stored_name)}</a><span class="detail-meta">${lang}</span><button type="button" class="btn-delete-file" data-file-id="${f.id}" title="Eliminar fichero"><svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></li>`;
         }
         html += '</ul>';
+        html += '<div class="field-inline" style="margin-top:12px">';
+        html += '<div class="field" style="flex:1"><label for="imageUrl">URL imagen</label><input id="imageUrl" type="url" placeholder="https://.../image.jpg"></div>';
+        html += '<div class="field" style="flex:0 0 auto;min-width:140px"><label for="imageLanguage">Idioma</label><select id="imageLanguage"><option value="">(sin idioma)</option></select></div>';
+        html += '</div>';
         html += `<h3>Price Trackers (${trackers.length})</h3>`;
         if (trackers.length === 0) html += '<div class="empty-state">Sin trackers de precio</div>';
         html += '<ul class="files-list">';
@@ -751,6 +755,12 @@ async function loadProductDetails(productId) {
             html += `<li class="detail-row"><a href="${esc(t.url)}" target="_blank">${esc(t.url)}</a><span class="detail-meta">${source ? `(${source})` : ''}</span><button type="button" class="btn-delete-tracker" data-tracker-id="${t.id}" title="Eliminar tracker"><svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button></li>`;
         }
         html += '</ul>';
+        html += '<div class="field" style="margin-top:12px"><label for="priceUrl">URL precio / tracking</label><input id="priceUrl" type="url" placeholder="https://..."></div>';
+        var _prodName = translations.length ? translations[0].name : (prod.product_number || '');
+        html += '<h3 style="margin-top:12px">URLs sugeridas <span style="font-size:11px;color:var(--muted)">(buscando...)</span></h3>';
+        html += '<div class="suggested-urls" id="suggestedUrls" style="font-size:13px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px">';
+        html += '<div style="color:var(--muted);text-align:center">Buscando...</div>';
+        html += '</div>';
         modalDetail.innerHTML = html;
 
         (function loadSuggestedUrls() {
@@ -972,6 +982,37 @@ async function loadProductDetails(productId) {
             });
         }
 
+        const formatSelect = modalDetail.querySelector('.productFormatSelect');
+        if (formatSelect) {
+            (async () => {
+                try {
+                    const resp = await apiFetch(apiUrl('types', {per_page: 50}));
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        const formats = (data.items || []).filter(t => t.type === 'product_format');
+                        formatSelect.innerHTML = '';
+                        formats.forEach(f => {
+                            const opt = document.createElement('option');
+                            opt.value = f.id;
+                            opt.textContent = f.name.charAt(0).toUpperCase() + f.name.slice(1);
+                            formatSelect.appendChild(opt);
+                        });
+                        const currentId = prod.product_format ? prod.product_format.id : (prod.product_format_id || '');
+                        if (currentId) formatSelect.value = currentId;
+                    }
+                } catch (e) { console.error(e); }
+            })();
+            formatSelect.addEventListener('change', async function () {
+                const pid = this.dataset.productId;
+                const fmtId = parseInt(this.value);
+                const resp = await apiFetch(apiUrl(`products/${pid}`), {
+                    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({product_format_id: fmtId})
+                });
+                if (!resp.ok) alert('Error al actualizar formato');
+            });
+        }
+
         modalDetail.querySelectorAll('.btn-delete-file').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const fileId = btn.dataset.fileId;
@@ -1167,6 +1208,7 @@ const newProductName = document.getElementById('newProductName');
 const newForceDownload = document.getElementById('newForceDownload');
 const newIsManual = document.getElementById('newIsManual');
 const newIsVerified = document.getElementById('newIsVerified');
+const newProductFormat = document.getElementById('newProductFormat');
 const createSearchBtn = document.getElementById('createSearchBtn');
 const colSuggestions = document.getElementById('colSuggestions');
 
@@ -1233,9 +1275,29 @@ function openCreateModal() {
     closeColSuggestions();
     const preview = document.getElementById('cardPreview');
     if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+    populateProductFormatSelect(newProductFormat);
     createModal.hidden = false;
     document.body.style.overflow = 'hidden';
     setTimeout(() => newColCode.focus(), 50);
+}
+
+async function populateProductFormatSelect(select) {
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 50}));
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const formats = (data.items || []).filter(t => t.type === 'product_format');
+        select.innerHTML = '';
+        let cartaId = '';
+        formats.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.id;
+            opt.textContent = f.name.charAt(0).toUpperCase() + f.name.slice(1);
+            select.appendChild(opt);
+            if (f.name === 'carta') cartaId = f.id;
+        });
+        if (cartaId) select.value = cartaId;
+    } catch (e) { console.error(e); }
 }
 
 let colSearchTimeout;
@@ -1449,6 +1511,7 @@ if (createForm) {
                 body: JSON.stringify({
                     collection_id: collectionId,
                     product_type_id: parseInt(cardTypeId),
+                    product_format_id: parseInt(newProductFormat.value),
                     ...(productNumber ? {product_number: productNumber} : {}),
                     force_download: forceDownload,
                     is_verified: newIsVerified ? newIsVerified.checked : false,
@@ -1467,7 +1530,7 @@ if (createForm) {
 
 const invState = {
     page: 1, perPage: 50, q: '', sort: 'newest', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
-    collection_code: '', product_number: '', product_name: '', card_type_id: '', tag_name: '', is_sealed: '', posted_instagram: ''
+    collection_code: '', product_number: '', product_name: '', card_type_id: '', product_format_id: '', tag_name: '', is_sealed: '', posted_instagram: ''
 };
 
 const purState = {
@@ -1589,6 +1652,7 @@ async function loadInventory({reset = false} = {}) {
         if (s.product_number) params.product_number = s.product_number;
         if (s.product_name) params.product_name = s.product_name;
         if (s.card_type_id) params.card_type_id = s.card_type_id;
+        if (s.product_format_id) params.product_format_id = s.product_format_id;
         if (s.tag_name) params.tag_name = s.tag_name;
         if (s.is_sealed !== null && s.is_sealed !== '') params.is_sealed = s.is_sealed;
         if (s.posted_instagram !== null && s.posted_instagram !== '') params.posted_instagram = s.posted_instagram;
@@ -2916,18 +2980,22 @@ function renderScheduledLoading() {
 }
 
 const statusLabels = {
-    pending: 'Pendiente', running: 'Ejecutando', completed: 'Completado', error: 'Error'
+    pending: 'Pendiente', running: 'Ejecutando', completed: 'Completado', error: 'Error', cancelled: 'Cancelada'
 };
 
 function renderScheduledRow(item) {
     const taskName = item.scheduled_task ? item.scheduled_task.name : (item.scheduled_task_id || '-');
     const status = item.status || '-';
     const label = statusLabels[status] || status;
-    const cls = status === 'error' ? 'stock-negative' : (status === 'completed' ? 'stock-positive' : '');
+    let cls = status === 'error' ? 'stock-negative' : (status === 'completed' ? 'stock-positive' : '');
+    if (status === 'cancelled') cls = 'stock-negative';
     const scheduledDate = item.scheduled_date ? item.scheduled_date.slice(0, 16).replace('T', ' ') : '-';
     const startedAt = item.started_at ? item.started_at.slice(0, 16).replace('T', ' ') : '-';
     const finishedAt = item.finished_at ? item.finished_at.slice(0, 16).replace('T', ' ') : '-';
     const output = item.output ? item.output.slice(0, 80) + (item.output.length > 80 ? '...' : '') : '';
+    const cancelBtn = (status === 'pending' || status === 'running')
+        ? `<button type="button" class="btn-cancel-scheduled" data-exec-id="${item.id}" title="Cancelar" style="background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px;color:#e74c3c">&#x2715;</button>`
+        : '';
     return `<tr class="clickable-row" data-exec-id="${item.id}">
         <td><strong>${esc(taskName)}</strong></td>
         <td><span class="${cls}">${esc(label)}</span></td>
@@ -2935,7 +3003,7 @@ function renderScheduledRow(item) {
         <td>${startedAt}</td>
         <td>${finishedAt}</td>
         <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(output)}">${esc(output)}</td>
-        <td style="text-align:center"><button type="button" class="btn-delete-scheduled" data-exec-id="${item.id}" title="Eliminar" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
+        <td style="text-align:center;white-space:nowrap">${cancelBtn}<button type="button" class="btn-delete-scheduled" data-exec-id="${item.id}" title="Eliminar" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
     </tr>`;
 }
 
@@ -3400,8 +3468,28 @@ async function loadColFilterTypes() {
     } catch (e) { console.error('Error loading types', e); }
 }
 
+async function loadInvFilterFormats() {
+    const sel = document.getElementById('invFilterFormat');
+    if (!sel) return;
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 50}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const formats = (data.items || []).filter(t => t.type === 'product_format');
+            sel.innerHTML = '<option value="">Todos</option>';
+            formats.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name.charAt(0).toUpperCase() + t.name.slice(1);
+                sel.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading formats', e); }
+}
+
 setupInvFilters();
 loadInvFilterTypes();
+loadInvFilterFormats();
 setupColFilters();
 loadColFilterTypes();
 
@@ -3452,6 +3540,28 @@ document.getElementById('tabInventory').addEventListener('click', async (e) => {
 });
 
 document.getElementById('tabScheduledTasks').addEventListener('click', async (e) => {
+    const cancelBtn = e.target.closest('.btn-cancel-scheduled');
+    if (cancelBtn) {
+        e.stopPropagation();
+        if (!confirm('\u00bfCancelar esta ejecuci\u00f3n?')) return;
+        const execId = cancelBtn.dataset.execId;
+        try {
+            const resp = await apiFetch(apiUrl(`task-executions/${execId}`), {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({status: 'cancelled'})
+            });
+            if (resp && resp.ok) {
+                loadScheduledTasks({reset: true});
+            } else {
+                const msg = resp ? await resp.text().catch(() => 'Error al cancelar') : 'Error de red';
+                alert(msg);
+            }
+        } catch (e) {
+            alert('Error de red');
+        }
+        return;
+    }
     const delBtn = e.target.closest('.btn-delete-scheduled');
     if (delBtn) {
         e.stopPropagation();
@@ -3595,6 +3705,13 @@ function setupProdFilters() {
             loadProducts({reset: true});
         });
     }
+    const prodFormatSelect = document.getElementById('filterProdFormat');
+    if (prodFormatSelect) {
+        prodFormatSelect.addEventListener('change', () => {
+            prodState.product_format_id = prodFormatSelect.value;
+            loadProducts({reset: true});
+        });
+    }
     if (filterManualEl) {
         filterManualEl.addEventListener('change', (e) => {
             prodState.is_manual = e.target.value || null;
@@ -3629,8 +3746,28 @@ async function loadProdFilterTypes() {
     } catch (e) { console.error('Error loading types', e); }
 }
 
+async function loadProdFilterFormats() {
+    const sel = document.getElementById('filterProdFormat');
+    if (!sel) return;
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 50}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const formats = (data.items || []).filter(t => t.type === 'product_format');
+            sel.innerHTML = '<option value="">Todos</option>';
+            formats.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name.charAt(0).toUpperCase() + t.name.slice(1);
+                sel.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading formats', e); }
+}
+
 setupProdFilters();
 loadProdFilterTypes();
+loadProdFilterFormats();
 
 // Resize
 window.addEventListener("resize", () => {
@@ -3713,6 +3850,13 @@ function setupInvFilters() {
     if (typeSelect) {
         typeSelect.addEventListener('change', () => {
             invState.card_type_id = typeSelect.value;
+            loadInventory({reset: true});
+        });
+    }
+    const formatSelect = document.getElementById('invFilterFormat');
+    if (formatSelect) {
+        formatSelect.addEventListener('change', () => {
+            invState.product_format_id = formatSelect.value;
             loadInventory({reset: true});
         });
     }

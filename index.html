@@ -47,6 +47,18 @@
                 </div>
                 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
                     <label class="filter-check">
+                        Tipo
+                        <select id="filterProdType" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">Todos</option>
+                        </select>
+                    </label>
+                    <label class="filter-check">
+                        Formato
+                        <select id="filterProdFormat" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">Todos</option>
+                        </select>
+                    </label>
+                    <label class="filter-check">
                         Código colección
                         <input id="filterColCode" type="text" placeholder="swsh12..." style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
                     </label>
@@ -57,12 +69,6 @@
                     <label class="filter-check">
                         Nombre
                         <input id="filterProdName" type="text" placeholder="Nombre..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                    </label>
-                    <label class="filter-check">
-                        Tipo
-                        <select id="filterProdType" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                            <option value="">Todos</option>
-                        </select>
                     </label>
                     <label class="filter-check">
                         Manual
@@ -176,6 +182,12 @@
                     <label class="filter-check">
                         Tipo
                         <select id="invFilterType" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="">Todos</option>
+                        </select>
+                    </label>
+                    <label class="filter-check">
+                        Formato
+                        <select id="invFilterFormat" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
                             <option value="">Todos</option>
                         </select>
                     </label>
@@ -451,22 +463,6 @@
             <div id="modalDetail"></div>
             <form id="productForm">
                 <input type="hidden" id="modalProductId">
-                <div class="field-inline">
-                    <div class="field" style="flex:1">
-                        <label for="imageUrl">URL imagen</label>
-                        <input id="imageUrl" type="url" placeholder="https://.../image.jpg">
-                    </div>
-                    <div class="field" style="flex:0 0 auto; min-width:140px">
-                        <label for="imageLanguage">Idioma</label>
-                        <select id="imageLanguage">
-                            <option value="">(sin idioma)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="field">
-                    <label for="priceUrl">URL precio / tracking</label>
-                    <input id="priceUrl" type="url" placeholder="https://...">
-                </div>
                 <div class="actions">
                     <button type="submit">Guardar</button>
                     <button type="button" id="modalCancel">Cancelar</button>
@@ -481,7 +477,7 @@
         <div class="modal-body" role="dialog" aria-modal="true">
             <h2>Nuevo producto</h2>
             <form id="createProductForm">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
                     <div class="field">
                         <label for="newColCode">Colecci&oacute;n</label>
                         <input id="newColCode" type="text" placeholder="swsh12, base1, ..." required>
@@ -490,6 +486,12 @@
                     <div class="field">
                         <label for="newProductNumber">N&uacute;mero</label>
                         <input id="newProductNumber" type="text" placeholder="001">
+                    </div>
+                    <div class="field">
+                        <label for="newProductFormat">Tipo</label>
+                        <select id="newProductFormat">
+                            <option value="">Cargando...</option>
+                        </select>
                     </div>
                 </div>
                 <input id="newProductName" type="hidden">

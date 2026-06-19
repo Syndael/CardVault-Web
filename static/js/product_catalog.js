@@ -308,6 +308,8 @@ const state = {
     sort: "newest",
     is_verified: null,
     is_manual: null,
+    product_type_id: '',
+    product_format_id: '',
     pages: 0,
     total: 0,
     loaded: 0,
@@ -564,14 +566,17 @@ async function loadProducts({reset = false} = {}) {
     scrollStatus.textContent = "Cargando...";
 
     try {
-        const response = await apiFetch(apiUrl("product-catalog", {
+        const params = {
             page: state.page,
             per_page: state.perPage,
             q: state.q,
             sort: state.sort,
             is_verified: state.is_verified,
             is_manual: state.is_manual
-        }));
+        };
+        if (state.product_type_id) params.product_type_id = state.product_type_id;
+        if (state.product_format_id) params.product_format_id = state.product_format_id;
+        const response = await apiFetch(apiUrl("product-catalog", params));
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
@@ -670,6 +675,62 @@ window.addEventListener("scroll", () => {
 }, {
     passive: true
 });
+
+const filterProdType = document.getElementById('filterProdType');
+if (filterProdType) {
+    filterProdType.addEventListener('change', () => {
+        state.product_type_id = filterProdType.value;
+        loadProducts({reset: true});
+    });
+}
+
+const filterProdFormat = document.getElementById('filterProdFormat');
+if (filterProdFormat) {
+    filterProdFormat.addEventListener('change', () => {
+        state.product_format_id = filterProdFormat.value;
+        loadProducts({reset: true});
+    });
+}
+
+async function loadProdFilterTypes() {
+    const sel = document.getElementById('filterProdType');
+    if (!sel) return;
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 200}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const types = (data.items || []).filter(t => t.type === 'card');
+            sel.innerHTML = '<option value="">Todos</option>';
+            types.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name + (t.short_name ? ' (' + t.short_name + ')' : '');
+                sel.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading types', e); }
+}
+
+async function loadProdFilterFormats() {
+    const sel = document.getElementById('filterProdFormat');
+    if (!sel) return;
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 50}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const formats = (data.items || []).filter(t => t.type === 'product_format');
+            sel.innerHTML = '<option value="">Todos</option>';
+            formats.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name.charAt(0).toUpperCase() + t.name.slice(1);
+                sel.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading formats', e); }
+}
+loadProdFilterTypes();
+loadProdFilterFormats();
 
 searchForm.addEventListener("submit", (event) => {
     event.preventDefault();

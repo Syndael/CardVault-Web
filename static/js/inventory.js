@@ -236,7 +236,7 @@ document.getElementById('tabPurchases').addEventListener('click', (e) => {
 
 // --- Shared pagination state ---
 const state = {
-    inventory: { page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true, tag_name: '' },
+    inventory: { page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true, tag_name: '', card_type_id: '', product_format_id: '', collection_code: '', product_number: '', product_name: '', is_sealed: '', posted_instagram: '', sort: 'newest' },
     purchases: { page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true }
 };
 
@@ -363,8 +363,15 @@ async function loadInventory({reset = false} = {}) {
     }
     s.loading = true;
     try {
-        const params = {page: s.page, per_page: s.perPage, q: s.q};
+        const params = {page: s.page, per_page: s.perPage, q: s.q, sort: s.sort};
         if (s.tag_name) params.tag_name = s.tag_name;
+        if (s.card_type_id) params.card_type_id = s.card_type_id;
+        if (s.product_format_id) params.product_format_id = s.product_format_id;
+        if (s.collection_code) params.collection_code = s.collection_code;
+        if (s.product_number) params.product_number = s.product_number;
+        if (s.product_name) params.product_name = s.product_name;
+        if (s.is_sealed !== null && s.is_sealed !== '') params.is_sealed = s.is_sealed;
+        if (s.posted_instagram !== null && s.posted_instagram !== '') params.posted_instagram = s.posted_instagram;
         const showAllCb = document.getElementById('showAllInv');
         if (showAllCb && showAllCb.checked) params.all = 'true';
         const resp = await apiFetch(apiUrl('inventory', params));
@@ -1568,6 +1575,130 @@ window.addEventListener('scroll', () => {
     if (lc) lc.addEventListener('click', hideLoginModal);
     if (lb) lb.addEventListener('click', hideLoginModal);
 })();
+
+// Inventory filters
+let invFilterTimers = {};
+
+function setupInvFilters() {
+    const colCodeInput = document.getElementById('invFilterColCode');
+    const numberInput = document.getElementById('invFilterNumber');
+    const nameInput = document.getElementById('invFilterName');
+    const typeSelect = document.getElementById('invFilterType');
+    const sealedSelect = document.getElementById('invFilterSealed');
+    const igSelect = document.getElementById('invFilterIg');
+    const sortEl = document.getElementById('invSortOrder');
+    const tagInput = document.getElementById('invFilterTag');
+
+    if (colCodeInput) {
+        colCodeInput.addEventListener('input', () => {
+            clearTimeout(invFilterTimers.colCode);
+            invFilterTimers.colCode = setTimeout(() => {
+                state.inventory.collection_code = colCodeInput.value.trim();
+                loadInventory({reset: true});
+            }, 300);
+        });
+    }
+    if (numberInput) {
+        numberInput.addEventListener('input', () => {
+            clearTimeout(invFilterTimers.number);
+            invFilterTimers.number = setTimeout(() => {
+                state.inventory.product_number = numberInput.value.trim();
+                loadInventory({reset: true});
+            }, 300);
+        });
+    }
+    if (nameInput) {
+        nameInput.addEventListener('input', () => {
+            clearTimeout(invFilterTimers.name);
+            invFilterTimers.name = setTimeout(() => {
+                state.inventory.product_name = nameInput.value.trim();
+                loadInventory({reset: true});
+            }, 300);
+        });
+    }
+    if (typeSelect) {
+        typeSelect.addEventListener('change', () => {
+            state.inventory.card_type_id = typeSelect.value;
+            loadInventory({reset: true});
+        });
+    }
+    const formatSelect = document.getElementById('invFilterFormat');
+    if (formatSelect) {
+        formatSelect.addEventListener('change', () => {
+            state.inventory.product_format_id = formatSelect.value;
+            loadInventory({reset: true});
+        });
+    }
+    if (tagInput) {
+        tagInput.addEventListener('input', () => {
+            clearTimeout(invFilterTimers.tag);
+            invFilterTimers.tag = setTimeout(() => {
+                state.inventory.tag_name = tagInput.value.trim();
+                loadInventory({reset: true});
+            }, 300);
+        });
+    }
+    if (sealedSelect) {
+        sealedSelect.addEventListener('change', () => {
+            state.inventory.is_sealed = sealedSelect.value;
+            loadInventory({reset: true});
+        });
+    }
+    if (igSelect) {
+        igSelect.addEventListener('change', () => {
+            state.inventory.posted_instagram = igSelect.value;
+            loadInventory({reset: true});
+        });
+    }
+    if (sortEl) {
+        sortEl.addEventListener('change', (e) => {
+            state.inventory.sort = e.target.value;
+            loadInventory({reset: true});
+        });
+    }
+}
+
+async function loadInvFilterTypes() {
+    const sel = document.getElementById('invFilterType');
+    if (!sel) return;
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 200}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const types = (data.items || []).filter(t => t.type === 'card');
+            sel.innerHTML = '<option value="">Todos</option>';
+            types.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name + (t.short_name ? ' (' + t.short_name + ')' : '');
+                sel.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading types', e); }
+}
+
+async function loadInvFilterFormats() {
+    const sel = document.getElementById('invFilterFormat');
+    if (!sel) return;
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 50}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const formats = (data.items || []).filter(t => t.type === 'product_format');
+            sel.innerHTML = '<option value="">Todos</option>';
+            formats.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name.charAt(0).toUpperCase() + t.name.slice(1);
+                sel.appendChild(opt);
+            });
+        }
+    } catch (e) { console.error('Error loading formats', e); }
+}
+
+setupInvFilters();
+loadInvFilterTypes();
+loadInvFilterFormats();
 
 document.getElementById('showAllInv').addEventListener('change', () => {
     loadInventory({reset: true});
