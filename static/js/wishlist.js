@@ -29,14 +29,18 @@ document.querySelectorAll('.wl-view-btn').forEach(btn => {
     });
 });
 
-function wlImageCell(url) {
+function wlImageCell(url, trackerUrl) {
     const placeholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
     if (!url) {
         return `<div class="inv-img-thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg></div>`;
     }
     const imgUrl = assetUrl(url);
     const sep = imgUrl.includes('?') ? '&' : '?';
-    return `<div class="inv-img-thumb"><img class="product-thumb-img" src="${placeholder}" data-src="${esc(imgUrl + sep + 'size=sm')}" alt="" loading="lazy"></div>`;
+    const img = `<img class="product-thumb-img" src="${placeholder}" data-src="${esc(imgUrl + sep + 'size=sm')}" alt="" loading="lazy">`;
+    if (trackerUrl) {
+        return `<div class="inv-img-thumb"><a href="${esc(trackerUrl)}" target="_blank" rel="noopener">${img}</a></div>`;
+    }
+    return `<div class="inv-img-thumb">${img}</div>`;
 }
 
 function renderWishlistRow(item) {
@@ -50,7 +54,7 @@ function renderWishlistRow(item) {
         targetClass = last <= target ? 'diff-pos' : '';
     }
 
-    const typeDisplay = item.type_short ? esc(item.type_short) : '';
+    const typeDisplay = item.type_name ? (esc(item.type_name) + (item.type_short ? ' (' + esc(item.type_short) + ')' : '')) : (item.type_short ? esc(item.type_short) : '');
     const codeNum = esc(item.collection_code || '-') + (item.product_number ? ' ' + esc(item.product_number) : '');
     const nameDisplay = item.product_name ? `<strong>${esc(item.product_name)}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>';
     const noteDisplay = item.notes ? `<br><span class="inv-note">${esc(item.notes)}</span>` : '';
@@ -62,9 +66,10 @@ function renderWishlistRow(item) {
     const wState = item.w_state || 'buscando';
     const wStateLabels = { buscando: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscando`, notificado: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Notificado`, inactivo: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Inactivo`, comprado: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Comprado` };
     const wStateDisplay = wStateLabels[wState] || wState;
+    const wlTrackerUrl = item.tracker_url || null;
 
     return `<tr class="wl-row" data-id="${item.id}">
-        <td class="inv-img-cell">${wlImageCell(item.product_image_url)}</td>
+        <td class="inv-img-cell">${wlImageCell(item.product_image_url, wlTrackerUrl)}</td>
         <td>${typeDisplay}</td>
         <td>${esc(item.collection_code || '')}</td>
         <td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}${noteDisplay}</td>
@@ -266,6 +271,7 @@ async function loadWishlistFilterData() {
 
 // Event delegation: row click → edit, × button → delete
 document.getElementById('tabWishlist').addEventListener('click', (e) => {
+    if (e.target.closest('a[target="_blank"]')) return;
     const delBtn = e.target.closest('.btn-delete-wl');
     if (delBtn) {
         deleteWishlistItem(parseInt(delBtn.dataset.id));
@@ -321,6 +327,66 @@ async function editWishlistItem(id) {
         document.getElementById('wishlistCondition').value = item.condition_id || '';
     });
 
+    // Google search button
+    const gs = document.getElementById('wishlistGoogleSearch');
+    if (gs) {
+        const searchParts = [item.product_name, item.product_number, item.collection_code].filter(Boolean).join(' ');
+        gs.innerHTML = searchParts
+            ? `<button type="button" class="btn-google-search" onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(searchParts)}', '_blank', 'noopener')" title="Buscar en Google">Buscar en Google</button>`
+            : '';
+    }
+
+    // Price trackers (same as inventory modal)
+    const linksContainer = document.getElementById('wishlistRelatedLinks');
+    if (linksContainer && item.product_id) {
+        const fmtDateShort = (d) => d ? String(d).slice(0, 10) : '-';
+        const fmtPrice = (p) => p != null ? parseFloat(p).toFixed(2) + '\u20AC' : '-';
+        Promise.all([
+            apiFetch(apiUrl('languages', {per_page: 200})).then(r => r.ok ? r.json() : {items: []}),
+            apiFetch(apiUrl('product-conditions', {per_page: 200})).then(r => r.ok ? r.json() : {items: []}),
+            apiFetch(apiUrl('product-price-tracking', {per_page: 200, product_id: item.product_id})).then(r => r.ok ? r.json() : {items: []}),
+            apiFetch(apiUrl(`wishlist-items/${id}/prices`)).then(r => r.ok ? r.json() : [])
+        ]).then(([langData, condData, trackerData, priceData]) => {
+            const langs = langData.items || [];
+            const conds = condData.items || [];
+            const lang = langs.find(l => l.id === item.language_id) || {};
+            const cond = conds.find(c => c.id === item.condition_id) || {};
+            const trackers = trackerData.items || [];
+            const prices = Array.isArray(priceData) ? priceData : (priceData.items || []);
+            const latestPrice = prices.length ? prices.reduce((a, b) => a.id > b.id ? a : b) : null;
+            if (!trackers.length) {
+                linksContainer.style.display = 'none';
+                linksContainer.innerHTML = '';
+                return;
+            }
+            linksContainer.style.display = 'flex';
+            const header = '<label style="margin-bottom:4px">Trackers de precio</label>';
+            linksContainer.innerHTML = header + trackers.map(t => {
+                let url = t.url;
+                const ps = t.price_source || {};
+                if (ps.language_param && lang.cardmarket_code) {
+                    const sep = url.includes('?') ? '&' : '?';
+                    url += sep + ps.language_param + '=' + encodeURIComponent(lang.cardmarket_code);
+                }
+                if (ps.condition_param && cond.cardmarket_code) {
+                    const sep = url.includes('?') ? '&' : '?';
+                    url += sep + ps.condition_param + '=' + encodeURIComponent(cond.cardmarket_code);
+                }
+                const priceHtml = latestPrice
+                    ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5">
+                        <span>Actual: <strong>${fmtPrice(latestPrice.price)}</strong> (${fmtDateShort(latestPrice.recorded_at)})</span>
+                        <span style="margin-left:10px">M\u00edn: ${fmtPrice(latestPrice.min_price)} (${fmtDateShort(latestPrice.min_price_recorded_at)})</span>
+                        <span style="margin-left:10px">M\u00e1x: ${fmtPrice(latestPrice.max_price)} (${fmtDateShort(latestPrice.max_price_recorded_at)})</span>
+                    </div>`
+                    : '<div style="font-size:12px;color:var(--muted);margin-top:2px">Sin precios</div>';
+                return `<div><div class="detail-row" style="border-bottom:none!important"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>${ps.name ? ' <span class="detail-meta">(' + esc(ps.name) + ')</span>' : ''}</div>${priceHtml}</div>`;
+            }).join('');
+        }).catch(() => { linksContainer.style.display = 'none'; linksContainer.innerHTML = ''; });
+    } else if (linksContainer) {
+        linksContainer.style.display = 'none';
+        linksContainer.innerHTML = '';
+    }
+
     showModal('wishlistModal');
 }
 
@@ -336,6 +402,10 @@ function showWishlistModal() {
     document.getElementById('wishlistModalTitle').textContent = 'Añadir a wishlist';
     document.getElementById('wishlistProductSearch').style.display = '';
     document.getElementById('wishlistProductSection').style.display = 'none';
+    const gs = document.getElementById('wishlistGoogleSearch');
+    if (gs) gs.innerHTML = '';
+    const linksContainer = document.getElementById('wishlistRelatedLinks');
+    if (linksContainer) { linksContainer.style.display = 'none'; linksContainer.innerHTML = ''; }
     loadWishlistSelects();
     showModal('wishlistModal');
 }

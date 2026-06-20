@@ -225,6 +225,7 @@ function loadTab(tab) {
 }
 
 document.getElementById('tabInventory').addEventListener('click', (e) => {
+    if (e.target.closest('a[target="_blank"]')) return;
     const row = e.target.closest('tr.clickable-row[data-inv-id]');
     if (row) openEntryModal(row.dataset.invId);
 });

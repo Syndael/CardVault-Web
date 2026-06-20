@@ -531,6 +531,16 @@ tr:hover td {
     height: 500px;
 }
 
+.inv-img-thumb a {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    cursor: pointer;
+}
+.inv-img-thumb a:hover {
+    border-color: var(--accent);
+    opacity: 0.85;
+}
 .inv-img-thumb img {
     height: 100%;
     width: auto;

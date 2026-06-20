@@ -283,7 +283,7 @@ h1 {
 .tracker-button {
     position: absolute;
     right: 10px;
-    bottom: 54px;
+    top: 56px;
     width: 36px;
     height: 36px;
     border-radius: 6px;
@@ -827,6 +827,16 @@ tr:hover td { background: var(--surface-soft); }
     height: 500px;
 }
 
+.inv-img-thumb a {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    cursor: pointer;
+}
+.inv-img-thumb a:hover {
+    border-color: var(--accent);
+    opacity: 0.85;
+}
 .inv-img-thumb img {
     height: 100%;
     width: auto;

@@ -1177,6 +1177,8 @@ document.addEventListener("click", async (ev) => {
         return;
     }
     if (imgEl) {
+        // If inside a tracker link, let the browser navigate natively
+        if (imgEl.closest('a[target="_blank"]')) return;
         ev.preventDefault(); ev.stopPropagation();
         const pid = imgEl.getAttribute('data-product-id');
         const name = imgEl.getAttribute('data-product-name') || '';
@@ -1596,7 +1598,8 @@ function renderInvRow(item) {
     const nameDisplay = prodNameFmt ? `<strong>${prodNameFmt}</strong>` : '<em style="color:var(--muted)">(sin nombre)</em>';
     const noteDisplay = item.notes ? `<br><span class="inv-note">${esc(item.notes)}</span>` : '';
     const tagsHtml = renderTagBadges(item.tags);
-    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}${noteDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td>${tagsHtml}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+    const invTrackerUrl = item.tracker_url || null;
+    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url, invTrackerUrl)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}${noteDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td>${tagsHtml}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function renderTagBadges(tags) {
@@ -1612,14 +1615,18 @@ function renderEntryTagBadge(tag, invId) {
     return `<span class="entry-tag-badge" data-tag-id="${tag.id}" data-inv-id="${invId}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(bg)}">${esc(tag.name)}<button type="button" class="btn-remove-tag" data-tag-id="${tag.id}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`;
 }
 
-function invImageCell(url) {
+function invImageCell(url, trackerUrl) {
     const placeholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
     if (!url) {
         return `<div class="inv-img-thumb"><svg class="thumb-placeholder" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="m8 14 2.5-2.5L14 15l2-2 3 3"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg></div>`;
     }
     const imgUrl = assetUrl(url);
     const sep = imgUrl.includes('?') ? '&' : '?';
-    return `<div class="inv-img-thumb"><img class="product-thumb-img" src="${placeholder}" data-src="${esc(imgUrl + sep + 'size=sm')}" alt="" loading="lazy"></div>`;
+    const img = `<img class="product-thumb-img" src="${placeholder}" data-src="${esc(imgUrl + sep + 'size=sm')}" alt="" loading="lazy">`;
+    if (trackerUrl) {
+        return `<div class="inv-img-thumb"><a href="${esc(trackerUrl)}" target="_blank" rel="noopener">${img}</a></div>`;
+    }
+    return `<div class="inv-img-thumb">${img}</div>`;
 }
 
 function appendInv(items) {
@@ -2644,10 +2651,10 @@ async function openPurchaseModal(purchaseId) {
     itemCounter = 0;
     try {
         const [entResp, typesResp] = await Promise.all([
-            apiFetch(apiUrl('entities', {per_page: 200})),
+            apiFetch(apiUrl('entities', {per_page: 500})),
             apiFetch(apiUrl('types', {per_page: 200}))
         ]);
-
+        
         const [entData, typesData] = await Promise.all([
             entResp.ok ? entResp.json() : {items: []},
             typesResp.ok ? typesResp.json() : {items: []}
@@ -2656,14 +2663,19 @@ async function openPurchaseModal(purchaseId) {
         const allTypes = typesData.items || [];
         allEntities = entData.items || entData || [];
 
-        // Populate entity dropdown (stores, platforms, persons)
+        // Identify shipping company type to exclude from entity dropdown
+        const shipTypeEntity = allTypes.find(t => t.type === 'entity' && t.name === 'shipping_company');
+        const shippingCompanyTypeId = shipTypeEntity ? shipTypeEntity.id : null;
+
+        // Populate entity dropdown (stores, platforms, persons — exclude shipping companies)
         const sel = document.getElementById('purEntity');
         sel.innerHTML = '<option value="">Seleccionar...</option>';
-        allEntities.slice().sort((a, b) => (a.name || '').localeCompare(b.name)).forEach(e => { const opt = document.createElement('option'); opt.value = e.id; opt.textContent = e.name; sel.appendChild(opt); });
+        allEntities
+            .filter(e => !shippingCompanyTypeId || e.entity_type !== shippingCompanyTypeId)
+            .slice().sort((a, b) => (a.name || '').localeCompare(b.name))
+            .forEach(e => { const opt = document.createElement('option'); opt.value = e.id; opt.textContent = e.name; sel.appendChild(opt); });
 
         // Populate shipping company dropdown (entities with type 'shipping_company')
-        const shipType = allTypes.find(t => t.type === 'entity' && t.name === 'shipping_company');
-        const shippingCompanyTypeId = shipType ? shipType.id : null;
         const shipSel = document.getElementById('purShippingCompany');
         shipSel.innerHTML = '<option value="">Seleccionar...</option>';
         const shippingEntities = shippingCompanyTypeId
@@ -3518,7 +3530,9 @@ document.getElementById('tabCollections').addEventListener('click', async (e) =>
 });
 
 // Tab click on inventory rows
+
 document.getElementById('tabInventory').addEventListener('click', async (e) => {
+    if (e.target.closest('a[target="_blank"]')) return;
     const delBtn = e.target.closest('.btn-delete-inv');
     if (delBtn) {
         e.stopPropagation();
@@ -3967,7 +3981,7 @@ function setupPurFilters() {
 async function loadPurFilterData() {
     try {
         const [entResp, typesResp] = await Promise.all([
-            apiFetch(apiUrl('entities', {per_page: 200})),
+            apiFetch(apiUrl('entities', {per_page: 500})),
             apiFetch(apiUrl('types', {per_page: 200}))
         ]);
         const [entData, typesData] = await Promise.all([
@@ -3979,16 +3993,23 @@ async function loadPurFilterData() {
 
         purStatusTypes = allTypes.filter(t => t.type === 'p_status');
 
-        // Entity/Store dropdown
+        // Identify shipping company type to exclude from entity dropdown
+        const shipTypeEntity = allTypes.find(t => t.type === 'entity' && t.name === 'shipping_company');
+        const shippingCompanyTypeId = shipTypeEntity ? shipTypeEntity.id : null;
+
+        // Entity/Store dropdown (exclude shipping companies)
         const entitySel = document.getElementById('purFilterEntity');
         if (entitySel) {
             entitySel.innerHTML = '<option value="">Todas</option>';
-            allEntities.slice().sort((a, b) => (a.name || '').localeCompare(b.name)).forEach(e => {
-                const opt = document.createElement('option');
-                opt.value = e.id;
-                opt.textContent = e.name;
-                entitySel.appendChild(opt);
-            });
+            allEntities
+                .filter(e => !shippingCompanyTypeId || e.entity_type !== shippingCompanyTypeId)
+                .slice().sort((a, b) => (a.name || '').localeCompare(b.name))
+                .forEach(e => {
+                    const opt = document.createElement('option');
+                    opt.value = e.id;
+                    opt.textContent = e.name;
+                    entitySel.appendChild(opt);
+                });
         }
 
         // Status dropdown
@@ -4008,8 +4029,6 @@ async function loadPurFilterData() {
         }
 
         // Shipping company dropdown
-        const shipType = allTypes.find(t => t.type === 'entity' && t.name === 'shipping_company');
-        const shippingCompanyTypeId = shipType ? shipType.id : null;
         const companySel = document.getElementById('purFilterCompany');
         if (companySel) {
             companySel.innerHTML = '<option value="">Todos</option>';
