@@ -2158,37 +2158,41 @@ async function loadInventoryFiles(invId) {
     const container = document.getElementById('entryPhotos');
     if (!container) return;
     container.innerHTML = '<span class="loading-state" style="padding:8px;font-size:13px">Cargando...</span>';
+    container.classList.remove('has-files');
     try {
         const resp = await apiFetch(apiUrl(`files/by-inventory/${invId}`));
         if (!resp.ok) { container.innerHTML = ''; return; }
         const files = await resp.json();
-        if (!files.length) { container.innerHTML = '<span style="color:var(--muted);font-size:13px">Sin fotos</span>'; return; }
+        if (!files.length) { container.innerHTML = ''; return; }
         const token = window.localStorage.getItem(TOKEN_KEY) || '';
         const qs = token ? `?token=${encodeURIComponent(token)}` : '';
         container.innerHTML = files.map(f => {
             const url = apiUrl(`product-catalog/files/${f.id}/content`) + qs;
             return `<a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>`;
         }).join('');
-    } catch (e) { console.error(e); container.innerHTML = ''; }
+        container.classList.add('has-files');
+    } catch (e) { console.error(e); container.innerHTML = ''; container.classList.remove('has-files'); }
 }
 
 async function loadPurchaseFiles(purId) {
     const container = document.getElementById('purPhotos');
     if (!container) return;
     container.innerHTML = '<span class="loading-state" style="padding:8px;font-size:13px">Cargando...</span>';
+    container.classList.remove('has-files');
     try {
         const resp = await apiFetch(apiUrl(`files/by-purchase/${purId}`));
         if (!resp.ok) { container.innerHTML = ''; return; }
         const files = await resp.json();
         const images = files.filter(f => !f.file_type || f.file_type.name === 'image');
-        if (!images.length) { container.innerHTML = '<span style="color:var(--muted);font-size:13px">Sin fotos</span>'; return; }
+        if (!images.length) { container.innerHTML = ''; return; }
         const token = window.localStorage.getItem(TOKEN_KEY) || '';
         const qs = token ? `?token=${encodeURIComponent(token)}` : '';
         container.innerHTML = images.map(f => {
             const url = apiUrl(`product-catalog/files/${f.id}/content`) + qs;
             return `<a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>`;
         }).join('');
-    } catch (e) { console.error(e); container.innerHTML = ''; }
+        container.classList.add('has-files');
+    } catch (e) { console.error(e); container.innerHTML = ''; container.classList.remove('has-files'); }
 }
 
 async function loadPurchaseDocs(purId) {
@@ -2228,9 +2232,15 @@ async function uploadPurchaseFile(purId, file) {
     formData.append('file', file);
     try {
         const resp = await apiFetch(apiUrl('files/upload-purchase'), {method: 'POST', body: formData});
-        if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al subir foto: ' + (t || resp.status)); return; }
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); console.error('Error al subir foto: ' + (t || resp.status)); return; }
         loadPurchaseFiles(purId);
-    } catch (e) { console.error(e); alert('Error al subir foto'); }
+    } catch (e) { console.error(e); }
+}
+
+async function uploadPurchaseFiles(purId, files) {
+    for (const file of files) {
+        await uploadPurchaseFile(purId, file);
+    }
 }
 
 async function uploadPurchaseDoc(purId, file) {
@@ -2240,9 +2250,15 @@ async function uploadPurchaseDoc(purId, file) {
     formData.append('file_type', 'document');
     try {
         const resp = await apiFetch(apiUrl('files/upload-purchase'), {method: 'POST', body: formData});
-        if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al subir documento: ' + (t || resp.status)); return; }
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); console.error('Error al subir documento: ' + (t || resp.status)); return; }
         loadPurchaseDocs(purId);
-    } catch (e) { console.error(e); alert('Error al subir documento'); }
+    } catch (e) { console.error(e); }
+}
+
+async function uploadPurchaseDocs(purId, files) {
+    for (const file of files) {
+        await uploadPurchaseDoc(purId, file);
+    }
 }
 
 // Wire upload buttons
@@ -2250,11 +2266,31 @@ document.getElementById('entryUploadBtn')?.addEventListener('click', () => {
     document.getElementById('entryPhotoInput')?.click();
 });
 document.getElementById('entryPhotoInput')?.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
+    const files = e.target.files;
     const invId = document.getElementById('modalInventoryId').value;
-    if (file && invId) uploadInventoryFile(invId, file);
+    if (files?.length && invId) {
+        for (const file of files) uploadInventoryFile(invId, file);
+    }
     e.target.value = '';
 });
+
+// Drag & drop for inventory photos
+const invPhotosZone = document.getElementById('entryPhotos');
+if (invPhotosZone) {
+    ['dragenter', 'dragover'].forEach(ev => {
+        invPhotosZone.addEventListener(ev, e => { e.preventDefault(); invPhotosZone.classList.add('drag-over'); });
+    });
+    ['dragleave', 'drop'].forEach(ev => {
+        invPhotosZone.addEventListener(ev, e => { e.preventDefault(); invPhotosZone.classList.remove('drag-over'); });
+    });
+    invPhotosZone.addEventListener('drop', e => {
+        const files = e.dataTransfer?.files;
+        const invId = document.getElementById('modalInventoryId').value;
+        if (files?.length && invId) {
+            for (const file of files) uploadInventoryFile(invId, file);
+        }
+    });
+}
 
 async function loadInventoryUrls(invId) {
     const container = document.getElementById('entryUrls');
@@ -2307,9 +2343,9 @@ document.getElementById('purUploadBtn')?.addEventListener('click', () => {
     document.getElementById('purPhotoInput')?.click();
 });
 document.getElementById('purPhotoInput')?.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
+    const files = e.target.files;
     const purId = document.getElementById('modalPurchaseId').value;
-    if (file && purId) uploadPurchaseFile(purId, file);
+    if (files?.length && purId) uploadPurchaseFiles(purId, files);
     e.target.value = '';
 });
 
@@ -2317,11 +2353,27 @@ document.getElementById('purUploadDocBtn')?.addEventListener('click', () => {
     document.getElementById('purDocInput')?.click();
 });
 document.getElementById('purDocInput')?.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
+    const files = e.target.files;
     const purId = document.getElementById('modalPurchaseId').value;
-    if (file && purId) uploadPurchaseDoc(purId, file);
+    if (files?.length && purId) uploadPurchaseDocs(purId, files);
     e.target.value = '';
 });
+
+// Drag & drop for purchase photos
+const purPhotosZone = document.getElementById('purPhotos');
+if (purPhotosZone) {
+    ['dragenter', 'dragover'].forEach(ev => {
+        purPhotosZone.addEventListener(ev, e => { e.preventDefault(); purPhotosZone.classList.add('drag-over'); });
+    });
+    ['dragleave', 'drop'].forEach(ev => {
+        purPhotosZone.addEventListener(ev, e => { e.preventDefault(); purPhotosZone.classList.remove('drag-over'); });
+    });
+    purPhotosZone.addEventListener('drop', e => {
+        const files = e.dataTransfer?.files;
+        const purId = document.getElementById('modalPurchaseId').value;
+        if (files?.length && purId) uploadPurchaseFiles(purId, files);
+    });
+}
 
 // Add inventory modal
 const addInvModal = document.getElementById('addInvModal');
@@ -2561,6 +2613,9 @@ function renderPurRow(item) {
     const tracking = item.tracking_code || '-';
     const status = item.shipping_status ? item.shipping_status.name : '-';
     const company = item.shipping_company ? item.shipping_company.name : '-';
+    const origAmount = item.original_amount;
+    const origCurrency = item.original_currency;
+    const origStr = (origAmount && origCurrency) ? `${origAmount} ${origCurrency}` : '';
     const docIcon = item.has_docs
         ? `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle" title="Tiene documentos"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>`
         : '';
@@ -2569,7 +2624,8 @@ function renderPurRow(item) {
         : '';
     const delivery = item.delivery_date ? item.delivery_date.slice(0,10) : null;
     const dateHtml = `${esc(item.purchase_date ? item.purchase_date.slice(0,10) : '-')}${delivery ? ` <span style="font-size:9px;color:var(--text-muted)">/\u2009${esc(delivery)}</span>` : ''}`;
-    return `<tr class="clickable-row" data-pur-id="${item.id}"><td>${dateHtml}</td><td>${esc(item.entity ? item.entity.name : '-')}</td><td>${esc(tracking)}</td><td>${esc(status)}</td><td>${esc(company)}</td><td>${total}</td><td>${ship}</td><td>${esc(item.currency || 'EUR')}</td><td>${itemsCount}</td><td style="text-align:center">${docIcon}</td><td style="text-align:center">${photoIcon}</td><td style="text-align:center"><button type="button" class="btn-delete-pur" data-pur-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+    const curHtml = esc(item.currency || 'EUR') + (origStr ? ` <span style="font-size:10px;color:var(--text-muted)">(${esc(origStr)})</span>` : '');
+    return `<tr class="clickable-row" data-pur-id="${item.id}"><td>${dateHtml}</td><td>${esc(item.entity ? item.entity.name : '-')}</td><td>${esc(tracking)}</td><td>${esc(status)}</td><td>${esc(company)}</td><td>${total}</td><td>${ship}</td><td>${curHtml}</td><td>${itemsCount}</td><td style="text-align:center">${docIcon}</td><td style="text-align:center">${photoIcon}</td><td style="text-align:center"><button type="button" class="btn-delete-pur" data-pur-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function appendPur(items) {
@@ -2642,12 +2698,15 @@ async function openPurchaseModal(purchaseId) {
     document.getElementById('purTotal').value = '';
     document.getElementById('purShipping').value = '';
     document.getElementById('purCurrency').value = 'EUR';
+    document.getElementById('purConversionRate').value = '';
+    document.getElementById('purOriginalAmount').value = '';
+    document.getElementById('purOriginalCurrency').value = '';
     document.getElementById('purRef').value = '';
     document.getElementById('purTracking').value = '';
     document.getElementById('purShippingStatus').value = '';
     document.getElementById('purShippingCompany').value = '';
     document.getElementById('purNotes').value = '';
-    document.getElementById('purchaseItemsBody').innerHTML = '<tr class="empty-row"><td colspan="5" class="empty-state">Sin items</td></tr>';
+    document.getElementById('purchaseItemsBody').innerHTML = '<tr class="empty-row"><td colspan="8" class="empty-state">Sin items</td></tr>';
     itemCounter = 0;
     try {
         const [entResp, typesResp] = await Promise.all([
@@ -2725,6 +2784,9 @@ async function openPurchaseModal(purchaseId) {
                 document.getElementById('purTotal').value = p.total_amount || '';
                 document.getElementById('purShipping').value = p.shipping_cost || '';
                 document.getElementById('purCurrency').value = p.currency || 'EUR';
+                document.getElementById('purConversionRate').value = p.conversion_rate || '';
+                document.getElementById('purOriginalAmount').value = p.original_amount || '';
+                document.getElementById('purOriginalCurrency').value = p.original_currency || '';
                 document.getElementById('purRef').value = p.external_reference || '';
                 document.getElementById('purTracking').value = p.tracking_code || '';
                 document.getElementById('purShippingStatus').value = (p.shipping_status && p.shipping_status.id) || '';
@@ -2771,9 +2833,12 @@ async function addItemRow(data) {
     const id = data ? (data.id || 'new_' + (++itemCounter)) : 'new_' + (++itemCounter);
     const qty = data ? (data.quantity || 1) : 1;
     const price = data ? (data.unit_price || '') : '';
+    const origPrice = data ? (data.original_unit_price || '') : '';
+    const origCur = data ? (data.original_currency || '') : '';
+    const convRate = data ? (data.conversion_rate || '') : '';
     const tr = document.createElement('tr');
     tr.dataset.itemId = id;
-    tr.innerHTML = `<td><input class="item-product" type="text" placeholder="Buscar producto..." value="${esc(data && data.product ? (data.product.product_number || '') : '')}" data-item-id="${id}"><span class="product-name-view"></span></td><td><input class="item-qty" type="number" min="1" step="1" value="${qty}" data-item-id="${id}"></td><td><input class="item-price" type="number" step="0.01" min="0" value="${price}" data-item-id="${id}"></td><td><span class="item-total" data-item-id="${id}">${price ? (qty * parseFloat(price)).toFixed(2) : '0.00'}</span></td><td><button type="button" class="btn-danger remove-item" data-item-id="${id}" title="Eliminar item">&times;</button></td>`;
+    tr.innerHTML = `<td><input class="item-product" type="text" placeholder="Buscar producto..." value="${esc(data && data.product ? (data.product.product_number || '') : '')}" data-item-id="${id}"><span class="product-name-view"></span></td><td><input class="item-qty" type="number" min="1" step="1" value="${qty}" data-item-id="${id}"></td><td><input class="item-price" type="number" step="0.01" min="0" value="${price}" data-item-id="${id}"></td><td><input class="item-orig-price" type="number" step="0.01" min="0" value="${origPrice}" data-item-id="${id}" placeholder="0.00"></td><td><input class="item-conv-rate" type="number" step="0.0001" min="0" value="${convRate}" data-item-id="${id}" placeholder="1.0" style="width:70px"></td><td><select class="item-orig-currency" data-item-id="${id}"><option value="">EUR</option><option value="USD" ${origCur === 'USD' ? 'selected' : ''}>USD</option><option value="GBP" ${origCur === 'GBP' ? 'selected' : ''}>GBP</option><option value="JPY" ${origCur === 'JPY' ? 'selected' : ''}>JPY</option><option value="CHF" ${origCur === 'CHF' ? 'selected' : ''}>CHF</option><option value="CNY" ${origCur === 'CNY' ? 'selected' : ''}>CNY</option></select></td><td><span class="item-total" data-item-id="${id}">${price ? (qty * parseFloat(price)).toFixed(2) : '0.00'}</span></td><td><button type="button" class="btn-danger remove-item" data-item-id="${id}" title="Eliminar item">&times;</button></td>`;
     tbody.appendChild(tr);
     const prodInput = tr.querySelector('.item-product');
     if (!data || !data.product_id) {
@@ -2785,10 +2850,12 @@ async function addItemRow(data) {
     }
     tr.querySelector('.item-qty').addEventListener('input', recalcItemTotal);
     tr.querySelector('.item-price').addEventListener('input', recalcItemTotal);
+    tr.querySelector('.item-orig-price').addEventListener('input', recalcItemFromOrig);
+    tr.querySelector('.item-conv-rate').addEventListener('input', recalcItemFromOrig);
     tr.querySelector('.remove-item').addEventListener('click', () => {
         tr.remove();
         const rows = tbody.querySelectorAll('tr');
-        if (rows.length === 0) tbody.innerHTML = '<tr class="empty-row"><td colspan="5" class="empty-state">Sin items</td></tr>';
+        if (rows.length === 0) tbody.innerHTML = '<tr class="empty-row"><td colspan="8" class="empty-state">Sin items</td></tr>';
         updatePurchaseTotal();
     });
     if (data && data.product) {
@@ -2812,6 +2879,17 @@ function recalcItemTotal(ev) {
     const price = parseFloat(row.querySelector('.item-price').value) || 0;
     row.querySelector('.item-total').textContent = (qty * price).toFixed(2);
     updatePurchaseTotal();
+}
+
+function recalcItemFromOrig(ev) {
+    const row = ev.target.closest('tr');
+    const origPrice = parseFloat(row.querySelector('.item-orig-price').value);
+    const convRate = parseFloat(row.querySelector('.item-conv-rate').value);
+    if (origPrice > 0 && convRate > 0) {
+        const priceInput = row.querySelector('.item-price');
+        priceInput.value = (origPrice * convRate).toFixed(2);
+        recalcItemTotal(ev);
+    }
 }
 
 function updatePurchaseTotal() {
@@ -2902,6 +2980,9 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
     const total = document.getElementById('purTotal').value;
     const shipping = document.getElementById('purShipping').value || '0';
     const currency = document.getElementById('purCurrency').value;
+    const conversionRate = document.getElementById('purConversionRate').value;
+    const originalAmount = document.getElementById('purOriginalAmount').value;
+    const originalCurrency = document.getElementById('purOriginalCurrency').value;
     const ref = document.getElementById('purRef').value.trim();
     const tracking = document.getElementById('purTracking').value.trim();
     const shippingStatusId = document.getElementById('purShippingStatus').value;
@@ -2914,8 +2995,17 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
         const prodInput = tr.querySelector('.item-product');
         const qty = parseInt(tr.querySelector('.item-qty').value, 10) || 0;
         const price = parseFloat(tr.querySelector('.item-price').value) || 0;
+        const origPrice = tr.querySelector('.item-orig-price').value;
+        const origCur = tr.querySelector('.item-orig-currency').value;
+        const convRate = tr.querySelector('.item-conv-rate').value;
         const productId = prodInput.dataset.productId;
-        if (productId && qty > 0) items.push({_rowId: tr.dataset.itemId, product_id: parseInt(productId), quantity: qty, unit_price: price});
+        if (productId && qty > 0) {
+            const item = {_rowId: tr.dataset.itemId, product_id: parseInt(productId), quantity: qty, unit_price: price};
+            if (origPrice) item.original_unit_price = parseFloat(origPrice);
+            if (origCur) item.original_currency = origCur;
+            if (convRate) item.conversion_rate = parseFloat(convRate);
+            items.push(item);
+        }
     });
     const btn = ev.target.querySelector('button[type="submit"]');
     btn.disabled = true; btn.textContent = 'Guardando...';
@@ -2925,6 +3015,9 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
             entity_id: parseInt(entityId), purchase_date: date || null,
             delivery_date: deliveryDate || null,
             total_amount: total || null, shipping_cost: shipping, currency: currency,
+            ...(conversionRate ? {conversion_rate: conversionRate} : {}),
+            ...(originalAmount ? {original_amount: originalAmount} : {}),
+            ...(originalCurrency ? {original_currency: originalCurrency} : {}),
             ...(ref ? {external_reference: ref} : {}),
             ...(tracking ? {tracking_code: tracking} : {}),
             ...(shippingStatusId ? {shipping_status_id: parseInt(shippingStatusId)} : {}),
@@ -2957,15 +3050,23 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
             }
         }
         for (const item of items) {
+            const itemPayload = {
+                product_id: item.product_id,
+                unit_price: item.unit_price,
+                quantity: item.quantity,
+                ...(item.original_unit_price !== undefined ? {original_unit_price: item.original_unit_price} : {}),
+                ...(item.original_currency ? {original_currency: item.original_currency} : {}),
+                ...(item.conversion_rate !== undefined ? {conversion_rate: item.conversion_rate} : {}),
+            };
             if (item._rowId && !item._rowId.startsWith('new_')) {
                 await apiFetch(apiUrl(`purchase-items/${item._rowId}`), {
                     method: 'PATCH', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({product_id: item.product_id, unit_price: item.unit_price, quantity: item.quantity})
+                    body: JSON.stringify(itemPayload)
                 });
             } else {
                 await apiFetch(apiUrl('purchase-items'), {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({purchase_id: savedId, product_id: item.product_id, unit_price: item.unit_price, quantity: item.quantity})
+                    body: JSON.stringify({purchase_id: savedId, ...itemPayload})
                 });
             }
         }
