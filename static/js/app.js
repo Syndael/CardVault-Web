@@ -2697,6 +2697,7 @@ async function openPurchaseModal(purchaseId) {
     document.getElementById('purDeliveryDate').value = '';
     document.getElementById('purTotal').value = '';
     document.getElementById('purShipping').value = '';
+    document.getElementById('purCommission').value = '';
     document.getElementById('purCurrency').value = 'EUR';
     document.getElementById('purConversionRate').value = '';
     document.getElementById('purOriginalAmount').value = '';
@@ -2706,7 +2707,8 @@ async function openPurchaseModal(purchaseId) {
     document.getElementById('purShippingStatus').value = '';
     document.getElementById('purShippingCompany').value = '';
     document.getElementById('purNotes').value = '';
-    document.getElementById('purchaseItemsBody').innerHTML = '<tr class="empty-row"><td colspan="8" class="empty-state">Sin items</td></tr>';
+    document.getElementById('purchaseItemsBody').innerHTML = '<tr class="empty-row"><td colspan="9" class="empty-state">Sin items</td></tr>';
+    if (document.getElementById('purTotalExtras')) document.getElementById('purTotalExtras').value = '0.00 €';
     itemCounter = 0;
     try {
         const [entResp, typesResp] = await Promise.all([
@@ -2783,7 +2785,9 @@ async function openPurchaseModal(purchaseId) {
                 document.getElementById('purEntity').value = (p.entity && p.entity.id) || '';
                 document.getElementById('purTotal').value = p.total_amount || '';
                 document.getElementById('purShipping').value = p.shipping_cost || '';
+                document.getElementById('purCommission').value = p.commission || '';
                 document.getElementById('purCurrency').value = p.currency || 'EUR';
+                if (typeof updatePurTotalExtras === 'function') updatePurTotalExtras();
                 document.getElementById('purConversionRate').value = p.conversion_rate || '';
                 document.getElementById('purOriginalAmount').value = p.original_amount || '';
                 document.getElementById('purOriginalCurrency').value = p.original_currency || '';
@@ -2836,9 +2840,10 @@ async function addItemRow(data) {
     const origPrice = data ? (data.original_unit_price || '') : '';
     const origCur = data ? (data.original_currency || '') : '';
     const convRate = data ? (data.conversion_rate || '') : '';
+    const splitQty = data ? (data.split_quantity || 1) : 1;
     const tr = document.createElement('tr');
     tr.dataset.itemId = id;
-    tr.innerHTML = `<td><input class="item-product" type="text" placeholder="Buscar producto..." value="${esc(data && data.product ? (data.product.product_number || '') : '')}" data-item-id="${id}"><span class="product-name-view"></span></td><td><input class="item-qty" type="number" min="1" step="1" value="${qty}" data-item-id="${id}"></td><td><input class="item-price" type="number" step="0.01" min="0" value="${price}" data-item-id="${id}"></td><td><input class="item-orig-price" type="number" step="0.01" min="0" value="${origPrice}" data-item-id="${id}" placeholder="0.00"></td><td><input class="item-conv-rate" type="number" step="0.0001" min="0" value="${convRate}" data-item-id="${id}" placeholder="1.0" style="width:70px"></td><td><select class="item-orig-currency" data-item-id="${id}"><option value="">EUR</option><option value="USD" ${origCur === 'USD' ? 'selected' : ''}>USD</option><option value="GBP" ${origCur === 'GBP' ? 'selected' : ''}>GBP</option><option value="JPY" ${origCur === 'JPY' ? 'selected' : ''}>JPY</option><option value="CHF" ${origCur === 'CHF' ? 'selected' : ''}>CHF</option><option value="CNY" ${origCur === 'CNY' ? 'selected' : ''}>CNY</option></select></td><td><span class="item-total" data-item-id="${id}">${price ? (qty * parseFloat(price)).toFixed(2) : '0.00'}</span></td><td><button type="button" class="btn-danger remove-item" data-item-id="${id}" title="Eliminar item">&times;</button></td>`;
+    tr.innerHTML = `<td><input class="item-product" type="text" placeholder="Buscar producto..." value="${esc(data && data.product ? (data.product.product_number || '') : '')}" data-item-id="${id}"><span class="product-name-view"></span></td><td><input class="item-qty" type="number" min="1" step="1" value="${qty}" data-item-id="${id}"></td><td><input class="item-price" type="number" step="0.01" min="0" value="${price}" data-item-id="${id}"></td><td><input class="item-orig-price" type="number" step="0.01" min="0" value="${origPrice}" data-item-id="${id}" placeholder="0.00"></td><td><input class="item-conv-rate" type="number" step="0.0001" min="0" value="${convRate}" data-item-id="${id}" placeholder="1.0" style="width:70px"></td><td><select class="item-orig-currency" data-item-id="${id}"><option value="">EUR</option><option value="USD" ${origCur === 'USD' ? 'selected' : ''}>USD</option><option value="GBP" ${origCur === 'GBP' ? 'selected' : ''}>GBP</option><option value="JPY" ${origCur === 'JPY' ? 'selected' : ''}>JPY</option><option value="CHF" ${origCur === 'CHF' ? 'selected' : ''}>CHF</option><option value="CNY" ${origCur === 'CNY' ? 'selected' : ''}>CNY</option></select></td><td><input class="item-split-qty" type="number" min="1" step="1" value="${splitQty}" data-item-id="${id}" style="width:50px"></td><td><span class="item-total" data-item-id="${id}">${price ? (qty * parseFloat(price)).toFixed(2) : '0.00'}</span></td><td><button type="button" class="btn-danger remove-item" data-item-id="${id}" title="Eliminar item">&times;</button></td>`;
     tbody.appendChild(tr);
     const prodInput = tr.querySelector('.item-product');
     if (!data || !data.product_id) {
@@ -2971,6 +2976,29 @@ document.addEventListener('click', (e) => {
     if (!e.target.closest('.suggestions')) closeSuggestions();
 });
 
+function recalcPurFromOrig() {
+    const orig = parseFloat(document.getElementById('purOriginalAmount').value) || 0;
+    const rate = parseFloat(document.getElementById('purConversionRate').value) || 0;
+    if (orig && rate) {
+        document.getElementById('purTotal').value = (orig * rate).toFixed(2);
+    }
+    updatePurTotalExtras();
+}
+function updatePurTotalExtras() {
+    const total = parseFloat(document.getElementById('purTotal').value) || 0;
+    const shipping = parseFloat(document.getElementById('purShipping').value) || 0;
+    const commission = parseFloat(document.getElementById('purCommission').value) || 0;
+    document.getElementById('purTotalExtras').value = (total + shipping + commission).toFixed(2);
+}
+['purTotal', 'purShipping', 'purCommission'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updatePurTotalExtras);
+});
+['purOriginalAmount', 'purConversionRate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', recalcPurFromOrig);
+});
+
 document.getElementById('purchaseForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const purchaseId = document.getElementById('modalPurchaseId').value;
@@ -2979,6 +3007,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
     const entityId = document.getElementById('purEntity').value;
     const total = document.getElementById('purTotal').value;
     const shipping = document.getElementById('purShipping').value || '0';
+    const commission = document.getElementById('purCommission').value || '0';
     const currency = document.getElementById('purCurrency').value;
     const conversionRate = document.getElementById('purConversionRate').value;
     const originalAmount = document.getElementById('purOriginalAmount').value;
@@ -2998,12 +3027,14 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
         const origPrice = tr.querySelector('.item-orig-price').value;
         const origCur = tr.querySelector('.item-orig-currency').value;
         const convRate = tr.querySelector('.item-conv-rate').value;
+        const splitQty = parseInt(tr.querySelector('.item-split-qty').value, 10) || 1;
         const productId = prodInput.dataset.productId;
         if (productId && qty > 0) {
             const item = {_rowId: tr.dataset.itemId, product_id: parseInt(productId), quantity: qty, unit_price: price};
             if (origPrice) item.original_unit_price = parseFloat(origPrice);
             if (origCur) item.original_currency = origCur;
             if (convRate) item.conversion_rate = parseFloat(convRate);
+            if (splitQty > 1) item.split_quantity = splitQty;
             items.push(item);
         }
     });
@@ -3014,7 +3045,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
         const payload = {
             entity_id: parseInt(entityId), purchase_date: date || null,
             delivery_date: deliveryDate || null,
-            total_amount: total || null, shipping_cost: shipping, currency: currency,
+            total_amount: total || null, shipping_cost: shipping, commission: commission, currency: currency,
             ...(conversionRate ? {conversion_rate: conversionRate} : {}),
             ...(originalAmount ? {original_amount: originalAmount} : {}),
             ...(originalCurrency ? {original_currency: originalCurrency} : {}),
@@ -3054,6 +3085,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
                 product_id: item.product_id,
                 unit_price: item.unit_price,
                 quantity: item.quantity,
+                ...(item.split_quantity ? {split_quantity: item.split_quantity} : {}),
                 ...(item.original_unit_price !== undefined ? {original_unit_price: item.original_unit_price} : {}),
                 ...(item.original_currency ? {original_currency: item.original_currency} : {}),
                 ...(item.conversion_rate !== undefined ? {conversion_rate: item.conversion_rate} : {}),

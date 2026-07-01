@@ -542,14 +542,6 @@
                 </div>
                 <div class="form-row">
                     <div class="field" style="flex:1">
-                        <label for="purTotal">Total</label>
-                        <input id="purTotal" type="number" step="0.01" min="0" placeholder="0.00">
-                    </div>
-                    <div class="field" style="flex:1">
-                        <label for="purShipping">Gastos envío</label>
-                        <input id="purShipping" type="number" step="0.01" min="0" placeholder="0.00">
-                    </div>
-                    <div class="field" style="flex:1">
                         <label for="purCurrency">Moneda</label>
                         <select id="purCurrency">
                             <option value="EUR">EUR</option>
@@ -558,16 +550,20 @@
                             <option value="JPY">JPY</option>
                         </select>
                     </div>
+                    <div class="field" style="flex:1">
+                        <label for="purTotal">Importe</label>
+                        <input id="purTotal" type="number" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label for="purShipping">Envío</label>
+                        <input id="purShipping" type="number" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label for="purCommission">Comisión</label>
+                        <input id="purCommission" type="number" step="0.01" min="0" placeholder="0.00">
+                    </div>
                 </div>
                 <div class="form-row">
-                    <div class="field" style="flex:1">
-                        <label for="purOriginalAmount">Importe original</label>
-                        <input id="purOriginalAmount" type="number" step="0.01" min="0" placeholder="0.00">
-                    </div>
-                    <div class="field" style="flex:1">
-                        <label for="purConversionRate">Tasa conv. → EUR</label>
-                        <input id="purConversionRate" type="number" step="0.0001" min="0" placeholder="1.0000">
-                    </div>
                     <div class="field" style="flex:1">
                         <label for="purOriginalCurrency">Moneda original</label>
                         <select id="purOriginalCurrency">
@@ -580,6 +576,18 @@
                             <option value="AUD">AUD</option>
                             <option value="CAD">CAD</option>
                         </select>
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label for="purOriginalAmount">Importe original</label>
+                        <input id="purOriginalAmount" type="number" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label for="purConversionRate">Conversión</label>
+                        <input id="purConversionRate" type="number" step="0.00000001" min="0" placeholder="1.00000000">
+                    </div>
+                    <div class="field" style="flex:1">
+                        <label for="purTotalExtras">Total</label>
+                        <input id="purTotalExtras" type="text" readonly style="background:transparent;color:var(--cyan);font-weight:760;font-size:1.1em;cursor:default;border:none;text-align:left;padding-left:4px">
                     </div>
                 </div>
                 <div class="field">
@@ -622,22 +630,23 @@
                     <table id="purchaseItemsTable">
                         <thead>
                             <tr>
-                                <th style="width:38%">Producto</th>
-                                <th style="width:7%">Cant.</th>
-                                <th style="width:10%">Precio ud.</th>
-                                <th style="width:10%">P. orig.</th>
-                                <th style="width:7%">Conv.</th>
-                                <th style="width:7%">Moneda</th>
-                                <th style="width:12%">Total</th>
+                                <th style="width:34%">Producto</th>
+                                <th style="width:6%">Cant.</th>
+                                <th style="width:9%">Precio ud.</th>
+                                <th style="width:9%">P. orig.</th>
+                                <th style="width:6%">Conv.</th>
+                                <th style="width:6%">Moneda</th>
+                                <th style="width:5%">Reparto</th>
+                                <th style="width:10%">Total</th>
                                 <th style="width:3%"></th>
                             </tr>
                         </thead>
                         <tbody id="purchaseItemsBody">
-                            <tr class="empty-row"><td colspan="8" class="empty-state">Sin items</td></tr>
+                            <tr class="empty-row"><td colspan="9" class="empty-state">Sin items</td></tr>
                         </tbody>
                         <tfoot id="purchaseItemsFoot" style="display:none">
                             <tr>
-                                <td colspan="3" style="text-align:right;font-weight:640;color:var(--cyan);padding:8px 10px">Total:</td>
+                                <td colspan="7" style="text-align:right;font-weight:640;color:var(--cyan);padding:8px 10px">Total:</td>
                                 <td id="purchaseTotalAmount" style="font-weight:760;color:var(--cyan);padding:8px 10px">0.00</td>
                                 <td></td>
                             </tr>

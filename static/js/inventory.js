@@ -1177,6 +1177,7 @@ async function openPurchaseModal(purchaseId) {
     document.getElementById('purDate').value = new Date().toISOString().slice(0,10);
     document.getElementById('purTotal').value = '';
     document.getElementById('purShipping').value = '';
+    document.getElementById('purCommission').value = '';
     document.getElementById('purCurrency').value = 'EUR';
     document.getElementById('purRef').value = '';
     document.getElementById('purTracking').value = '';
@@ -1184,7 +1185,8 @@ async function openPurchaseModal(purchaseId) {
     document.getElementById('purShippingCompany').value = '';
     document.getElementById('purNotes').value = '';
     document.getElementById('purComputedCode').textContent = '';
-    document.getElementById('purchaseItemsBody').innerHTML = '<tr class="empty-row"><td colspan="5" class="empty-state">Sin items</td></tr>';
+    document.getElementById('purchaseItemsBody').innerHTML = '<tr class="empty-row"><td colspan="9" class="empty-state">Sin items</td></tr>';
+    if (document.getElementById('purTotalExtras')) document.getElementById('purTotalExtras').value = '0.00 €';
     itemCounter = 0;
 
     // Load entities (for store dropdown) and types (for shipping status)
@@ -1246,8 +1248,10 @@ async function openPurchaseModal(purchaseId) {
                 document.getElementById('purEntity').value = (p.entity && p.entity.id) || '';
                 document.getElementById('purTotal').value = p.total_amount || '';
                 document.getElementById('purShipping').value = p.shipping_cost || '';
+                document.getElementById('purCommission').value = p.commission || '';
                 document.getElementById('purCurrency').value = p.currency || 'EUR';
                 document.getElementById('purRef').value = p.external_reference || '';
+                if (typeof updatePurTotalExtras === 'function') updatePurTotalExtras();
                 document.getElementById('purTracking').value = p.tracking_code || '';
                 document.getElementById('purShippingStatus').value = (p.shipping_status && p.shipping_status.id) || '';
                 document.getElementById('purShippingCompany').value = (p.shipping_company && p.shipping_company.id) || '';
@@ -1288,6 +1292,7 @@ async function addItemRow(data) {
     const id = data ? (data.id || 'new_' + (++itemCounter)) : 'new_' + (++itemCounter);
     const qty = data ? (data.quantity || 1) : 1;
     const price = data ? (data.unit_price || '') : '';
+    const splitQty = data ? (data.split_quantity || 1) : 1;
     const tr = document.createElement('tr');
     tr.dataset.itemId = id;
     tr.innerHTML = `
@@ -1297,6 +1302,7 @@ async function addItemRow(data) {
         </td>
         <td><input class="item-qty" type="number" min="1" step="1" value="${qty}" data-item-id="${id}"></td>
         <td><input class="item-price" type="number" step="0.01" min="0" value="${price}" data-item-id="${id}"></td>
+        <td><input class="item-split-qty" type="number" min="1" step="1" value="${splitQty}" data-item-id="${id}" style="width:50px"></td>
         <td><span class="item-total" data-item-id="${id}">${price ? (qty * parseFloat(price)).toFixed(2) : '0.00'}</span></td>
         <td><button type="button" class="btn-danger remove-item" data-item-id="${id}" title="Eliminar item">&times;</button></td>
     `;
@@ -1321,7 +1327,7 @@ async function addItemRow(data) {
     tr.querySelector('.remove-item').addEventListener('click', () => {
         tr.remove();
         const rows = tbody.querySelectorAll('tr');
-        if (rows.length === 0) tbody.innerHTML = '<tr class="empty-row"><td colspan="5" class="empty-state">Sin items</td></tr>';
+        if (rows.length === 0) tbody.innerHTML = '<tr class="empty-row"><td colspan="9" class="empty-state">Sin items</td></tr>';
         updatePurchaseTotal();
     });
 
@@ -1433,6 +1439,30 @@ document.addEventListener('click', (e) => {
     if (!e.target.closest('.suggestions')) closeSuggestions();
 });
 
+// Auto-calc total+envío+comisión
+function recalcPurFromOrig() {
+    const orig = parseFloat(document.getElementById('purOriginalAmount').value) || 0;
+    const rate = parseFloat(document.getElementById('purConversionRate').value) || 0;
+    if (orig && rate) {
+        document.getElementById('purTotal').value = (orig * rate).toFixed(2);
+    }
+    updatePurTotalExtras();
+}
+function updatePurTotalExtras() {
+    const total = parseFloat(document.getElementById('purTotal').value) || 0;
+    const shipping = parseFloat(document.getElementById('purShipping').value) || 0;
+    const commission = parseFloat(document.getElementById('purCommission').value) || 0;
+    document.getElementById('purTotalExtras').value = (total + shipping + commission).toFixed(2);
+}
+['purTotal', 'purShipping', 'purCommission'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updatePurTotalExtras);
+});
+['purOriginalAmount', 'purConversionRate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', recalcPurFromOrig);
+});
+
 // Submit purchase
 document.getElementById('purchaseForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -1441,6 +1471,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
     const entityId = document.getElementById('purEntity').value;
     const total = document.getElementById('purTotal').value;
     const shipping = document.getElementById('purShipping').value || '0';
+    const commission = document.getElementById('purCommission').value || '0';
     const currency = document.getElementById('purCurrency').value;
     const ref = document.getElementById('purRef').value.trim();
     const tracking = document.getElementById('purTracking').value.trim();
@@ -1457,13 +1488,15 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
         const prodInput = tr.querySelector('.item-product');
         const qty = parseInt(tr.querySelector('.item-qty').value, 10) || 0;
         const price = parseFloat(tr.querySelector('.item-price').value) || 0;
+        const splitQty = parseInt(tr.querySelector('.item-split-qty').value, 10) || 1;
         const productId = prodInput.dataset.productId;
         if (productId && qty > 0) {
             items.push({
                 _rowId: tr.dataset.itemId,
                 product_id: parseInt(productId),
                 quantity: qty,
-                unit_price: price
+                unit_price: price,
+                ...(splitQty > 1 ? {split_quantity: splitQty} : {})
             });
         }
     });
@@ -1479,6 +1512,7 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
             purchase_date: date || null,
             total_amount: total || null,
             shipping_cost: shipping,
+            commission: commission,
             currency: currency,
             ...(ref ? {external_reference: ref} : {}),
             ...(tracking ? {tracking_code: tracking} : {}),
@@ -1529,7 +1563,8 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
                     body: JSON.stringify({
                         product_id: item.product_id,
                         unit_price: item.unit_price,
-                        quantity: item.quantity
+                        quantity: item.quantity,
+                        ...(item.split_quantity ? {split_quantity: item.split_quantity} : {})
                     })
                 });
             } else {
@@ -1539,7 +1574,8 @@ document.getElementById('purchaseForm').addEventListener('submit', async (ev) =>
                         purchase_id: savedId,
                         product_id: item.product_id,
                         unit_price: item.unit_price,
-                        quantity: item.quantity
+                        quantity: item.quantity,
+                        ...(item.split_quantity ? {split_quantity: item.split_quantity} : {})
                     })
                 });
             }
