@@ -1,0 +1,1 @@
+var CARDVAULT_API_BASE = "http://192.168.1.55:9453/api";
