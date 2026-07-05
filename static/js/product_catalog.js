@@ -322,8 +322,6 @@ const emptyState = document.querySelector("#emptyState");
 const summary = document.querySelector("#resultSummary");
 const layoutSummary = document.querySelector("#layoutSummary");
 const scrollStatus = document.querySelector("#scrollStatus");
-const searchForm = document.querySelector("#searchForm");
-const searchInput = document.querySelector("#searchInput");
 const loadSentinel = document.querySelector("#loadSentinel");
 let resizeTimer = null;
 let scrollTimer = null;
@@ -732,11 +730,7 @@ async function loadProdFilterFormats() {
 loadProdFilterTypes();
 loadProdFilterFormats();
 
-searchForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    state.q = searchInput.value.trim();
-    loadProducts({reset: true});
-});
+
 
 document.getElementById('sortOrder').addEventListener('change', (e) => {
     state.sort = e.target.value;
@@ -1573,6 +1567,8 @@ createForm.addEventListener('submit', async (ev) => {
                     if (existing) {
                         collectionId = existing.id;
                         cardTypeId = existing.card_type ? existing.card_type.id : existing.card_type_id;
+                        // Store for subsequent use
+                        newColCode.dataset.collectionId = existing.id;
                     }
                 }
             } catch (e) { console.error(e); }

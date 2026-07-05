@@ -241,15 +241,7 @@ const state = {
     purchases: { page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true }
 };
 
-const searchForm = document.getElementById('searchForm');
-const searchInput = document.getElementById('searchInput');
 
-searchForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    state.inventory.q = searchInput.value.trim();
-    state.purchases.q = searchInput.value.trim();
-    loadTab(currentTab);
-});
 
 // ==================== INVENTORY ====================
 const invBody = document.getElementById('inventoryBody');
@@ -1089,13 +1081,15 @@ const purSentinel = document.getElementById('purSentinel');
 let allEntities = [];
 
 function renderPurLoading() {
-    purBody.innerHTML = `<tr><td colspan="9" class="loading-state">Cargando compras...</td></tr>`;
+    purBody.innerHTML = `<tr><td colspan="11" class="loading-state">Cargando compras...</td></tr>`;
     purEmpty.hidden = true;
 }
 function renderPurRow(item) {
     const itemsCount = (item.items || []).length;
-    const total = item.total_amount || '0.00';
-    const ship = item.shipping_cost || '0.00';
+    const total = parseFloat(item.total_amount) || 0;
+    const ship = parseFloat(item.shipping_cost) || 0;
+    const commission = parseFloat(item.commission) || 0;
+    const totalPlus = (total + ship + commission).toFixed(2);
     const tracking = item.tracking_code || '-';
     const status = item.shipping_status ? item.shipping_status.name : '-';
     const company = item.shipping_company ? item.shipping_company.name : '-';
@@ -1105,8 +1099,10 @@ function renderPurRow(item) {
         <td>${esc(tracking)}</td>
         <td>${esc(status)}</td>
         <td>${esc(company)}</td>
-        <td>${total}</td>
-        <td>${ship}</td>
+        <td>${total.toFixed(2)}</td>
+        <td>${ship.toFixed(2)}</td>
+        <td>${commission.toFixed(2)}</td>
+        <td>${totalPlus}</td>
         <td>${esc(item.currency || 'EUR')}</td>
         <td>${itemsCount}</td>
     </tr>`;
@@ -1746,6 +1742,219 @@ document.getElementById('entryPurchaseItem').addEventListener('change', function
 });
 document.getElementById('addInvPurchaseItem').addEventListener('change', function() {
     updatePriceDisplay(this, 'addInvPriceDisplay', 'addInvPriceValue', addInvSelectedPurchaseId);
+});
+
+// ==================== BULK IMPORT ====================
+const bulkInvModal = document.getElementById('bulkInvModal');
+document.getElementById('bulkInvBackdrop').addEventListener('click', () => bulkInvModal.hidden = true);
+document.getElementById('bulkInvCancel').addEventListener('click', () => bulkInvModal.hidden = true);
+
+document.getElementById('bulkInvBtn').addEventListener('click', openBulkInvModal);
+
+function openBulkInvModal() {
+    document.getElementById('bulkInvCollection').value = '';
+    delete document.getElementById('bulkInvCollection').dataset.collectionId;
+    document.getElementById('bulkInvTag').value = 'almacen';
+    document.getElementById('bulkInvItemsBody').innerHTML = getBulkEmptyRow();
+    document.getElementById('bulkInvResult').style.display = 'none';
+    document.getElementById('bulkInvResult').innerHTML = '';
+    closeBulkColSuggestions();
+    loadBulkInvLanguages();
+    loadBulkInvConditions();
+    bulkInvModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+}
+
+function getBulkEmptyRow() {
+    return `<tr>
+        <td><input type="text" class="bulk-prod-number" placeholder="001" style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px"></td>
+        <td><input type="number" class="bulk-prod-qty" value="1" min="1" step="1" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px"></td>
+        <td><button type="button" class="bulk-remove-row btn-secondary" style="padding:2px 8px;font-size:12px">&times;</button></td>
+    </tr>`;
+}
+
+document.getElementById('bulkAddRowBtn').addEventListener('click', () => {
+    const tbody = document.getElementById('bulkInvItemsBody');
+    tbody.insertAdjacentHTML('beforeend', getBulkEmptyRow());
+    attachBulkRowEvents();
+});
+
+document.getElementById('bulkInvItemsBody').addEventListener('click', (ev) => {
+    if (ev.target.classList.contains('bulk-remove-row')) {
+        const tr = ev.target.closest('tr');
+        if (tr && document.querySelectorAll('#bulkInvItemsBody tr').length > 1) {
+            tr.remove();
+        }
+    }
+});
+
+function attachBulkRowEvents() {
+    document.querySelectorAll('#bulkInvItemsBody .bulk-prod-number').forEach(el => {
+        el.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                document.getElementById('bulkAddRowBtn').click();
+            }
+        });
+    });
+}
+attachBulkRowEvents();
+
+// Collection search for bulk modal
+const bulkColInput = document.getElementById('bulkInvCollection');
+const bulkColSuggestions = document.getElementById('bulkInvColSuggestions');
+let bulkColSearchTimeout;
+
+if (bulkColInput) {
+    bulkColInput.addEventListener('input', () => {
+        clearTimeout(bulkColSearchTimeout);
+        delete bulkColInput.dataset.collectionId;
+        const q = bulkColInput.value.trim();
+        if (q.length < 1) { closeBulkColSuggestions(); return; }
+        bulkColSearchTimeout = setTimeout(() => searchBulkCollections(q), 200);
+    });
+    bulkColInput.addEventListener('blur', () => {
+        setTimeout(closeBulkColSuggestions, 200);
+        if (!bulkColInput.dataset.collectionId && bulkColInput.value) {
+            bulkColInput.value = '';
+        }
+    });
+}
+
+async function searchBulkCollections(q) {
+    try {
+        const resp = await apiFetch(apiUrl('collections', {per_page: 20, code: q}));
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const items = data.items || [];
+        if (!items.length) { closeBulkColSuggestions(); return; }
+        bulkColSuggestions.style.display = 'block';
+        bulkColSuggestions.innerHTML = items.map(c =>
+            `<div class="suggestion-item" data-id="${c.id}" data-code="${esc(c.code)}" data-name="${esc(c.name || '')}">${esc(c.code)}${c.name ? ' - ' + esc(c.name) : ''}</div>`
+        ).join('');
+        bulkColSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+            el.addEventListener('click', () => {
+                bulkColInput.value = el.dataset.code + ' - ' + el.dataset.name;
+                bulkColInput.dataset.collectionId = el.dataset.id;
+                closeBulkColSuggestions();
+            });
+        });
+    } catch (e) { console.error(e); }
+}
+
+function closeBulkColSuggestions() {
+    if (bulkColSuggestions) {
+        bulkColSuggestions.style.display = 'none';
+        bulkColSuggestions.innerHTML = '';
+    }
+}
+
+async function loadBulkInvLanguages() {
+    try {
+        const resp = await apiFetch(apiUrl('languages', {per_page: 200}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const langs = data.items || [];
+            const sel = document.getElementById('bulkInvLang');
+            sel.innerHTML = '<option value="">(sin idioma)</option>';
+            langs.forEach(l => { const opt = document.createElement('option'); opt.value = l.id; opt.textContent = l.name; sel.appendChild(opt); });
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function loadBulkInvConditions() {
+    try {
+        const resp = await apiFetch(apiUrl('product-conditions', {per_page: 200}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const conds = data.items || [];
+            const sel = document.getElementById('bulkInvCondition');
+            sel.innerHTML = '<option value="">(sin estado)</option>';
+            conds.forEach(c => { const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; sel.appendChild(opt); });
+        }
+    } catch (e) { console.error(e); }
+}
+
+document.getElementById('bulkInvForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+
+    const collectionId = bulkColInput.dataset.collectionId;
+    if (!collectionId) { alert('Selecciona una colección de la lista'); return; }
+
+    const languageId = document.getElementById('bulkInvLang').value;
+    const conditionId = document.getElementById('bulkInvCondition').value;
+    const tagName = document.getElementById('bulkInvTag').value.trim() || 'almacen';
+
+    const rows = document.querySelectorAll('#bulkInvItemsBody tr');
+    const items = [];
+    rows.forEach(tr => {
+        const numInput = tr.querySelector('.bulk-prod-number');
+        const qtyInput = tr.querySelector('.bulk-prod-qty');
+        const productNumber = numInput ? numInput.value.trim() : '';
+        const quantity = parseInt(qtyInput ? qtyInput.value : '1', 10) || 1;
+        if (productNumber) {
+            items.push({product_number: productNumber, quantity: quantity});
+        }
+    });
+
+    if (!items.length) { alert('Añade al menos un producto'); return; }
+
+    const btn = ev.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Importando...';
+
+    try {
+        const payload = {
+            collection_id: parseInt(collectionId),
+            tag_name: tagName,
+            items: items
+        };
+        if (languageId) payload.language_id = parseInt(languageId);
+        if (conditionId) payload.condition_id = parseInt(conditionId);
+
+        const resp = await apiFetch(apiUrl('inventory/bulk'), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        const result = await resp.json();
+        const resultDiv = document.getElementById('bulkInvResult');
+        resultDiv.style.display = 'block';
+
+        if (!resp.ok) {
+            resultDiv.innerHTML = `<div style="color:var(--danger,#dc3545);padding:8px">Error: ${result.error || 'Error desconocido'}</div>`;
+            return;
+        }
+
+        const results = result.results || [];
+        const created = results.filter(r => r.status === 'created').length;
+        const updated = results.filter(r => r.status === 'updated').length;
+        const errors = results.filter(r => r.status === 'error');
+
+        let html = `<div style="margin-bottom:8px;padding:8px;border-radius:4px;background:var(--card-bg,#f8f9fa)">
+            <strong>Resultado:</strong> ${created} creados, ${updated} actualizados${errors.length ? ', ' + errors.length + ' errores' : ''}
+        </div>`;
+
+        if (errors.length) {
+            html += '<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--surface,#eee)"><th style="padding:4px;text-align:left">Nº producto</th><th style="padding:4px;text-align:left">Error</th></tr></thead><tbody>';
+            errors.forEach(e => {
+                html += `<tr><td style="padding:4px">${esc(e.product_number)}</td><td style="padding:4px;color:var(--danger,#dc3545)">${esc(e.error)}</td></tr>`;
+            });
+            html += '</tbody></table>';
+        }
+
+        resultDiv.innerHTML = html;
+        btn.textContent = 'Importar';
+        btn.disabled = false;
+
+        loadInventory({reset: true});
+    } catch (e) {
+        console.error(e);
+        alert('Error al importar');
+        btn.textContent = 'Importar';
+        btn.disabled = false;
+    }
 });
 
 updateAuthUI();
