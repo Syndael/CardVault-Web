@@ -6,6 +6,22 @@ let appStarted = false;
 let currentUserRoles = [];
 let currentTab = 'inventory';
 
+// ==================== TOAST ====================
+function showToast(msg, type) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+    const el = document.createElement('div');
+    el.className = 'toast' + (type ? ' toast-' + type : '');
+    el.innerHTML = '<button type="button" class="toast-close">&times;</button>' + esc(msg);
+    el.querySelector('.toast-close').addEventListener('click', () => el.remove());
+    container.appendChild(el);
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 5000);
+}
+
 // ==================== AUTH & API ====================
 
 async function apiFetch(url, options = {}) {
@@ -242,6 +258,7 @@ function loadTab(tab) {
     else if (tab === 'scheduledTasks') loadScheduledTasks({reset: true});
     else if (tab === 'statistics') loadStatisticsTab();
     else if (tab === 'wishlist') loadWishlist({reset: true});
+    else if (tab === 'publications') loadPublications({reset: true});
     else loadPurchases({reset: true});
 }
 
@@ -1549,7 +1566,6 @@ function renderInvRow(item) {
     const prodNameFmt = getFormattedProductName(prod.translations, lang.id);
     const cardType = prod.product_type ? (prod.product_type.name + (prod.product_type.short_name ? ' (' + prod.product_type.short_name + ')' : '')) : (item.extra_type ? (item.extra_type.name + (item.extra_type.short_name ? ' (' + item.extra_type.short_name + ')' : '')) : '');
     const sealedIcon = item.is_sealed ? '\u2713' : '';
-    const igIcon = item.posted_instagram ? '\u2713' : '';
     let price = '';
     if (item.acquisition_price != null) {
         const p = parseFloat(item.acquisition_price).toFixed(2);
@@ -1569,7 +1585,8 @@ function renderInvRow(item) {
     const noteDisplay = item.notes ? `<br><span class="inv-note">${esc(item.notes)}</span>` : '';
     const tagsHtml = renderTagBadges(item.tags);
     const invTrackerUrl = item.tracker_url || null;
-    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url, invTrackerUrl)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}${noteDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIcon}</td><td>${tagsHtml}</td><td style="text-align:center"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+    const igIconPosted = item.posted_instagram ? '\u2713' : '';
+    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url, invTrackerUrl)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}${noteDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIconPosted}</td><td>${tagsHtml}</td><td style="text-align:center;white-space:nowrap"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function renderTagBadges(tags) {
@@ -1726,8 +1743,54 @@ function updatePriceDisplay(selectEl, displayId, valueId, purchaseId) {
     }
 }
 
+let _entryLangsCache = null;
+let _entryCondsCache = null;
+
+async function _ensureEntryStaticData() {
+    if (_entryLangsCache && _entryCondsCache && entryPurchasesCache.length) return;
+    const [langResp, condResp, purResp, tagsResp] = await Promise.all([
+        _entryLangsCache ? Promise.resolve(null) : apiFetch(apiUrl('languages', {per_page: 200})),
+        _entryCondsCache ? Promise.resolve(null) : apiFetch(apiUrl('product-conditions', {per_page: 200})),
+        entryPurchasesCache.length ? Promise.resolve(null) : apiFetch(apiUrl('purchases', {per_page: 200})),
+        allTagsCache.length ? Promise.resolve(null) : apiFetch(apiUrl('tags', {per_page: 200}))
+    ]);
+    if (tagsResp && tagsResp.ok) {
+        const data = await tagsResp.json();
+        allTagsCache = data.items || [];
+    }
+    if (langResp && langResp.ok) {
+        const data = await langResp.json();
+        _entryLangsCache = data.items || [];
+    }
+    if (condResp && condResp.ok) {
+        const data = await condResp.json();
+        _entryCondsCache = data.items || [];
+    }
+    if (purResp && purResp.ok) {
+        const data = await purResp.json();
+        entryPurchasesCache = data.items || [];
+    }
+    const langSel = document.getElementById('entryLang');
+    if (langSel && _entryLangsCache) {
+        langSel.innerHTML = '<option value="">(sin idioma)</option>';
+        _entryLangsCache.forEach(l => { const opt = document.createElement('option'); opt.value = l.id; opt.textContent = l.name; langSel.appendChild(opt); });
+    }
+    const condSel = document.getElementById('entryCondition');
+    if (condSel && _entryCondsCache) {
+        condSel.innerHTML = '<option value="">(sin estado)</option>';
+        _entryCondsCache.forEach(c => { const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; condSel.appendChild(opt); });
+    }
+}
+
 async function openEntryModal(invId) {
     document.getElementById('modalInventoryId').value = invId || '';
+    document.getElementById('entryPhotos').innerHTML = '';
+    const tagsContainer = document.getElementById('entryTags');
+    if (tagsContainer) tagsContainer.innerHTML = '';
+    const urlContainer = document.getElementById('entryUrls');
+    if (urlContainer) urlContainer.innerHTML = '';
+    document.getElementById('entryUrlInput').value = '';
+    document.getElementById('entryUrlNameInput').value = '';
     document.getElementById('entryQuantity').value = '1';
     document.getElementById('entryNote').value = '';
     document.getElementById('entrySealed').checked = false;
@@ -1743,36 +1806,17 @@ async function openEntryModal(invId) {
     if (gs) gs.innerHTML = '';
     const tc = document.getElementById('entryTrackers');
     if (tc) tc.innerHTML = '';
+    document.getElementById('entryCollectionDisplay').textContent = '';
+    document.getElementById('entryProductDisplay').innerHTML = '';
+    document.getElementById('entryInvCode').textContent = '';
     closeEntryPurchaseSuggestions();
-    try {
-        const [langResp, condResp, purResp, tagsResp] = await Promise.all([
-            apiFetch(apiUrl('languages', {per_page: 200})),
-            apiFetch(apiUrl('product-conditions', {per_page: 200})),
-            apiFetch(apiUrl('purchases', {per_page: 200})),
-            apiFetch(apiUrl('tags', {per_page: 200}))
-        ]);
-        if (tagsResp.ok) {
-            const data = await tagsResp.json();
-            allTagsCache = data.items || [];
-        }
-        if (langResp.ok) {
-            const data = await langResp.json(); const langs = data.items || [];
-            const sel = document.getElementById('entryLang');
-            sel.innerHTML = '<option value="">(sin idioma)</option>';
-            langs.forEach(l => { const opt = document.createElement('option'); opt.value = l.id; opt.textContent = l.name; sel.appendChild(opt); });
-        }
-        if (condResp.ok) {
-            const data = await condResp.json(); const conds = data.items || [];
-            const sel = document.getElementById('entryCondition');
-            sel.innerHTML = '<option value="">(sin estado)</option>';
-            conds.forEach(c => { const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; sel.appendChild(opt); });
-        }
-        if (purResp.ok) {
-            const data = await purResp.json();
-            entryPurchasesCache = data.items || [];
-        }
-    } catch (e) { console.error(e); }
+    entryModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+
+    const staticPromise = _ensureEntryStaticData();
+
     if (invId) {
+        await staticPromise;
         try {
             const resp = await apiFetch(apiUrl(`inventory/${invId}`));
             if (resp.ok) {
@@ -1788,12 +1832,10 @@ async function openEntryModal(invId) {
                 const lAbbr = lang.abbreviation || '';
                 const cName = (prodName || 'unknown').replace(/[^a-zA-Z0-9\u00C0-\u024F\s-]/g, '').trim().replace(/\s+/g, '_').substring(0, 40);
                 document.getElementById('entryInvCode').textContent = `${ctShort}/${col.code || '-'}/${invId}_${lAbbr}_${cName}`;
-                // Google search button
                 const searchParts = [prodName, prod.product_number, col.code].filter(Boolean).join(' ');
                 const searchQ = searchParts ? encodeURIComponent(searchParts) : '';
                 const gs = document.getElementById('entryGoogleSearch');
                 if (gs) gs.innerHTML = searchQ ? `<button type="button" class="btn-google-search" onclick="window.open('https://www.google.com/search?q=${searchQ}', '_blank', 'noopener')" title="Buscar en Google">Buscar en Google</button>` : '';
-                // Price trackers
                 const trackersContainer = document.getElementById('entryTrackers');
                 if (trackersContainer && prod.id) {
                     const fmtDate = (d) => d ? d.slice(0, 10) : '-';
@@ -1858,7 +1900,6 @@ async function openEntryModal(invId) {
                     loadEntryPurchaseSuggestions(invId, prod.id, col.id);
                 }
                 const tags = item.tags || [];
-                const tagsContainer = document.getElementById('entryTags');
                 if (tagsContainer) {
                     tagsContainer.innerHTML = tags.map(t => renderEntryTagBadge(t, invId)).join('');
                 }
@@ -1866,17 +1907,7 @@ async function openEntryModal(invId) {
                 loadInventoryUrls(invId);
             }
         } catch (e) { console.error('Error loading inventory entry', e); }
-    } else {
-        document.getElementById('entryPhotos').innerHTML = '';
-        const tagsContainer = document.getElementById('entryTags');
-        if (tagsContainer) tagsContainer.innerHTML = '';
     }
-    const urlContainer = document.getElementById('entryUrls');
-    if (urlContainer && !invId) urlContainer.innerHTML = '';
-    document.getElementById('entryUrlInput').value = '';
-    document.getElementById('entryUrlNameInput').value = '';
-    entryModal.hidden = false;
-    document.body.style.overflow = 'hidden';
 }
 
 document.getElementById('entryForm').addEventListener('submit', async (ev) => {
@@ -2174,9 +2205,56 @@ async function loadInventoryFiles(invId) {
         const qs = token ? `?token=${encodeURIComponent(token)}` : '';
         container.innerHTML = files.map(f => {
             const url = apiUrl(`product-catalog/files/${f.id}/content`) + qs;
-            return `<a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>`;
+            const star = f.is_primary ? '<span class="file-star" title="Foto principal">&#9733;</span>' : '';
+            const sortBtns = `<button type="button" class="file-sort-up" data-file-id="${f.id}" data-dir="up" title="Mover arriba">&#9650;</button><button type="button" class="file-sort-down" data-file-id="${f.id}" data-dir="down" title="Mover abajo">&#9660;</button>`;
+            const primaryBtn = f.is_primary ? '' : `<button type="button" class="file-set-primary" data-file-id="${f.id}" title="Establecer como principal">&#9734;</button>`;
+            const igVal = f.instagram_sort_order != null ? f.instagram_sort_order : '';
+            return `<div class="file-thumb-wrap">
+                ${star}
+                <a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>
+                <div class="file-controls">${sortBtns}${primaryBtn}</div>
+                <div class="file-ig-order"><label class="ig-label">IG</label><input type="number" class="ig-order-input" data-file-id="${f.id}" value="${igVal}" placeholder="-" min="0" step="1"></div>
+            </div>`;
         }).join('');
         container.classList.add('has-files');
+        container.querySelectorAll('.file-sort-up, .file-sort-down').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                await reorderInventoryFile(invId, parseInt(btn.dataset.fileId), btn.dataset.dir);
+            });
+        });
+        container.querySelectorAll('.file-set-primary').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                await setPrimaryInventoryFile(invId, parseInt(btn.dataset.fileId));
+            });
+        });
+        container.querySelectorAll('.ig-order-input').forEach(inp => {
+            inp.addEventListener('change', () => saveIgOrders(invId));
+        });
+
+        const oldBtn = container.parentElement?.querySelector('.btn-secondary.create-ig-pub-btn');
+        if (oldBtn) oldBtn.remove();
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn-secondary create-ig-pub-btn';
+        btn.textContent = 'Crear publicaci\u00f3n IG';
+        btn.dataset.invId = invId;
+        btn.addEventListener('click', async (e) => {
+            const id = e.currentTarget.dataset.invId;
+            btn.disabled = true; btn.textContent = 'Creando...';
+            try {
+                const resp = await apiFetch(apiUrl('publications/create-from-inventory'), {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({inventory_id: Number(id)})
+                });
+                if (!resp.ok) { const t = await resp.text().catch(()=>null); showToast('Error: ' + (t || resp.status), 'error'); return; }
+                showToast('Publicación creada en revisión. Ve a la pestaña Publications para revisarla.', 'success');
+            } catch (e) { console.error(e); showToast('Error de conexión', 'error'); }
+            finally { btn.disabled = false; btn.textContent = 'Crear publicaci\u00f3n IG'; }
+        });
+        container.parentElement?.appendChild(btn);
     } catch (e) { console.error(e); container.innerHTML = ''; container.classList.remove('has-files'); }
 }
 
@@ -2219,6 +2297,70 @@ async function loadPurchaseDocs(purId) {
             return `<div class="doc-item"><a href="${url}" target="_blank" rel="noopener">${esc(f.original_name)}</a><span class="doc-size">${size}</span></div>`;
         }).join('');
     } catch (e) { console.error(e); container.innerHTML = ''; }
+}
+
+async function reorderInventoryFile(invId, fileId, direction) {
+    const container = document.getElementById('entryPhotos');
+    if (!container) return;
+    const thumbWraps = container.querySelectorAll('.file-thumb-wrap');
+    const fileIds = Array.from(thumbWraps).map(w => parseInt(w.querySelector('[data-file-id]')?.dataset.fileId || '0')).filter(id => id > 0);
+    const idx = fileIds.indexOf(fileId);
+    if (idx === -1) return;
+    if (direction === 'up' && idx > 0) {
+        [fileIds[idx - 1], fileIds[idx]] = [fileIds[idx], fileIds[idx - 1]];
+    } else if (direction === 'down' && idx < fileIds.length - 1) {
+        [fileIds[idx], fileIds[idx + 1]] = [fileIds[idx + 1], fileIds[idx]];
+    } else {
+        return;
+    }
+    const primaryFileId = container.querySelector('.file-star')?.closest('.file-thumb-wrap')?.querySelector('[data-file-id]')?.dataset.fileId;
+    const igOrders = {};
+    container.querySelectorAll('.ig-order-input').forEach(inp => {
+        const fid = parseInt(inp.dataset.fileId);
+        const val = inp.value.trim();
+        igOrders[`ig_order_${fid}`] = val !== '' ? parseInt(val) : null;
+    });
+    try {
+        const resp = await apiFetch(apiUrl(`files/by-inventory/${invId}/reorder`), {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({file_ids: fileIds, primary_id: primaryFileId ? parseInt(primaryFileId) : null, ...igOrders})
+        });
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); console.error('Reorder error:', t); return; }
+        loadInventoryFiles(invId);
+    } catch (e) { console.error(e); }
+}
+
+async function saveIgOrders(invId) {
+    const container = document.getElementById('entryPhotos');
+    if (!container) return;
+    const thumbWraps = container.querySelectorAll('.file-thumb-wrap');
+    const fileIds = Array.from(thumbWraps).map(w => parseInt(w.querySelector('[data-file-id]')?.dataset.fileId || '0')).filter(id => id > 0);
+    const primaryFileId = container.querySelector('.file-star')?.closest('.file-thumb-wrap')?.querySelector('[data-file-id]')?.dataset.fileId;
+    const igOrders = {};
+    let hasIg = false;
+    container.querySelectorAll('.ig-order-input').forEach(inp => {
+        const fid = parseInt(inp.dataset.fileId);
+        const val = inp.value.trim();
+        igOrders[`ig_order_${fid}`] = val !== '' ? parseInt(val) : null;
+        if (val !== '') hasIg = true;
+    });
+    try {
+        const resp = await apiFetch(apiUrl(`files/by-inventory/${invId}/reorder`), {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({file_ids: fileIds, primary_id: primaryFileId ? parseInt(primaryFileId) : null, ...igOrders})
+        });
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); console.error('Save IG error:', t); }
+    } catch (e) { console.error(e); }
+}
+
+async function setPrimaryInventoryFile(invId, fileId) {
+    try {
+        const resp = await apiFetch(apiUrl(`files/${fileId}/set-primary`), {method: 'PATCH'});
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error: ' + (t || resp.status)); return; }
+        loadInventoryFiles(invId);
+    } catch (e) { console.error(e); alert('Error de conexi\u00f3n'); }
 }
 
 async function uploadInventoryFile(invId, file) {
@@ -2309,7 +2451,7 @@ async function loadInventoryUrls(invId) {
         if (!urls.length) { container.innerHTML = '<span style="color:var(--muted);font-size:13px">Sin URLs</span>'; return; }
         container.innerHTML = urls.map(u =>
             `<div class="detail-row" style="display:flex;align-items:center;gap:6px;padding:2px 0">
-                <a href="${esc(u.url)}" target="_blank" rel="noopener" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(u.name || u.url)}</a>
+                <a href="${esc(u.url)}" target="_blank" rel="noopener" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(u.url)}">${esc(u.url)}</a>
                 <button type="button" class="btn-delete-url" data-url-id="${u.id}" title="Eliminar URL" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;line-height:1;padding:0 4px">&times;</button>
             </div>`
         ).join('');
@@ -4242,6 +4384,12 @@ document.getElementById('tabPurchases').addEventListener('click', async (e) => {
 });
 
 // Product observers
+function checkProdScroll() {
+    if (prodState.loading || !prodState.hasNext) return;
+    const r = loadSentinel.getBoundingClientRect();
+    if (r.top <= window.innerHeight + 700) loadProducts();
+}
+
 const prodObserver = new IntersectionObserver((entries) => {
     if (!appStarted) return;
     if (entries.some((entry) => entry.isIntersecting)) loadProducts();
@@ -4377,8 +4525,10 @@ window.addEventListener("resize", () => {
 });
 
 // Scroll handlers
-let invScrollTimer, purScrollTimer, colScrollTimer, scheduledScrollTimer;
+let prodScrollTimer, invScrollTimer, purScrollTimer, colScrollTimer, scheduledScrollTimer;
 window.addEventListener('scroll', () => {
+    clearTimeout(prodScrollTimer);
+    prodScrollTimer = setTimeout(() => { if (currentTab === 'products') checkProdScroll(); }, 80);
     clearTimeout(invScrollTimer);
     invScrollTimer = setTimeout(() => { if (currentTab === 'inventory') checkInvScroll(); }, 80);
     clearTimeout(purScrollTimer);

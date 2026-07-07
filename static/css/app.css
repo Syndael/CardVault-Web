@@ -143,6 +143,54 @@ h1 {
 
 .btn-secondary:hover { border-color: var(--cyan); background: var(--cyan-soft); }
 
+/* == Toast == */
+#toast-container {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    padding: 10px 18px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.35);
+    animation: toast-in .25s ease-out;
+    max-width: 400px;
+    word-wrap: break-word;
+}
+
+.toast.toast-error { border-left: 4px solid var(--red); }
+.toast.toast-success { border-left: 4px solid var(--green); }
+
+.toast-close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    margin-left: 12px;
+    padding: 0 2px;
+}
+
+.toast-close:hover { color: var(--text); }
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .btn-danger {
     padding: 6px 10px;
     border: 0;
@@ -1018,4 +1066,97 @@ tr:hover td { background: var(--surface-soft); }
 }
 .scroll-to-top.visible {
     display: flex;
+}
+
+/* File thumb wrap with controls */
+.file-thumb-wrap {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 4px;
+    position: relative;
+}
+.file-thumb-wrap .file-star {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    color: #ffd700;
+    font-size: 14px;
+    z-index: 1;
+    text-shadow: 0 0 3px rgba(0,0,0,0.8);
+}
+.file-controls {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+}
+.file-controls button {
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    line-height: 1.2;
+}
+.file-controls button:hover {
+    background: var(--cyan-soft);
+    color: var(--cyan);
+}
+.file-set-primary {
+    color: var(--muted) !important;
+}
+.file-set-primary:hover {
+    color: #ffd700 !important;
+}
+.file-ig-order {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-top: 2px;
+}
+.file-ig-order .ig-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 600;
+}
+.ig-order-input {
+    width: 36px;
+    padding: 1px 3px;
+    font-size: 11px;
+    text-align: center;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--text);
+}
+.ig-order-input:focus {
+    border-color: var(--cyan);
+    outline: none;
+}
+
+/* Status labels */
+.status-ok { color: var(--green); font-weight: 600; }
+.status-warn { color: #ffd166; font-weight: 600; }
+.status-err { color: var(--red); font-weight: 600; }
+
+/* Publications tab */
+#tabPublications .table-wrap {
+    min-height: 200px;
+}
+
+/* Schedule publication form */
+#schedulePubForm textarea {
+    resize: vertical;
+}
+#schedulePubPreview {
+    margin-top: 8px;
+}
+#schedulePubPreview .file-thumb {
+    height: 80px;
+    width: auto;
+    margin: 2px;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
 }

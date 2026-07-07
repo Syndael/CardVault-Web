@@ -25,6 +25,7 @@
             <button class="tab" data-tab="purchases">Compras</button>
             <button class="tab" data-tab="statistics">Estadísticas</button>
             <button class="tab" data-tab="scheduledTasks">Tareas</button>
+            <button class="tab" data-tab="publications">Publicaciones</button>
         </nav>
 
         <!-- Products tab -->
@@ -488,6 +489,116 @@
                 <div class="actions">
                     <button type="submit">Guardar</button>
                     <button type="button" id="modalCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Publications tab -->
+    <section class="tab-content" id="tabPublications">
+        <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
+            <div class="density-note">
+                <span id="publicationSummary"></span>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                <label class="filter-check">
+                    C&oacute;digo colecci&oacute;n
+                    <input id="pubFilterColCode" type="text" placeholder="swsh12..." style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                </label>
+                <label class="filter-check">
+                    N&uacute;mero producto
+                    <input id="pubFilterNumber" type="text" placeholder="001..." style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                </label>
+                <label class="filter-check">
+                    Nombre
+                    <input id="pubFilterName" type="text" placeholder="Nombre..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                </label>
+                <label class="filter-check">
+                    Estado
+                    <select id="pubFilterStatus" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                        <option value="">Todos</option>
+                        <option value="pending_review">Pendientes revisi&oacute;n</option>
+                        <option value="pending_publish">Pendientes publicar</option>
+                        <option value="processing">En proceso</option>
+                        <option value="published">Publicados</option>
+                        <option value="failed">Fallidos</option>
+                        <option value="cancelled">Cancelados</option>
+                    </select>
+                </label>
+            </div>
+            <div style="display:flex;align-items:center">
+                <div style="display:flex;gap:8px;align-items:center">
+                    <label class="filter-check" style="font-size:12px">
+                        Ordenar
+                        <select id="pubSortOrder" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:12px;cursor:pointer">
+                            <option value="recent">Recientes</option>
+                            <option value="oldest">Antiguos</option>
+                            <option value="scheduled">Programados</option>
+                        </select>
+                    </label>
+                    <div class="view-toggle" style="display:flex;gap:2px;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+                        <button type="button" class="view-btn active" data-view="list" title="Vista lista" style="padding:4px 8px;border:none;background:var(--card-bg);cursor:pointer;font-size:13px">☰</button>
+                        <button type="button" class="view-btn" data-view="cards-sm" title="Vista tarjetas pequeñas" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▦</button>
+                        <button type="button" class="view-btn" data-view="cards-lg" title="Vista tarjetas grandes" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▣</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="inv-img-header">Foto</th>
+                        <th>Colecci&oacute;n</th>
+                        <th>N&ordm;</th>
+                        <th>Nombre</th>
+                        <th>Texto</th>
+                        <th>Fotos</th>
+                        <th>Programado</th>
+                        <th>Publicado</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="publicationBody"></tbody>
+            </table>
+            <div id="publicationEmpty" class="empty-state" hidden>No hay publicaciones</div>
+        </div>
+        <div id="publicationSentinel" class="load-sentinel"></div>
+    </section>
+
+    <!-- Edit publication modal -->
+    <div id="editPubModal" class="modal" hidden>
+        <div class="modal-backdrop" id="editPubBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:min(700px,calc(100%-40px))">
+            <h2>Editar publicaci&oacute;n</h2>
+            <form id="editPubForm">
+                <input type="hidden" id="editPubId">
+                <div class="field">
+                    <label for="editPubCaption">Texto</label>
+                    <textarea id="editPubCaption" rows="5" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;resize:vertical;font-family:inherit" placeholder="Texto de la publicaci&oacute;n..."></textarea>
+                </div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                    <div class="field" style="flex:1;min-width:200px">
+                        <label for="editPubScheduled">Programado</label>
+                        <input id="editPubScheduled" type="datetime-local" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </div>
+                    <div class="field" style="flex:1;min-width:150px">
+                        <label for="editPubStatus">Estado</label>
+                        <select id="editPubStatus" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                            <option value="pending_review">Pendiente revisi&oacute;n</option>
+                            <option value="pending_publish">Pendiente publicar</option>
+                            <option value="cancelled">Cancelado</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Fotos (orden IG)</label>
+                    <div id="editPubPhotos" class="file-grid" style="min-height:80px;padding:8px;border:1px dashed var(--border);border-radius:6px"></div>
+                </div>
+                <div class="actions">
+                    <button type="submit">Guardar</button>
+                    <button type="button" id="editPubCancel">Cancelar</button>
                 </div>
             </form>
         </div>
@@ -1183,5 +1294,6 @@
     <script src="static/js/app.js?v=3"></script>
     <script src="static/js/statistics.js?v=3"></script>
     <script src="static/js/wishlist.js?v=3"></script>
+    <script src="static/js/publications.js?v=4"></script>
 </body>
 </html>
