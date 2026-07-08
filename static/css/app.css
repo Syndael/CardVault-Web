@@ -1137,6 +1137,27 @@ tr:hover td { background: var(--surface-soft); }
 .status-warn { color: #ffd166; font-weight: 600; }
 .status-err { color: var(--red); font-weight: 600; }
 
+.pub-status-badge[disabled] {
+    opacity: 1;
+    font-weight: 600;
+}
+.pub-status-badge[disabled]:hover {
+    border-color: var(--border);
+    background: transparent;
+}
+.pub-status-badge.status-ok[disabled] {
+    background: rgba(76, 175, 80, 0.15);
+    border-color: var(--green);
+}
+.pub-status-badge.status-warn[disabled] {
+    background: rgba(255, 209, 102, 0.15);
+    border-color: #ffd166;
+}
+.pub-status-badge.status-err[disabled] {
+    background: rgba(244, 67, 54, 0.15);
+    border-color: var(--red);
+}
+
 /* Publications tab */
 #tabPublications .table-wrap {
     min-height: 200px;

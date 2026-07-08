@@ -2194,6 +2194,7 @@ document.addEventListener('click', (e) => {
 async function loadInventoryFiles(invId) {
     const container = document.getElementById('entryPhotos');
     if (!container) return;
+    container.parentElement?.querySelectorAll('.create-ig-pub-btn, .pub-status-badge').forEach(el => el.remove());
     container.innerHTML = '<span class="loading-state" style="padding:8px;font-size:13px">Cargando...</span>';
     container.classList.remove('has-files');
     try {
@@ -2233,13 +2234,22 @@ async function loadInventoryFiles(invId) {
             inp.addEventListener('change', () => saveIgOrders(invId));
         });
 
-        const oldBtn = container.parentElement?.querySelector('.btn-secondary.create-ig-pub-btn');
-        if (oldBtn) oldBtn.remove();
+        let existingPub = null;
+        try {
+            const resp = await apiFetch(apiUrl('publications') + `?inventory_id=${invId}&per_page=1`);
+            if (resp.ok) {
+                const data = await resp.json();
+                const items = data.items || data;
+                if (Array.isArray(items) && items.length > 0) existingPub = items[0];
+            }
+        } catch (e) {}
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'btn-secondary create-ig-pub-btn';
-        btn.textContent = 'Crear publicaci\u00f3n IG';
+        btn.textContent = 'Crear publicación IG';
         btn.dataset.invId = invId;
+        btn.style.marginLeft = '4px';
         btn.addEventListener('click', async (e) => {
             const id = e.currentTarget.dataset.invId;
             btn.disabled = true; btn.textContent = 'Creando...';
@@ -2252,9 +2262,36 @@ async function loadInventoryFiles(invId) {
                 if (!resp.ok) { const t = await resp.text().catch(()=>null); showToast('Error: ' + (t || resp.status), 'error'); return; }
                 showToast('Publicación creada en revisión. Ve a la pestaña Publications para revisarla.', 'success');
             } catch (e) { console.error(e); showToast('Error de conexión', 'error'); }
-            finally { btn.disabled = false; btn.textContent = 'Crear publicaci\u00f3n IG'; }
+            finally { btn.disabled = false; btn.textContent = 'Crear publicación IG'; }
         });
         container.parentElement?.appendChild(btn);
+
+        if (existingPub) {
+            const statusLabels = {
+                published: 'Publicado',
+                pending_review: 'Revisión',
+                pending_publish: 'Pendiente',
+                processing: 'En proceso',
+                failed: 'Fallido',
+                cancelled: 'Cancelado'
+            };
+            const statusClasses = {
+                published: 'status-ok',
+                pending_review: 'status-warn',
+                pending_publish: 'status-warn',
+                processing: 'status-warn',
+                failed: 'status-err',
+                cancelled: ''
+            };
+            const st = existingPub.status || '';
+            const badge = document.createElement('button');
+            badge.type = 'button';
+            badge.disabled = true;
+            badge.className = `btn-secondary pub-status-badge ${statusClasses[st] || ''}`;
+            badge.textContent = `IG: ${statusLabels[st] || st}`;
+            badge.style.cssText = 'cursor:default;margin-left:4px;';
+            container.parentElement?.appendChild(badge);
+        }
     } catch (e) { console.error(e); container.innerHTML = ''; container.classList.remove('has-files'); }
 }
 
