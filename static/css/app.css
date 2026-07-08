@@ -1075,6 +1075,7 @@ tr:hover td { background: var(--surface-soft); }
     align-items: center;
     margin: 4px;
     position: relative;
+    max-width: 82px;
 }
 .file-thumb-wrap .file-star {
     position: absolute;
@@ -1113,18 +1114,13 @@ tr:hover td { background: var(--surface-soft); }
 .file-ig-order {
     display: flex;
     align-items: center;
-    gap: 2px;
+    justify-content: center;
     margin-top: 2px;
 }
-.file-ig-order .ig-label {
-    font-size: 10px;
-    color: var(--muted);
-    font-weight: 600;
-}
 .ig-order-input {
-    width: 36px;
-    padding: 1px 3px;
-    font-size: 11px;
+    width: 30px;
+    padding: 1px;
+    font-size: 10px;
     text-align: center;
     border: 1px solid var(--border);
     border-radius: 3px;

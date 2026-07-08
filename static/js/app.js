@@ -2213,7 +2213,7 @@ async function loadInventoryFiles(invId) {
                 ${star}
                 <a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>
                 <div class="file-controls">${sortBtns}${primaryBtn}</div>
-                <div class="file-ig-order"><label class="ig-label">IG</label><input type="number" class="ig-order-input" data-file-id="${f.id}" value="${igVal}" placeholder="-" min="0" step="1"></div>
+                <div class="file-ig-order"><input type="number" class="ig-order-input" data-file-id="${f.id}" value="${igVal}" placeholder="-" min="0" step="1"></div>
             </div>`;
         }).join('');
         container.classList.add('has-files');

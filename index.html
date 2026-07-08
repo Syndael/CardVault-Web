@@ -574,10 +574,6 @@
             <h2>Editar publicaci&oacute;n</h2>
             <form id="editPubForm">
                 <input type="hidden" id="editPubId">
-                <div class="field">
-                    <label for="editPubCaption">Texto</label>
-                    <textarea id="editPubCaption" rows="5" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;resize:vertical;font-family:inherit" placeholder="Texto de la publicaci&oacute;n..."></textarea>
-                </div>
                 <div style="display:flex;gap:12px;flex-wrap:wrap">
                     <div class="field" style="flex:1;min-width:200px">
                         <label for="editPubScheduled">Programado</label>
@@ -588,12 +584,26 @@
                         <select id="editPubStatus" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
                             <option value="pending_review">Pendiente revisi&oacute;n</option>
                             <option value="pending_publish">Pendiente publicar</option>
+                            <option value="processing">En proceso</option>
+                            <option value="published">Publicado</option>
+                            <option value="failed">Fallido</option>
                             <option value="cancelled">Cancelado</option>
                         </select>
                     </div>
                 </div>
                 <div class="field">
-                    <label>Fotos (orden IG)</label>
+                    <label for="editPubCaption">Descripci&oacute;n IG</label>
+                    <textarea id="editPubCaption" rows="5" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;resize:vertical;font-family:inherit" placeholder="Texto de la publicaci&oacute;n..."></textarea>
+                </div>
+                <div class="field">
+                    <label>Texto sugerido por IA</label>
+                    <div style="display:flex;gap:8px;flex-direction:column">
+                        <textarea id="editPubAiText" rows="8" readonly style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:12px;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Pulsa 'Generar' para obtener texto sugerido..."></textarea>
+                        <button type="button" id="generateTextBtn" class="btn-secondary" style="align-self:flex-start">Generar texto + tags con IA</button>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Fotos (clic para ampliar | orden IG: editable, se guarda autom&aacute;ticamente)</label>
                     <div id="editPubPhotos" class="file-grid" style="min-height:80px;padding:8px;border:1px dashed var(--border);border-radius:6px"></div>
                 </div>
                 <div class="actions">

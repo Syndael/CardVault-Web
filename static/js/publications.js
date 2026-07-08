@@ -85,15 +85,16 @@ async function loadPublications(opts) {
         if (!resp.ok) { pubBody.innerHTML = '<tr><td colspan="10" class="error-state">Error al cargar</td></tr>'; pubState.loading = false; return; }
         const data = await resp.json();
         const items = data.items || [];
-        pubState.pages = data.pages || 0;
-        pubState.total = data.total || 0;
+        const pag = data.pagination || {};
+        pubState.pages = pag.pages || 0;
+        pubState.total = pag.total || 0;
         pubState.hasNext = pubState.page < pubState.pages;
 
         if (!items.length && pubState.loaded === 0) { pubBody.innerHTML = ''; pubEmpty.hidden = false; pubSummary.textContent = '0 publicaciones'; pubState.loading = false; return; }
         pubEmpty.hidden = true;
 
         for (const item of items) {
-            const row = await buildPubRow(item);
+            const row = buildPubRow(item);
             pubBody.insertAdjacentHTML('beforeend', row);
         }
         loadImages(pubBody);
@@ -104,7 +105,7 @@ async function loadPublications(opts) {
     pubState.loading = false;
 }
 
-async function buildPubRow(item) {
+function buildPubRow(item) {
     const prod = item.inventory?.product || {};
     const col = item.inventory?.collection || {};
     const lang = item.inventory?.language || {};
@@ -119,22 +120,12 @@ async function buildPubRow(item) {
     const scheduledDate = item.scheduled_at ? item.scheduled_at.slice(0, 16).replace('T', ' ') : '-';
     const publishedDate = item.published_at ? item.published_at.slice(0, 16).replace('T', ' ') : '-';
 
-    // Load IG files for thumbnail and count
-    let igFiles = [];
-    try {
-        const resp = await apiFetch(apiUrl(`files/by-inventory/${item.inventory_id}`));
-        if (resp.ok) {
-            const files = await resp.json();
-            igFiles = files.filter(f => f.instagram_sort_order != null);
-            igFiles.sort((a, b) => a.instagram_sort_order - b.instagram_sort_order);
-        }
-    } catch (e) {}
-    const photoCount = igFiles.length;
+    const photoCount = item.photo_count || 0;
 
     const placeholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
     let thumbHtml;
-    if (igFiles.length > 0) {
-        const imgUrl = apiUrl(`product-catalog/files/${igFiles[0].id}/content`);
+    if (item.first_photo_id) {
+        const imgUrl = apiUrl(`product-catalog/files/${item.first_photo_id}/content`);
         const sep = imgUrl.includes('?') ? '&' : '?';
         thumbHtml = `<div class="inv-img-thumb"><img class="product-thumb-img" src="${placeholder}" data-src="${esc(imgUrl + sep + 'size=sm')}" alt="" loading="lazy"></div>`;
     } else {
@@ -218,24 +209,59 @@ async function openEditPub(pubId) {
         const statusSel = document.getElementById('editPubStatus');
         statusSel.value = item.status || 'pending_review';
 
-        // Load IG photos
+        // Load ALL inventory files (not just IG ones)
         const token = window.localStorage.getItem(TOKEN_KEY) || '';
         const qs = token ? `?token=${encodeURIComponent(token)}` : '';
-        const igFiles = await getInventoryFilesForIg(item.inventory_id, qs);
+        const invId = item.inventory_id;
+        let allFiles = [];
+        try {
+            const fr = await apiFetch(apiUrl(`files/by-inventory/${invId}`));
+            if (fr.ok) allFiles = await fr.json();
+        } catch (e) {}
+        allFiles.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
         const photosContainer = document.getElementById('editPubPhotos');
-        if (igFiles.length) {
-            photosContainer.innerHTML = igFiles.map(f =>
-                `<div class="file-thumb-wrap">
-                    <img class="file-thumb" src="${esc(f.url)}" alt="${esc(f.name)}" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:1px solid var(--border)">
-                    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:2px">IG: ${f.order}</div>
-                </div>`
-            ).join('');
+
+        if (allFiles.length) {
+            photosContainer.innerHTML = allFiles.map(f => {
+                const fileUrl = apiUrl(`product-catalog/files/${f.id}/content`) + qs;
+                const igOrder = f.instagram_sort_order;
+                const igVal = igOrder != null ? igOrder : '';
+                return `<div class="file-thumb-wrap" data-file-id="${f.id}">
+                    <a href="${esc(fileUrl)}" target="_blank" rel="noopener">
+                        <img class="file-thumb" src="${esc(fileUrl)}" alt="${esc(f.original_name || '')}" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:1px solid var(--border)">
+                    </a>
+                    <div class="file-ig-order">
+                        <input type="number" class="ig-order-input" value="${igVal}" placeholder="-" min="0" step="1" data-file-id="${f.id}">
+                    </div>
+                </div>`;
+            }).join('');
+
+            photosContainer.querySelectorAll('.ig-order-input').forEach(inp => {
+                inp.addEventListener('change', () => savePubIgOrders(invId));
+            });
         } else {
-            photosContainer.innerHTML = '<span style="color:var(--muted);font-size:13px">No hay fotos con orden IG asignado</span>';
+            photosContainer.innerHTML = '<span style="color:var(--muted);font-size:13px">No hay fotos</span>';
         }
 
         editPubModal.hidden = false;
         document.body.style.overflow = 'hidden';
+
+        const genBtn = document.getElementById('generateTextBtn');
+        const newGenBtn = genBtn.cloneNode(true);
+        genBtn.parentNode.replaceChild(newGenBtn, genBtn);
+        newGenBtn.addEventListener('click', async () => {
+            const pid = document.getElementById('editPubId').value;
+            if (!pid) return;
+            newGenBtn.disabled = true; newGenBtn.textContent = 'Generando...';
+            try {
+                const resp = await apiFetch(apiUrl(`ai/publications/${pid}/generate-text`), {method: 'POST'});
+                if (!resp.ok) { showToast('Error al generar', 'error'); return; }
+                const data = await resp.json();
+                document.getElementById('editPubAiText').value = data.text || '';
+            } catch (e) { console.error(e); showToast('Error de conexi\u00f3n', 'error'); }
+            finally { newGenBtn.disabled = false; newGenBtn.textContent = 'Generar texto + tags con IA'; }
+        });
     } catch (e) { console.error(e); showToast('Error de conexi\u00f3n', 'error'); }
 }
 
@@ -249,7 +275,7 @@ document.getElementById('editPubForm')?.addEventListener('submit', async (e) => 
 
     const body = {caption};
     if (scheduledVal) {
-        body.scheduled_at = new Date(scheduledVal).toISOString();
+        body.scheduled_at = scheduledVal;
     }
     body.status = status;
 
@@ -265,6 +291,29 @@ document.getElementById('editPubForm')?.addEventListener('submit', async (e) => 
         loadPublications({reset: true});
     } catch (err) { console.error(err); showToast('Error de conexi\u00f3n', 'error'); }
 });
+
+// Auto-save IG order (matching inventory behavior)
+async function savePubIgOrders(invId) {
+    const container = document.getElementById('editPubPhotos');
+    if (!container) return;
+    const thumbWraps = container.querySelectorAll('.file-thumb-wrap');
+    const fileIds = Array.from(thumbWraps).map(w => parseInt(w.dataset.fileId)).filter(id => id > 0);
+    const igOrders = {};
+    container.querySelectorAll('.ig-order-input').forEach(inp => {
+        const fid = parseInt(inp.dataset.fileId);
+        const val = inp.value.trim();
+        igOrders[`ig_order_${fid}`] = val !== '' ? parseInt(val, 10) : null;
+    });
+    try {
+        const resp = await apiFetch(apiUrl(`files/by-inventory/${invId}/reorder`), {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({file_ids: fileIds, primary_id: null, ...igOrders})
+        });
+        if (!resp.ok) { const t = await resp.text().catch(()=>null); console.error('Save IG error:', t); return; }
+        showToast('Orden IG actualizado', 'success');
+    } catch (e) { console.error(e); }
+}
 
 // Infinite scroll
 if (pubSentinel) {
