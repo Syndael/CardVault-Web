@@ -32,6 +32,10 @@ body {
 button, input, select {
     font: inherit;
 }
+select option {
+    background: var(--surface);
+    color: var(--text);
+}
 
 .app-shell {
     width: min(1400px, calc(100% - 32px));

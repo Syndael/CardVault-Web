@@ -3769,8 +3769,9 @@ function renderScheduledRow(item) {
     const finishedAt = item.finished_at ? item.finished_at.slice(0, 16).replace('T', ' ') : '-';
     const output = item.output ? item.output.slice(0, 80) + (item.output.length > 80 ? '...' : '') : '';
     const cancelBtn = (status === 'pending' || status === 'running')
-        ? `<button type="button" class="btn-cancel-scheduled" data-exec-id="${item.id}" title="Cancelar" style="background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px;color:#e74c3c">&#x2715;</button>`
+        ? `<button type="button" class="btn-cancel-scheduled" data-exec-id="${item.id}" title="Cancelar" style="background:none;border:none;cursor:pointer;font-size:14px;line-height:1;padding:2px 6px;color:var(--amber,#f59e0b)">&#x23F9;</button>`
         : '';
+    const retryBtn = `<button type="button" class="btn-retry-scheduled" data-exec-id="${item.id}" title="Reintentar" style="background:none;border:none;cursor:pointer;font-size:17px;line-height:1;padding:2px 6px;color:var(--amber,#f59e0b)">&#x21bb;</button>`;
     return `<tr class="clickable-row" data-exec-id="${item.id}">
         <td><strong>${esc(taskName)}</strong></td>
         <td><span class="${cls}">${esc(label)}</span></td>
@@ -3778,7 +3779,7 @@ function renderScheduledRow(item) {
         <td>${startedAt}</td>
         <td>${finishedAt}</td>
         <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(output)}">${esc(output)}</td>
-        <td style="text-align:center;white-space:nowrap">${cancelBtn}<button type="button" class="btn-delete-scheduled" data-exec-id="${item.id}" title="Eliminar" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
+        <td style="text-align:center;white-space:nowrap">${retryBtn}${cancelBtn}<button type="button" class="btn-delete-scheduled" data-exec-id="${item.id}" title="Eliminar" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;color:var(--red,#e74c3c)">&times;</button></td>
     </tr>`;
 }
 
@@ -4352,6 +4353,24 @@ document.getElementById('tabScheduledTasks').addEventListener('click', async (e)
         } else {
             const msg = resp ? await resp.text().catch(() => 'Error al eliminar') : 'Error de red';
             alert(msg);
+        }
+        return;
+    }
+    const retryBtn = e.target.closest('.btn-retry-scheduled');
+    if (retryBtn) {
+        e.stopPropagation();
+        if (!confirm('\u00bfReintentar esta tarea? Se pondr\u00e1 como pendiente de nuevo.')) return;
+        const execId = retryBtn.dataset.execId;
+        try {
+            const resp = await apiFetch(apiUrl(`task-executions/${execId}/retry`), {method: 'POST'});
+            if (resp && resp.ok) {
+                loadScheduledTasks({reset: true});
+            } else {
+                const msg = resp ? await resp.text().catch(() => 'Error al reintentar') : 'Error de red';
+                alert(msg);
+            }
+        } catch (e) {
+            alert('Error de red');
         }
         return;
     }
