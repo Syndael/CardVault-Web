@@ -1593,20 +1593,22 @@ function renderInvRow(item) {
     const invTrackerUrl = item.tracker_url || null;
     const igIconPosted = item.posted_instagram ? '\u2713' : '';
     const checked = selectedInvIds.has(item.id) ? ' checked' : '';
-    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-sel-cell" style="text-align:center"><input type="checkbox" class="inv-checkbox" data-inv-id="${item.id}"${checked}></td><td class="inv-img-cell">${invImageCell(item.product_image_url, invTrackerUrl)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}${noteDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIconPosted}</td><td>${tagsHtml}</td><td style="text-align:center;white-space:nowrap"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url, invTrackerUrl)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}${noteDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIconPosted}</td><td>${tagsHtml}</td><td class="inv-sel-cell" style="text-align:center"><input type="checkbox" class="inv-checkbox" data-inv-id="${item.id}"${checked}></td><td style="text-align:center;white-space:nowrap"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function renderTagBadges(tags) {
     if (!tags || !tags.length) return '';
     return tags.map(t => {
         const bg = t.color || '#6c757d';
-        return `<span class="tag-badge" style="display:inline-block;padding:1px 6px;margin:1px;border-radius:3px;font-size:11px;color:#fff;background:${esc(bg)}">${esc(t.name)}</span>`;
+        const tc = t.text_color || '#fff';
+        return `<span class="tag-badge" style="display:inline-block;padding:1px 6px;margin:1px;border-radius:3px;font-size:11px;color:${esc(tc)};background:${esc(bg)}">${esc(t.name)}</span>`;
     }).join(' ');
 }
 
 function renderEntryTagBadge(tag, invId) {
     const bg = tag.color || '#6c757d';
-    return `<span class="entry-tag-badge" data-tag-id="${tag.id}" data-inv-id="${invId}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(bg)}">${esc(tag.name)}<button type="button" class="btn-remove-tag" data-tag-id="${tag.id}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`;
+    const tc = tag.text_color || '#fff';
+    return `<span class="entry-tag-badge" data-tag-id="${tag.id}" data-inv-id="${invId}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:${esc(tc)};background:${esc(bg)}">${esc(tag.name)}<button type="button" class="btn-remove-tag" data-tag-id="${tag.id}" style="background:none;border:none;color:${esc(tc)};cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`;
 }
 
 function invImageCell(url, trackerUrl) {
@@ -1801,8 +1803,9 @@ function addTagToBulkList(inputEl, suggestionsEl, listEl, idArray) {
         if (idArray.includes(matching.id)) { inputEl.value = ''; return; }
         idArray.push(matching.id);
         const bg = matching.color || '#6c757d';
+        const tc = matching.text_color || '#fff';
         listEl.insertAdjacentHTML('beforeend',
-            `<span class="bulk-tag-badge" data-tag-id="${matching.id}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(bg)}">${esc(matching.name)}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${matching.id}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
+            `<span class="bulk-tag-badge" data-tag-id="${matching.id}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:${esc(tc)};background:${esc(bg)}">${esc(matching.name)}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${matching.id}" style="background:none;border:none;color:${esc(tc)};cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
     } else {
         resolveOrCreateBulkTag(raw, listEl, idArray);
     }
@@ -1816,8 +1819,9 @@ async function resolveOrCreateBulkTag(name, listEl, idArray) {
         if (!idArray.includes(existing.id)) {
             idArray.push(existing.id);
             const bg = existing.color || '#6c757d';
+            const tc = existing.text_color || '#fff';
             listEl.insertAdjacentHTML('beforeend',
-                `<span class="bulk-tag-badge" data-tag-id="${existing.id}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(bg)}">${esc(existing.name)}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${existing.id}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
+                `<span class="bulk-tag-badge" data-tag-id="${existing.id}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:${esc(tc)};background:${esc(bg)}">${esc(existing.name)}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${existing.id}" style="background:none;border:none;color:${esc(tc)};cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
         }
         return;
     }
@@ -1834,8 +1838,9 @@ async function resolveOrCreateBulkTag(name, listEl, idArray) {
             }
             idArray.push(created.id);
             const bg = created.color || '#6c757d';
+            const tc = created.text_color || '#fff';
             listEl.insertAdjacentHTML('beforeend',
-                `<span class="bulk-tag-badge" data-tag-id="${created.id}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(bg)}">${esc(created.name)}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${created.id}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
+                `<span class="bulk-tag-badge" data-tag-id="${created.id}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:${esc(tc)};background:${esc(bg)}">${esc(created.name)}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${created.id}" style="background:none;border:none;color:${esc(tc)};cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
         } else {
             alert('No se pudo crear el tag: ' + name);
         }
@@ -1860,7 +1865,7 @@ function setupBulkTagSearch(inputEl, suggestionsEl, idArray) {
                 return;
             }
             suggestionsEl.innerHTML = matching.map(t =>
-                `<div class="suggestion-item" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}" data-tag-color="${esc(t.color || '#6c757d')}" style="display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer;color:var(--text);border-bottom:1px solid var(--border-soft)"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${esc(t.color || '#6c757d')};flex-shrink:0"></span>${esc(t.name)}</div>`
+                `<div class="suggestion-item" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}" data-tag-color="${esc(t.color || '#6c757d')}" data-tag-text-color="${esc(t.text_color || '#fff')}" style="display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer;color:var(--text);border-bottom:1px solid var(--border-soft)"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${esc(t.color || '#6c757d')};flex-shrink:0"></span>${esc(t.name)}</div>`
             ).join('');
             suggestionsEl.style.display = 'block';
         }, 150);
@@ -1939,8 +1944,9 @@ document.getElementById('bulkTagAddSuggestions').addEventListener('click', (e) =
         const tagId = parseInt(item.dataset.tagId);
         if (!bulkTagAddIds.includes(tagId)) {
             bulkTagAddIds.push(tagId);
+            const tc = item.dataset.tagTextColor || '#fff';
             document.getElementById('bulkTagAddList').insertAdjacentHTML('beforeend',
-                `<span class="bulk-tag-badge" data-tag-id="${tagId}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(item.dataset.tagColor || '#6c757d')}">${item.dataset.tagName}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${tagId}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
+                `<span class="bulk-tag-badge" data-tag-id="${tagId}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:${esc(tc)};background:${esc(item.dataset.tagColor || '#6c757d')}">${item.dataset.tagName}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${tagId}" style="background:none;border:none;color:${esc(tc)};cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
         }
     }
     inputEl.value = '';
@@ -1959,8 +1965,9 @@ document.getElementById('bulkTagRemoveSuggestions').addEventListener('click', (e
         const tagId = parseInt(item.dataset.tagId);
         if (!bulkTagRemoveIds.includes(tagId)) {
             bulkTagRemoveIds.push(tagId);
+            const tc = item.dataset.tagTextColor || '#fff';
             document.getElementById('bulkTagRemoveList').insertAdjacentHTML('beforeend',
-                `<span class="bulk-tag-badge" data-tag-id="${tagId}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(item.dataset.tagColor || '#6c757d')}">${item.dataset.tagName}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${tagId}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
+                `<span class="bulk-tag-badge" data-tag-id="${tagId}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:${esc(tc)};background:${esc(item.dataset.tagColor || '#6c757d')}">${item.dataset.tagName}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${tagId}" style="background:none;border:none;color:${esc(tc)};cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
         }
     }
     inputEl.value = '';
@@ -2419,16 +2426,17 @@ function showEntryTagSuggestions(items) {
     entryTagSuggestions.style.left = (rect.left + window.scrollX) + 'px';
     entryTagSuggestions.style.width = rect.width + 'px';
     entryTagSuggestions.innerHTML = items.map(t =>
-        `<div class="suggestion-item" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}" data-tag-color="${esc(t.color || '')}"><span class="tag-badge" style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;color:#fff;background:${esc(t.color || '#6c757d')}">${esc(t.name)}</span></div>`
+        `<div class="suggestion-item" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}" data-tag-color="${esc(t.color || '')}" data-tag-text-color="${esc(t.text_color || '#fff')}"><span class="tag-badge" style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;color:${esc(t.text_color || '#fff')};background:${esc(t.color || '#6c757d')}">${esc(t.name)}</span></div>`
     ).join('');
     entryTagSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
         el.addEventListener('click', () => {
             const tagId = parseInt(el.dataset.tagId);
             const tagName = el.dataset.tagName;
             const tagColor = el.dataset.tagColor;
+            const tagTextColor = el.dataset.tagTextColor;
             entryTagInput.value = '';
             closeEntryTagSuggestions();
-            addTagToEntry(tagId, tagName, tagColor);
+            addTagToEntry(tagId, tagName, tagColor, tagTextColor);
         });
     });
 }
@@ -2465,7 +2473,7 @@ function closeEntryTagSuggestions() {
     }
 }
 
-async function addTagToEntry(tagId, tagName, tagColor) {
+async function addTagToEntry(tagId, tagName, tagColor, tagTextColor) {
     const invId = getEntryInvId();
     if (!invId) return;
     try {
@@ -2475,7 +2483,7 @@ async function addTagToEntry(tagId, tagName, tagColor) {
         });
         if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al añadir tag: ' + resp.status + ' ' + (t||'')); return; }
         const container = document.getElementById('entryTags');
-        if (container) container.insertAdjacentHTML('beforeend', renderEntryTagBadge({id: tagId, name: tagName, color: tagColor}, invId));
+        if (container) container.insertAdjacentHTML('beforeend', renderEntryTagBadge({id: tagId, name: tagName, color: tagColor, text_color: tagTextColor}, invId));
     } catch (e) { console.error(e); alert('Error al añadir tag'); }
 }
 
@@ -2492,7 +2500,7 @@ function addEntryTagFromInput() {
         if (currentTags.includes(existing.name)) { alert('Tag ya añadido'); return; }
         entryTagInput.value = '';
         closeEntryTagSuggestions();
-        addTagToEntry(existing.id, existing.name, existing.color);
+        addTagToEntry(existing.id, existing.name, existing.color, existing.text_color);
     } else {
         showEntryTagCreateSuggestion(q);
     }
@@ -3156,7 +3164,7 @@ async function loadBulkDefaultTags() {
         for (const name of names) {
             const existing = bulkTagsCache.find(t => t.name.toLowerCase() === name.toLowerCase());
             if (existing) {
-                addBulkTag(existing.name, existing.color);
+                addBulkTag(existing.name, existing.color, existing.text_color);
             } else {
                 try {
                     const resp2 = await apiFetch(apiUrl('tags'), {
@@ -3166,7 +3174,7 @@ async function loadBulkDefaultTags() {
                     if (!resp2.ok) continue;
                     const tag = await resp2.json();
                     bulkTagsCache.push(tag);
-                    addBulkTag(tag.name, tag.color);
+                    addBulkTag(tag.name, tag.color, tag.text_color);
                 } catch (e) { console.error(e); }
             }
         }
@@ -3382,13 +3390,13 @@ function showBulkTagSuggestions(items) {
     closeBulkTagSuggestions();
     bulkTagSuggestions.style.display = 'block';
     bulkTagSuggestions.innerHTML = items.map(t =>
-        `<div class="suggestion-item" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}" data-tag-color="${esc(t.color || '')}"><span class="tag-badge" style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;color:#fff;background:${esc(t.color || '#6c757d')}">${esc(t.name)}</span></div>`
+        `<div class="suggestion-item" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}" data-tag-color="${esc(t.color || '')}" data-tag-text-color="${esc(t.text_color || '#fff')}"><span class="tag-badge" style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;color:${esc(t.text_color || '#fff')};background:${esc(t.color || '#6c757d')}">${esc(t.name)}</span></div>`
     ).join('');
     bulkTagSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
         el.addEventListener('click', () => {
             bulkTagInput.value = '';
             closeBulkTagSuggestions();
-            addBulkTag(el.dataset.tagName, el.dataset.tagColor);
+            addBulkTag(el.dataset.tagName, el.dataset.tagColor, el.dataset.tagTextColor);
         });
     });
 }
@@ -3409,7 +3417,7 @@ function showBulkTagCreateSuggestion(q) {
             if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error al crear tag: ' + (t || resp.status)); return; }
             const tag = await resp.json();
             bulkTagsCache.push(tag);
-            addBulkTag(tag.name, tag.color);
+            addBulkTag(tag.name, tag.color, tag.text_color);
         } catch (e) { console.error(e); alert('Error al crear tag'); }
     });
 }
@@ -3421,14 +3429,15 @@ function closeBulkTagSuggestions() {
     }
 }
 
-function addBulkTag(tagName, tagColor) {
+function addBulkTag(tagName, tagColor, tagTextColor) {
     const container = document.getElementById('bulkInvTags');
     if (!container) return;
     const existing = getBulkTagNames();
     if (existing.includes(tagName)) return;
     const bg = tagColor || '#6c757d';
+    const tc = tagTextColor || '#fff';
     container.insertAdjacentHTML('beforeend',
-        `<span class="bulk-tag-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(bg)}">${esc(tagName)}<button type="button" class="btn-remove-tag" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`
+        `<span class="bulk-tag-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:${esc(tc)};background:${esc(bg)}">${esc(tagName)}<button type="button" class="btn-remove-tag" style="background:none;border:none;color:${esc(tc)};cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`
     );
 }
 
@@ -3445,7 +3454,7 @@ function addBulkTagFromInput() {
         if (currentTags.includes(existing.name)) { alert('Tag ya añadido'); return; }
         bulkTagInput.value = '';
         closeBulkTagSuggestions();
-        addBulkTag(existing.name, existing.color);
+        addBulkTag(existing.name, existing.color, existing.text_color);
     } else {
         showBulkTagCreateSuggestion(q);
     }
@@ -4597,24 +4606,28 @@ loadColFilterTypes();
 // ==================== TAGS ====================
 
 const tagState = {
-    page: 1, perPage: 50, pages: 0, total: 0, loaded: 0, loading: false, hasNext: true
+    page: 1, perPage: 500, pages: 0, total: 0, loaded: 0, loading: false, hasNext: true
 };
+let allTagsData = [];
 
 const tagBody = document.getElementById('tagsBody');
 const tagEmpty = document.getElementById('tagEmpty');
 const tagSummary = document.getElementById('tagSummary');
 const tagSentinel = document.getElementById('tagSentinel');
+const tagFilterInput = document.getElementById('tagFilterInput');
 
 function renderTagLoading() {
-    tagBody.innerHTML = `<tr><td colspan="4" class="loading-state">Cargando etiquetas...</td></tr>`;
+    tagBody.innerHTML = `<tr><td colspan="5" class="loading-state">Cargando etiquetas...</td></tr>`;
     tagEmpty.hidden = true;
 }
 
 function renderTagRow(item) {
     const bg = item.color || '#6c757d';
+    const tc = item.text_color || '#ffffff';
     const created = item.created_at ? item.created_at.slice(0, 10) : '-';
     return `<tr class="clickable-row" data-tag-id="${item.id}">
         <td><span class="tag-badge" style="display:inline-block;width:24px;height:24px;border-radius:4px;background:${esc(bg)};vertical-align:middle"></span></td>
+        <td><span class="tag-badge" style="display:inline-block;width:24px;height:24px;border-radius:4px;background:${esc(tc)};border:1px solid var(--border);vertical-align:middle"></span></td>
         <td><strong>${esc(item.name)}</strong></td>
         <td>${created}</td>
         <td style="text-align:center"><button type="button" class="btn-delete-tag" data-tag-id="${item.id}" title="Eliminar" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
@@ -4627,28 +4640,26 @@ function appendTags(items) {
     tagBody.insertAdjacentHTML('beforeend', items.map(renderTagRow).join(''));
 }
 
-function updateTagProgress() {
-    const f = tagState.loaded ? 1 : 0;
-    tagSummary.textContent = `${f}-${tagState.loaded} de ${tagState.total} etiquetas`;
-}
-
 async function loadTags({reset = false} = {}) {
     if (!appStarted) return;
     const s = tagState;
     if (s.loading || (!s.hasNext && !reset)) return;
-    if (reset) { s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true; tagBody.innerHTML = ''; tagEmpty.hidden = true; renderTagLoading(); }
+    if (reset) { s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true; allTagsData = []; tagBody.innerHTML = ''; tagEmpty.hidden = true; renderTagLoading(); }
     s.loading = true;
     try {
         const params = {page: s.page, per_page: s.perPage};
         const resp = await apiFetch(apiUrl('tags', params));
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
-        if (reset) tagBody.innerHTML = '';
-        appendTags(data.items);
+        allTagsData.push(...data.items);
         s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
         s.loaded += data.items.length; s.page += 1;
+        if (!s.hasNext && s.total > 0 && allTagsData.length < s.total) {
+            s.hasNext = true;
+        }
+        if (s.hasNext) { loadTags(); return; }
+        filterTags();
         updateTagProgress();
-        setTimeout(checkTagScroll, 50);
     } catch (e) {
         if (s.loaded === 0) { tagBody.innerHTML = ''; tagEmpty.hidden = false; }
         tagSummary.textContent = 'Error al cargar';
@@ -4656,6 +4667,30 @@ async function loadTags({reset = false} = {}) {
     } finally {
         s.loading = false;
     }
+}
+
+function filterTags() {
+    const q = (tagFilterInput ? tagFilterInput.value : '').trim().toLowerCase();
+    let items = allTagsData;
+    if (q) {
+        items = allTagsData.filter(t => t.name.toLowerCase().includes(q));
+    }
+    tagBody.innerHTML = '';
+    if (!items.length) { tagEmpty.hidden = false; } else { tagEmpty.hidden = true; tagBody.innerHTML = items.map(renderTagRow).join(''); }
+    updateTagProgress();
+}
+
+function updateTagProgress() {
+    const q = (tagFilterInput ? tagFilterInput.value : '').trim().toLowerCase();
+    let count = allTagsData.length;
+    if (q) count = allTagsData.filter(t => t.name.toLowerCase().includes(q)).length;
+    tagSummary.textContent = `${count} etiqueta${count !== 1 ? 's' : ''}`;
+}
+
+if (tagFilterInput) {
+    tagFilterInput.addEventListener('input', () => {
+        if (allTagsData.length) { filterTags(); }
+    });
 }
 
 function checkTagScroll() {
@@ -4684,6 +4719,8 @@ function openTagModal(tagId) {
     document.getElementById('tagModalTitle').textContent = tagId ? 'Editar etiqueta' : 'Nueva etiqueta';
     document.getElementById('tagName').value = '';
     document.getElementById('tagColor').value = '#6c757d';
+    document.getElementById('tagTextColor').value = '#ffffff';
+    updateTagPreview();
 
     if (tagId) {
         apiFetch(apiUrl(`tags/${tagId}`)).then(resp => {
@@ -4692,6 +4729,8 @@ function openTagModal(tagId) {
         }).then(tag => {
             document.getElementById('tagName').value = tag.name || '';
             document.getElementById('tagColor').value = tag.color || '#6c757d';
+            document.getElementById('tagTextColor').value = tag.text_color || '#ffffff';
+            updateTagPreview();
         }).catch(() => {});
     }
 
@@ -4700,16 +4739,30 @@ function openTagModal(tagId) {
     setTimeout(() => document.getElementById('tagName').focus(), 50);
 }
 
+function updateTagPreview() {
+    const bg = document.getElementById('tagColor').value;
+    const tc = document.getElementById('tagTextColor').value;
+    const preview = document.getElementById('tagPreview');
+    preview.style.background = bg;
+    preview.style.color = tc;
+    preview.textContent = document.getElementById('tagName').value || 'Previsualización';
+}
+
+document.getElementById('tagColor').addEventListener('input', updateTagPreview);
+document.getElementById('tagTextColor').addEventListener('input', updateTagPreview);
+document.getElementById('tagName').addEventListener('input', updateTagPreview);
+
 document.getElementById('tagForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const tagId = document.getElementById('modalTagId').value;
     const name = document.getElementById('tagName').value.trim();
     const color = document.getElementById('tagColor').value;
+    const text_color = document.getElementById('tagTextColor').value;
     if (!name) { alert('El nombre es obligatorio'); return; }
     const btn = ev.target.querySelector('button[type="submit"]');
     btn.disabled = true; btn.textContent = 'Guardando...';
     try {
-        const payload = {name, color};
+        const payload = {name, color, text_color};
         let resp;
         if (tagId) {
             resp = await apiFetch(apiUrl(`tags/${tagId}`), {

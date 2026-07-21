@@ -277,7 +277,6 @@
                 <table>
                     <thead>
                         <tr>
-                            <th class="inv-sel-header" style="width:28px;text-align:center"><input type="checkbox" id="invSelectAllVisible" title="Seleccionar/deseleccionar todo lo visible" style="cursor:pointer"></th>
                             <th class="inv-img-header">Prod</th>
                             <th class="inv-img-header">Inv</th>
                             <th>Tipo</th>
@@ -293,7 +292,7 @@
                             <th title="Sellado">S</th>
                             <th title="Publicado Instagram">IG</th>
                             <th>Tags</th>
-                            <th></th>
+                            <th class="inv-sel-header" style="width:28px;text-align:center"><input type="checkbox" id="invSelectAllVisible" title="Seleccionar/deseleccionar todo lo visible" style="cursor:pointer"></th>
                             <th></th>
                         </tr>
                     </thead>
@@ -491,15 +490,21 @@
                 <div class="density-note">
                     <span id="tagSummary">Cargando...</span>
                 </div>
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                    <label class="filter-check">Nombre
+                        <input id="tagFilterInput" type="text" placeholder="Filtrar..." style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </label>
+                </div>
                 <div style="display:flex;justify-content:flex-end">
                     <button id="addTagBtn" class="btn-primary">+ Nueva etiqueta</button>
                 </div>
             </div>
-            <div class="table-wrap">
+            <div class="table-wrap" style="max-width:fit-content;margin:0 auto">
                 <table>
                     <thead>
                         <tr>
-                            <th style="width:60px">Color</th>
+                            <th style="width:60px">Fondo</th>
+                            <th style="width:60px">Texto</th>
                             <th>Nombre</th>
                             <th style="width:160px">Creada</th>
                             <th style="width:80px"></th>
@@ -516,7 +521,7 @@
     <!-- Product detail modal -->
     <div id="productModal" class="modal" hidden>
         <div class="modal-backdrop" id="modalBackdrop"></div>
-        <div class="modal-body" role="dialog" aria-modal="true">
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:fit-content;max-width:min(400px,calc(100%-40px));min-width:280px">
             <h2 id="modalTitle">Acciones producto</h2>
             <div id="modalDetail"></div>
             <form id="productForm">
@@ -652,7 +657,7 @@
     <!-- Create product modal -->
     <div id="createProductModal" class="modal" hidden>
         <div class="modal-backdrop" id="createBackdrop"></div>
-        <div class="modal-body" role="dialog" aria-modal="true">
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:fit-content;max-width:min(400px,calc(100%-40px));min-width:280px">
             <h2>Nuevo producto</h2>
             <form id="createProductForm">
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
@@ -1085,7 +1090,7 @@
     <!-- Collection modal -->
     <div id="collectionModal" class="modal" hidden>
         <div class="modal-backdrop" id="colBackdrop"></div>
-        <div class="modal-body" role="dialog" aria-modal="true">
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:fit-content;max-width:min(400px,calc(100%-40px));min-width:280px">
             <h2 id="colModalTitle">Nueva colección</h2>
             <form id="collectionForm">
                 <input type="hidden" id="modalCollectionId">
@@ -1158,7 +1163,7 @@
     <!-- Scheduled Task Execution modal -->
     <div id="scheduledTaskModal" class="modal" hidden>
         <div class="modal-backdrop" id="scheduledBackdrop"></div>
-        <div class="modal-body" role="dialog" aria-modal="true">
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:fit-content;max-width:min(400px,calc(100%-40px));min-width:280px">
             <h2 id="scheduledModalTitle">Nueva ejecución</h2>
             <form id="scheduledTaskForm">
                 <div class="field">
@@ -1200,7 +1205,7 @@
     <!-- Login modal -->
     <div id="loginModal" class="modal" hidden>
         <div class="modal-backdrop" id="loginBackdrop"></div>
-        <div class="modal-body" role="dialog" aria-modal="true">
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:fit-content;max-width:min(400px,calc(100%-40px));min-width:280px">
             <h2>Iniciar sesión</h2>
             <form id="loginForm">
                 <div class="field">
@@ -1367,18 +1372,25 @@
     <!-- Tag management modal -->
     <div id="tagModal" class="modal" hidden>
         <div class="modal-backdrop" id="tagBackdrop"></div>
-        <div class="modal-body" role="dialog" aria-modal="true">
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:fit-content;max-width:min(420px,calc(100%-40px));min-width:300px">
             <h2 id="tagModalTitle">Nueva etiqueta</h2>
             <form id="tagForm">
                 <input type="hidden" id="modalTagId">
+                <div class="field">
+                    <label for="tagName">Nombre</label>
+                    <input id="tagName" type="text" placeholder="Nombre de la etiqueta..." required>
+                </div>
                 <div class="form-row">
-                    <div class="field" style="flex:1">
-                        <label for="tagName">Nombre</label>
-                        <input id="tagName" type="text" placeholder="Nombre de la etiqueta..." required>
+                    <div class="field" style="flex:0 0 auto;min-width:80px">
+                        <label for="tagColor">Fondo</label>
+                        <input id="tagColor" type="color" value="#6c757d" style="width:60px;height:36px;padding:2px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer">
                     </div>
                     <div class="field" style="flex:0 0 auto;min-width:80px">
-                        <label for="tagColor">Color</label>
-                        <input id="tagColor" type="color" value="#6c757d" style="width:60px;height:36px;padding:2px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer">
+                        <label for="tagTextColor">Texto</label>
+                        <input id="tagTextColor" type="color" value="#ffffff" style="width:60px;height:36px;padding:2px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer">
+                    </div>
+                    <div class="field" style="flex:1;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px">
+                        <span id="tagPreview" style="display:inline-block;padding:4px 12px;border-radius:4px;font-size:13px;font-weight:600;background:#6c757d;color:#fff">Previsualización</span>
                     </div>
                 </div>
                 <div class="actions">
