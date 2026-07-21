@@ -259,6 +259,7 @@ function loadTab(tab) {
     else if (tab === 'statistics') loadStatisticsTab();
     else if (tab === 'wishlist') loadWishlist({reset: true});
     else if (tab === 'publications') loadPublications({reset: true});
+    else if (tab === 'tags') loadTags({reset: true});
     else loadPurchases({reset: true});
 }
 
@@ -1211,6 +1212,7 @@ document.addEventListener("keydown", (ev) => {
     else if (!purModal.hidden) closePurModal();
     else if (!colModal.hidden) closeColModal();
     else if (!scheduledModal.hidden) closeScheduledModal();
+    else if (!tagModal.hidden) closeTagModal();
     else if (!loginModal.hidden) hideLoginModal();
 });
 
@@ -1522,6 +1524,10 @@ const invState = {
     collection_code: '', product_number: '', product_name: '', card_type_id: '', product_format_id: '', tag_name: '', exclude_tag_name: '', is_sealed: '', posted_instagram: '', has_image: '', has_price: ''
 };
 
+const selectedInvIds = new Set();
+let bulkTagAddIds = [];
+let bulkTagRemoveIds = [];
+
 const purState = {
     page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
     date_from: '', date_to: '', entity_id: '', shipping_status_id: '', shipping_company_id: ''
@@ -1586,7 +1592,8 @@ function renderInvRow(item) {
     const tagsHtml = renderTagBadges(item.tags);
     const invTrackerUrl = item.tracker_url || null;
     const igIconPosted = item.posted_instagram ? '\u2713' : '';
-    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-img-cell">${invImageCell(item.product_image_url, invTrackerUrl)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}${noteDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIconPosted}</td><td>${tagsHtml}</td><td style="text-align:center;white-space:nowrap"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
+    const checked = selectedInvIds.has(item.id) ? ' checked' : '';
+    return `<tr class="clickable-row" data-inv-id="${item.id}"><td class="inv-sel-cell" style="text-align:center"><input type="checkbox" class="inv-checkbox" data-inv-id="${item.id}"${checked}></td><td class="inv-img-cell">${invImageCell(item.product_image_url, invTrackerUrl)}</td><td class="inv-img-cell">${invImageCell(item.inventory_image_url)}</td><td>${esc(cardType)}</td><td>${esc(col.code || col.name || '-')}</td><td><span style="color:var(--muted)">(${codeNum})</span> ${nameDisplay}${noteDisplay}</td><td>${esc(lang.name || '')}</td><td>${esc(cond.name || '')}</td><td>${price}</td><td>${currentPrice}</td><td>${minPrice}</td><td>${maxPrice}</td><td class="${cls}">${stock}</td><td>${sealedIcon}</td><td>${igIconPosted}</td><td>${tagsHtml}</td><td style="text-align:center;white-space:nowrap"><button type="button" class="btn-delete-inv" data-inv-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td></tr>`;
 }
 
 function renderTagBadges(tags) {
@@ -1638,6 +1645,8 @@ async function loadInventory({reset = false} = {}) {
         document.getElementById('invTableView').hidden = false;
         invEmpty.hidden = true;
         renderInvLoading();
+        selectedInvIds.clear();
+        updateBulkActionBar();
     }
     s.loading = true;
     try {
@@ -1660,6 +1669,7 @@ async function loadInventory({reset = false} = {}) {
         const data = await resp.json();
         if (reset) invBody.innerHTML = '';
         appendInv(data.items);
+        updateVisibleCheckboxes();
         s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
         s.loaded += data.items.length; s.page += 1;
         updateInvProgress();
@@ -1684,6 +1694,321 @@ const invObs = new IntersectionObserver(entries => {
     if (entries.some(e => e.isIntersecting)) loadInventory();
 }, {rootMargin: '640px 0px'});
 if (invSentinel) invObs.observe(invSentinel);
+
+function updateBulkActionBar() {
+    const bar = document.getElementById('bulkActionBar');
+    const countEl = document.getElementById('bulkActionCount');
+    if (!bar || !countEl) return;
+    if (selectedInvIds.size === 0) {
+        bar.style.display = 'none';
+    } else {
+        bar.style.display = 'flex';
+        countEl.textContent = selectedInvIds.size + ' \u00edtems seleccionados';
+    }
+}
+
+function toggleInvSelection(invId) {
+    if (selectedInvIds.has(invId)) {
+        selectedInvIds.delete(invId);
+    } else {
+        selectedInvIds.add(invId);
+    }
+    updateVisibleCheckboxes();
+    updateBulkActionBar();
+}
+
+function updateVisibleCheckboxes() {
+    document.querySelectorAll('.inv-checkbox').forEach(cb => {
+        const invId = parseInt(cb.dataset.invId);
+        cb.checked = selectedInvIds.has(invId);
+    });
+    const selectAll = document.getElementById('invSelectAllVisible');
+    if (selectAll) {
+        const visible = document.querySelectorAll('.inv-checkbox');
+        const allChecked = visible.length > 0 && Array.from(visible).every(cb => cb.checked);
+        selectAll.checked = allChecked;
+        selectAll.indeterminate = !allChecked && Array.from(visible).some(cb => cb.checked);
+    }
+}
+
+function selectAllVisible() {
+    const visible = document.querySelectorAll('.inv-checkbox');
+    const selectAll = document.getElementById('invSelectAllVisible');
+    if (selectAll && selectAll.checked) {
+        visible.forEach(cb => {
+            const invId = parseInt(cb.dataset.invId);
+            selectedInvIds.add(invId);
+        });
+    } else {
+        visible.forEach(cb => {
+            const invId = parseInt(cb.dataset.invId);
+            selectedInvIds.delete(invId);
+        });
+    }
+    updateVisibleCheckboxes();
+    updateBulkActionBar();
+}
+
+function clearBulkSelection() {
+    selectedInvIds.clear();
+    updateVisibleCheckboxes();
+    updateBulkActionBar();
+    const selectAll = document.getElementById('invSelectAllVisible');
+    if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
+}
+
+document.getElementById('invSelectAllVisible').addEventListener('click', (e) => {
+    e.stopPropagation();
+    selectAllVisible();
+});
+
+document.getElementById('bulkClearSelection').addEventListener('click', clearBulkSelection);
+
+document.getElementById('inventoryBody').addEventListener('click', (e) => {
+    const cb = e.target.closest('.inv-checkbox');
+    if (!cb) return;
+    e.stopPropagation();
+    const invId = parseInt(cb.dataset.invId);
+    toggleInvSelection(invId);
+});
+
+function openBulkTagModal() {
+    if (selectedInvIds.size === 0) return;
+    document.getElementById('bulkTagCount').textContent = selectedInvIds.size + ' \u00edtems seleccionados';
+    bulkTagAddIds = [];
+    bulkTagRemoveIds = [];
+    document.getElementById('bulkTagAddList').innerHTML = '';
+    document.getElementById('bulkTagRemoveList').innerHTML = '';
+    document.getElementById('bulkTagAddInput').value = '';
+    document.getElementById('bulkTagRemoveInput').value = '';
+    document.getElementById('bulkTagAddSuggestions').style.display = 'none';
+    document.getElementById('bulkTagRemoveSuggestions').style.display = 'none';
+    document.getElementById('bulkTagModal').hidden = false;
+    document.body.style.overflow = 'hidden';
+    _ensureEntryStaticData();
+}
+
+function closeBulkTagModal() {
+    document.getElementById('bulkTagModal').hidden = true;
+    document.body.style.overflow = '';
+}
+
+function addTagToBulkList(inputEl, suggestionsEl, listEl, idArray) {
+    const raw = inputEl.value.trim();
+    if (!raw) return;
+    const matching = allTagsCache.find(t => t.name.toLowerCase() === raw.toLowerCase());
+    if (matching) {
+        if (idArray.includes(matching.id)) { inputEl.value = ''; return; }
+        idArray.push(matching.id);
+        const bg = matching.color || '#6c757d';
+        listEl.insertAdjacentHTML('beforeend',
+            `<span class="bulk-tag-badge" data-tag-id="${matching.id}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(bg)}">${esc(matching.name)}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${matching.id}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
+    } else {
+        resolveOrCreateBulkTag(raw, listEl, idArray);
+    }
+    inputEl.value = '';
+    suggestionsEl.style.display = 'none';
+}
+
+async function resolveOrCreateBulkTag(name, listEl, idArray) {
+    const existing = allTagsCache.find(t => t.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+        if (!idArray.includes(existing.id)) {
+            idArray.push(existing.id);
+            const bg = existing.color || '#6c757d';
+            listEl.insertAdjacentHTML('beforeend',
+                `<span class="bulk-tag-badge" data-tag-id="${existing.id}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(bg)}">${esc(existing.name)}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${existing.id}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
+        }
+        return;
+    }
+    try {
+        const resp = await apiFetch(apiUrl('tags'), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: name})
+        });
+        if (resp.ok) {
+            const created = await resp.json();
+            if (!allTagsCache.find(t => t.id === created.id)) {
+                allTagsCache.push(created);
+            }
+            idArray.push(created.id);
+            const bg = created.color || '#6c757d';
+            listEl.insertAdjacentHTML('beforeend',
+                `<span class="bulk-tag-badge" data-tag-id="${created.id}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(bg)}">${esc(created.name)}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${created.id}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
+        } else {
+            alert('No se pudo crear el tag: ' + name);
+        }
+    } catch (e) {
+        alert('Error al crear tag: ' + name);
+    }
+}
+
+function setupBulkTagSearch(inputEl, suggestionsEl, idArray) {
+    let timeout;
+    inputEl.addEventListener('input', () => {
+        clearTimeout(timeout);
+        const raw = inputEl.value.trim();
+        const q = raw.toLowerCase();
+        if (q.length < 1) { suggestionsEl.style.display = 'none'; return; }
+        timeout = setTimeout(() => {
+            const existing = new Set(idArray);
+            const matching = allTagsCache.filter(t => !existing.has(t.id) && t.name.toLowerCase().includes(q));
+            if (matching.length === 0) {
+                suggestionsEl.innerHTML = `<div class="suggestion-item" data-create="${raw}">Crear "${raw}"</div>`;
+                suggestionsEl.style.display = 'block';
+                return;
+            }
+            suggestionsEl.innerHTML = matching.map(t =>
+                `<div class="suggestion-item" data-tag-id="${t.id}" data-tag-name="${esc(t.name)}" data-tag-color="${esc(t.color || '#6c757d')}" style="display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer;color:var(--text);border-bottom:1px solid var(--border-soft)"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${esc(t.color || '#6c757d')};flex-shrink:0"></span>${esc(t.name)}</div>`
+            ).join('');
+            suggestionsEl.style.display = 'block';
+        }, 150);
+    });
+    inputEl.addEventListener('blur', () => { setTimeout(() => { suggestionsEl.style.display = 'none'; }, 150); });
+    inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const raw = inputEl.value.trim();
+            if (!raw) return;
+            const listEl = inputEl === document.getElementById('bulkTagAddInput')
+                ? document.getElementById('bulkTagAddList')
+                : document.getElementById('bulkTagRemoveList');
+            resolveOrCreateBulkTag(raw, listEl, idArray);
+            inputEl.value = '';
+            suggestionsEl.style.display = 'none';
+        }
+    });
+}
+
+setupBulkTagSearch(
+    document.getElementById('bulkTagAddInput'),
+    document.getElementById('bulkTagAddSuggestions'),
+    bulkTagAddIds
+);
+setupBulkTagSearch(
+    document.getElementById('bulkTagRemoveInput'),
+    document.getElementById('bulkTagRemoveSuggestions'),
+    bulkTagRemoveIds
+);
+
+document.getElementById('bulkTagAddAddBtn').addEventListener('click', () => {
+    addTagToBulkList(
+        document.getElementById('bulkTagAddInput'),
+        document.getElementById('bulkTagAddSuggestions'),
+        document.getElementById('bulkTagAddList'),
+        bulkTagAddIds
+    );
+});
+
+document.getElementById('bulkTagRemoveAddBtn').addEventListener('click', () => {
+    addTagToBulkList(
+        document.getElementById('bulkTagRemoveInput'),
+        document.getElementById('bulkTagRemoveSuggestions'),
+        document.getElementById('bulkTagRemoveList'),
+        bulkTagRemoveIds
+    );
+});
+
+document.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.bulk-tag-remove-btn');
+    if (!removeBtn) return;
+    e.preventDefault();
+    const badge = removeBtn.closest('.bulk-tag-badge');
+    if (!badge) return;
+    const tagId = removeBtn.dataset.tagId;
+    const addList = document.getElementById('bulkTagAddList');
+    const removeList = document.getElementById('bulkTagRemoveList');
+    const addIdx = bulkTagAddIds.findIndex(id => String(id) === String(tagId));
+    const removeIdx = bulkTagRemoveIds.findIndex(id => String(id) === String(tagId));
+    if (addIdx !== -1) bulkTagAddIds.splice(addIdx, 1);
+    if (removeIdx !== -1) bulkTagRemoveIds.splice(removeIdx, 1);
+    const inAdd = addList && addList.contains(badge);
+    const inRemove = removeList && removeList.contains(badge);
+    badge.remove();
+});
+
+document.getElementById('bulkTagAddSuggestions').addEventListener('click', (e) => {
+    const item = e.target.closest('.suggestion-item');
+    if (!item) return;
+    const inputEl = document.getElementById('bulkTagAddInput');
+    const suggestionsEl = document.getElementById('bulkTagAddSuggestions');
+    if (item.dataset.create) {
+        resolveOrCreateBulkTag(item.dataset.create, document.getElementById('bulkTagAddList'), bulkTagAddIds);
+    } else {
+        const tagId = parseInt(item.dataset.tagId);
+        if (!bulkTagAddIds.includes(tagId)) {
+            bulkTagAddIds.push(tagId);
+            document.getElementById('bulkTagAddList').insertAdjacentHTML('beforeend',
+                `<span class="bulk-tag-badge" data-tag-id="${tagId}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(item.dataset.tagColor || '#6c757d')}">${item.dataset.tagName}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${tagId}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
+        }
+    }
+    inputEl.value = '';
+    suggestionsEl.style.display = 'none';
+    inputEl.focus();
+});
+
+document.getElementById('bulkTagRemoveSuggestions').addEventListener('click', (e) => {
+    const item = e.target.closest('.suggestion-item');
+    if (!item) return;
+    const inputEl = document.getElementById('bulkTagRemoveInput');
+    const suggestionsEl = document.getElementById('bulkTagRemoveSuggestions');
+    if (item.dataset.create) {
+        resolveOrCreateBulkTag(item.dataset.create, document.getElementById('bulkTagRemoveList'), bulkTagRemoveIds);
+    } else {
+        const tagId = parseInt(item.dataset.tagId);
+        if (!bulkTagRemoveIds.includes(tagId)) {
+            bulkTagRemoveIds.push(tagId);
+            document.getElementById('bulkTagRemoveList').insertAdjacentHTML('beforeend',
+                `<span class="bulk-tag-badge" data-tag-id="${tagId}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:12px;color:#fff;background:${esc(item.dataset.tagColor || '#6c757d')}">${item.dataset.tagName}<button type="button" class="bulk-tag-remove-btn" data-tag-id="${tagId}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button></span>`);
+        }
+    }
+    inputEl.value = '';
+    suggestionsEl.style.display = 'none';
+    inputEl.focus();
+});
+
+document.getElementById('bulkTagBtn').addEventListener('click', openBulkTagModal);
+document.getElementById('bulkTagBackdrop').addEventListener('click', closeBulkTagModal);
+document.getElementById('bulkTagCancel').addEventListener('click', closeBulkTagModal);
+
+document.getElementById('bulkTagApplyBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('bulkTagApplyBtn');
+    if (selectedInvIds.size === 0) return;
+    btn.disabled = true;
+    btn.textContent = 'Aplicando...';
+
+    const inventoryIds = Array.from(selectedInvIds);
+    const results = [];
+
+    if (bulkTagAddIds.length > 0) {
+        try {
+            const resp = await apiFetch(apiUrl('inventory/batch-tags'), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({inventory_ids: inventoryIds, tag_ids: bulkTagAddIds, action: 'add'})
+            });
+            if (resp.ok) results.push(await resp.json());
+        } catch (e) { alert('Error al añadir tags'); btn.disabled = false; btn.textContent = 'Aplicar etiquetas'; return; }
+    }
+
+    if (bulkTagRemoveIds.length > 0) {
+        try {
+            const resp = await apiFetch(apiUrl('inventory/batch-tags'), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({inventory_ids: inventoryIds, tag_ids: bulkTagRemoveIds, action: 'remove'})
+            });
+            if (resp.ok) results.push(await resp.json());
+        } catch (e) { alert('Error al quitar tags'); btn.disabled = false; btn.textContent = 'Aplicar etiquetas'; return; }
+    }
+
+    closeBulkTagModal();
+    clearBulkSelection();
+    loadInventory({reset: true});
+    btn.disabled = false;
+    btn.textContent = 'Aplicar etiquetas';
+});
 
 // Inventory entry modal
 const entryModal = document.getElementById('entryModal');
@@ -4269,6 +4594,167 @@ loadInvFilterFormats();
 setupColFilters();
 loadColFilterTypes();
 
+// ==================== TAGS ====================
+
+const tagState = {
+    page: 1, perPage: 50, pages: 0, total: 0, loaded: 0, loading: false, hasNext: true
+};
+
+const tagBody = document.getElementById('tagsBody');
+const tagEmpty = document.getElementById('tagEmpty');
+const tagSummary = document.getElementById('tagSummary');
+const tagSentinel = document.getElementById('tagSentinel');
+
+function renderTagLoading() {
+    tagBody.innerHTML = `<tr><td colspan="4" class="loading-state">Cargando etiquetas...</td></tr>`;
+    tagEmpty.hidden = true;
+}
+
+function renderTagRow(item) {
+    const bg = item.color || '#6c757d';
+    const created = item.created_at ? item.created_at.slice(0, 10) : '-';
+    return `<tr class="clickable-row" data-tag-id="${item.id}">
+        <td><span class="tag-badge" style="display:inline-block;width:24px;height:24px;border-radius:4px;background:${esc(bg)};vertical-align:middle"></span></td>
+        <td><strong>${esc(item.name)}</strong></td>
+        <td>${created}</td>
+        <td style="text-align:center"><button type="button" class="btn-delete-tag" data-tag-id="${item.id}" title="Eliminar" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button></td>
+    </tr>`;
+}
+
+function appendTags(items) {
+    if (!items.length && tagState.loaded === 0) { tagBody.innerHTML = ''; tagEmpty.hidden = false; return; }
+    tagEmpty.hidden = true;
+    tagBody.insertAdjacentHTML('beforeend', items.map(renderTagRow).join(''));
+}
+
+function updateTagProgress() {
+    const f = tagState.loaded ? 1 : 0;
+    tagSummary.textContent = `${f}-${tagState.loaded} de ${tagState.total} etiquetas`;
+}
+
+async function loadTags({reset = false} = {}) {
+    if (!appStarted) return;
+    const s = tagState;
+    if (s.loading || (!s.hasNext && !reset)) return;
+    if (reset) { s.page = 1; s.pages = 0; s.total = 0; s.loaded = 0; s.hasNext = true; tagBody.innerHTML = ''; tagEmpty.hidden = true; renderTagLoading(); }
+    s.loading = true;
+    try {
+        const params = {page: s.page, per_page: s.perPage};
+        const resp = await apiFetch(apiUrl('tags', params));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        if (reset) tagBody.innerHTML = '';
+        appendTags(data.items);
+        s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
+        s.loaded += data.items.length; s.page += 1;
+        updateTagProgress();
+        setTimeout(checkTagScroll, 50);
+    } catch (e) {
+        if (s.loaded === 0) { tagBody.innerHTML = ''; tagEmpty.hidden = false; }
+        tagSummary.textContent = 'Error al cargar';
+        s.hasNext = false;
+    } finally {
+        s.loading = false;
+    }
+}
+
+function checkTagScroll() {
+    if (tagState.loading || !tagState.hasNext) return;
+    const r = tagSentinel.getBoundingClientRect();
+    if (r.top <= window.innerHeight + 700) loadTags();
+}
+
+const tagObs = new IntersectionObserver(entries => {
+    if (!appStarted) return;
+    if (entries.some(e => e.isIntersecting)) loadTags();
+}, {rootMargin: '640px 0px'});
+if (tagSentinel) tagObs.observe(tagSentinel);
+
+// Tag modal
+const tagModal = document.getElementById('tagModal');
+if (document.getElementById('tagBackdrop')) document.getElementById('tagBackdrop').addEventListener('click', closeTagModal);
+if (document.getElementById('tagCancel')) document.getElementById('tagCancel').addEventListener('click', closeTagModal);
+
+function closeTagModal() { tagModal.hidden = true; document.body.style.overflow = ''; }
+
+document.getElementById('addTagBtn').addEventListener('click', () => openTagModal(null));
+
+function openTagModal(tagId) {
+    document.getElementById('modalTagId').value = tagId || '';
+    document.getElementById('tagModalTitle').textContent = tagId ? 'Editar etiqueta' : 'Nueva etiqueta';
+    document.getElementById('tagName').value = '';
+    document.getElementById('tagColor').value = '#6c757d';
+
+    if (tagId) {
+        apiFetch(apiUrl(`tags/${tagId}`)).then(resp => {
+            if (resp.ok) return resp.json();
+            throw new Error('not found');
+        }).then(tag => {
+            document.getElementById('tagName').value = tag.name || '';
+            document.getElementById('tagColor').value = tag.color || '#6c757d';
+        }).catch(() => {});
+    }
+
+    tagModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('tagName').focus(), 50);
+}
+
+document.getElementById('tagForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const tagId = document.getElementById('modalTagId').value;
+    const name = document.getElementById('tagName').value.trim();
+    const color = document.getElementById('tagColor').value;
+    if (!name) { alert('El nombre es obligatorio'); return; }
+    const btn = ev.target.querySelector('button[type="submit"]');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    try {
+        const payload = {name, color};
+        let resp;
+        if (tagId) {
+            resp = await apiFetch(apiUrl(`tags/${tagId}`), {
+                method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+        } else {
+            resp = await apiFetch(apiUrl('tags'), {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+        }
+        if (!resp.ok) {
+            const t = await resp.text().catch(() => null);
+            alert('Error: ' + resp.status + ' ' + (t || ''));
+            return;
+        }
+        closeTagModal();
+        loadTags({reset: true});
+    } catch (e) { console.error(e); alert('Error al guardar'); }
+    finally { btn.disabled = false; btn.textContent = 'Guardar'; }
+});
+
+// Tab click on tags rows
+document.getElementById('tabTags').addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('.btn-delete-tag');
+    if (delBtn) {
+        e.stopPropagation();
+        if (!confirm('\u00bfEliminar esta etiqueta? Se eliminar\u00e1 de todos los items de inventario.')) return;
+        const tagId = delBtn.dataset.tagId;
+        const resp = await apiFetch(apiUrl(`tags/${tagId}`), {method: 'DELETE'});
+        if (resp && resp.ok) {
+            delBtn.closest('tr').remove();
+            tagState.loaded -= 1; tagState.total -= 1;
+            updateTagProgress();
+        } else {
+            const msg = resp ? (await resp.json().catch(() => null))?.message || 'Error al eliminar' : 'Error de red';
+            alert(msg);
+        }
+        return;
+    }
+    const row = e.target.closest('tr.clickable-row[data-tag-id]');
+    if (row) openTagModal(row.dataset.tagId);
+});
+
 // ==================== EVENTS & INIT ====================
 
 // Tab click on collections rows
@@ -4297,6 +4783,7 @@ document.getElementById('tabCollections').addEventListener('click', async (e) =>
 
 document.getElementById('tabInventory').addEventListener('click', async (e) => {
     if (e.target.closest('a[target="_blank"]')) return;
+    if (e.target.closest('.inv-checkbox')) return;
     const delBtn = e.target.closest('.btn-delete-inv');
     if (delBtn) {
         e.stopPropagation();

@@ -1181,3 +1181,43 @@ tr:hover td { background: var(--surface-soft); }
     border: 1px solid var(--border-soft);
     border-radius: 4px;
 }
+
+.bulk-action-bar {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--surface-strong);
+    border-top: 1px solid var(--border);
+    border-radius: 6px 6px 0 0;
+    z-index: 50;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+.bulk-action-bar span {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+}
+.inv-sel-cell input[type="checkbox"],
+.inv-sel-header input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--cyan-strong);
+    cursor: pointer;
+}
+.inv-sel-cell {
+    vertical-align: middle !important;
+}
+.bulk-tag-badge button:hover {
+    opacity: 0.8;
+}
+#bulkTagAddSuggestions .suggestion-item:hover,
+#bulkTagRemoveSuggestions .suggestion-item:hover {
+    background: var(--surface-soft);
+}
+#bulkTagAddList, #bulkTagRemoveList {
+    min-height: 24px;
+}

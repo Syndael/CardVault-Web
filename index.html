@@ -26,6 +26,7 @@
             <button class="tab" data-tab="statistics">Estadísticas</button>
             <button class="tab" data-tab="scheduledTasks">Tareas</button>
             <button class="tab" data-tab="publications">Publicaciones</button>
+            <button class="tab" data-tab="tags">Etiquetas</button>
         </nav>
 
         <!-- Products tab -->
@@ -276,6 +277,7 @@
                 <table>
                     <thead>
                         <tr>
+                            <th class="inv-sel-header" style="width:28px;text-align:center"><input type="checkbox" id="invSelectAllVisible" title="Seleccionar/deseleccionar todo lo visible" style="cursor:pointer"></th>
                             <th class="inv-img-header">Prod</th>
                             <th class="inv-img-header">Inv</th>
                             <th>Tipo</th>
@@ -292,11 +294,17 @@
                             <th title="Publicado Instagram">IG</th>
                             <th>Tags</th>
                             <th></th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody id="inventoryBody"></tbody>
                 </table>
                 <div class="empty-state" id="invEmpty" hidden>No hay productos en inventario.</div>
+            </div>
+            <div id="bulkActionBar" class="bulk-action-bar" style="display:none">
+                <span id="bulkActionCount">0 ítems seleccionados</span>
+                <button type="button" id="bulkTagBtn" class="btn-primary" style="background:#7c3aed">Etiquetar seleccionados</button>
+                <button type="button" id="bulkClearSelection" class="btn-secondary">Limpiar selección</button>
             </div>
             <div class="load-sentinel" id="invSentinel"></div>
         </section>
@@ -475,6 +483,33 @@
                 <div class="empty-state" id="scheduledEmpty" hidden>No hay ejecuciones.</div>
             </div>
             <div class="load-sentinel" id="scheduledSentinel"></div>
+        </section>
+
+        <!-- Tags tab -->
+        <section class="tab-content" id="tabTags">
+            <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
+                <div class="density-note">
+                    <span id="tagSummary">Cargando...</span>
+                </div>
+                <div style="display:flex;justify-content:flex-end">
+                    <button id="addTagBtn" class="btn-primary">+ Nueva etiqueta</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:60px">Color</th>
+                            <th>Nombre</th>
+                            <th style="width:160px">Creada</th>
+                            <th style="width:80px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tagsBody"></tbody>
+                </table>
+                <div class="empty-state" id="tagEmpty" hidden>No hay etiquetas.</div>
+            </div>
+            <div class="load-sentinel" id="tagSentinel"></div>
         </section>
     </main>
 
@@ -931,6 +966,37 @@
         </div>
     </div>
 
+    <!-- Bulk tag modal -->
+    <div id="bulkTagModal" class="modal" hidden>
+        <div class="modal-backdrop" id="bulkTagBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:min(480px,calc(100%-40px))">
+            <h2>Etiquetado masivo</h2>
+            <div style="margin-bottom:12px;color:var(--muted);font-size:13px" id="bulkTagCount">N ítems seleccionados</div>
+            <div class="field">
+                <label>Tags a añadir</label>
+                <div id="bulkTagAddList" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px"></div>
+                <div style="display:flex;gap:4px;width:100%">
+                    <input id="bulkTagAddInput" type="text" placeholder="Buscar o crear tag...">
+                    <button type="button" id="bulkTagAddAddBtn" class="btn-secondary" style="padding:4px 10px;flex-shrink:0">+</button>
+                </div>
+                <div id="bulkTagAddSuggestions" class="suggestions" style="display:none"></div>
+            </div>
+            <div class="field">
+                <label>Tags a quitar</label>
+                <div id="bulkTagRemoveList" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px"></div>
+                <div style="display:flex;gap:4px;width:100%">
+                    <input id="bulkTagRemoveInput" type="text" placeholder="Buscar tag...">
+                    <button type="button" id="bulkTagRemoveAddBtn" class="btn-secondary" style="padding:4px 10px;flex-shrink:0">+</button>
+                </div>
+                <div id="bulkTagRemoveSuggestions" class="suggestions" style="display:none"></div>
+            </div>
+            <div class="actions">
+                <button type="button" id="bulkTagApplyBtn" class="btn-primary" style="background:#7c3aed">Aplicar etiquetas</button>
+                <button type="button" id="bulkTagCancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Add inventory modal -->
     <div id="addInvModal" class="modal" hidden>
         <div class="modal-backdrop" id="addInvBackdrop"></div>
@@ -1298,10 +1364,35 @@
         </div>
     </div>
 
+    <!-- Tag management modal -->
+    <div id="tagModal" class="modal" hidden>
+        <div class="modal-backdrop" id="tagBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true">
+            <h2 id="tagModalTitle">Nueva etiqueta</h2>
+            <form id="tagForm">
+                <input type="hidden" id="modalTagId">
+                <div class="form-row">
+                    <div class="field" style="flex:1">
+                        <label for="tagName">Nombre</label>
+                        <input id="tagName" type="text" placeholder="Nombre de la etiqueta..." required>
+                    </div>
+                    <div class="field" style="flex:0 0 auto;min-width:80px">
+                        <label for="tagColor">Color</label>
+                        <input id="tagColor" type="color" value="#6c757d" style="width:60px;height:36px;padding:2px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer">
+                    </div>
+                </div>
+                <div class="actions">
+                    <button type="submit">Guardar</button>
+                    <button type="button" id="tagCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <button class="scroll-to-top" id="scrollToTopBtn" title="Volver arriba" aria-label="Volver arriba">↑</button>
 
     <script src="static/js/api-config.js?v=3"></script>
-    <script src="static/js/app.js?v=4"></script>
+    <script src="static/js/app.js?v=5"></script>
     <script src="static/js/statistics.js?v=3"></script>
     <script src="static/js/wishlist.js?v=3"></script>
     <script src="static/js/publications.js?v=5"></script>
