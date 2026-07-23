@@ -1221,3 +1221,18 @@ tr:hover td { background: var(--surface-soft); }
 #bulkTagAddList, #bulkTagRemoveList {
     min-height: 24px;
 }
+
+/* Assign groups modal */
+.ag-img-cell {
+    display: table-cell !important;
+    width: 1%;
+    padding: 4px;
+    vertical-align: middle;
+}
+.ag-img-cell .product-thumb-img,
+.ag-img-cell .inv-img-thumb {
+    width: 52px;
+    height: auto;
+    max-height: 72px;
+    object-fit: contain;
+}

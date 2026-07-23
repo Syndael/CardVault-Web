@@ -23,9 +23,10 @@
             <button class="tab active" data-tab="inventory">Inventario</button>
             <button class="tab" data-tab="wishlist">Wishlist</button>
             <button class="tab" data-tab="purchases">Compras</button>
+            <button class="tab" data-tab="tracking">Seguimiento</button>
             <button class="tab" data-tab="statistics">Estadísticas</button>
-            <button class="tab" data-tab="scheduledTasks">Tareas</button>
             <button class="tab" data-tab="publications">Publicaciones</button>
+            <button class="tab" data-tab="scheduledTasks">Tareas</button>
             <button class="tab" data-tab="tags">Etiquetas</button>
         </nav>
 
@@ -516,7 +517,117 @@
             </div>
             <div class="load-sentinel" id="tagSentinel"></div>
         </section>
+
+        <!-- Tracking tab -->
+        <section class="tab-content" id="tabTracking">
+            <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
+                <div class="density-note">
+                    <span id="trackingSummary">Cargando progreso...</span>
+                </div>
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                    <label class="filter-check">
+                        Código colección
+                        <input id="trackingFilterCode" type="text" placeholder="Filtrar código..." style="width:130px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </label>
+                </div>
+                <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px">
+                    <button id="addTrackingBtn" class="btn-primary">+ Seguir colección</button>
+                    <button id="assignGroupsBtn" class="btn-primary" style="background:#7c3aed;display:none">Asignar grupos</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Colección</th>
+                            <th>Modo</th>
+                            <th>Progreso</th>
+                            <th>Grupos</th>
+                            <th style="width:80px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="trackingBody">
+                        <tr><td colspan="5" class="loading-state">Cargando...</td></tr>
+                    </tbody>
+                </table>
+                <div class="empty-state" id="trackingEmpty" hidden>No estás siguiendo ninguna colección.</div>
+            </div>
+        </section>
     </main>
+
+    <!-- Assign groups modal -->
+    <div id="assignGroupsModal" class="modal" hidden>
+        <div class="modal-backdrop" id="assignGroupsBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:95vw;max-width:1200px;min-width:500px;max-height:88vh">
+            <h2>Asignar grupos</h2>
+            <div style="margin-top:10px;position:relative">
+                <input id="assignGroupsSearchCol" type="text" placeholder="Buscar colección (código o nombre)..." style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box">
+                <div id="assignGroupsColResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:4px;max-height:200px;overflow-y:auto;z-index:20"></div>
+            </div>
+            <div class="table-wrap" style="margin-top:12px">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:60px"></th>
+                            <th>Colección</th>
+                            <th style="width:80px">Número</th>
+                            <th>Producto</th>
+                            <th style="width:100px">Grupo</th>
+                            <th style="width:44px"><input type="checkbox" id="agSelectAll" title="Seleccionar todos"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="assignGroupsBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div id="assignGroupsBar" class="bulk-action-bar" style="display:none;border-radius:0 0 8px 8px;margin:0">
+            <span id="assignGroupsCount">0 productos seleccionados</span>
+            <button type="button" id="assignGroupsApplyBtn" class="btn-primary">Grupo seleccionados</button>
+            <button type="button" id="assignGroupsClearBtn" class="btn-secondary">Limpiar</button>
+        </div>
+    </div>
+
+    <!-- Group picker sub-modal -->
+    <div id="assignGroupsPicker" class="modal" hidden>
+        <div class="modal-backdrop" id="assignGroupsPickerBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:fit-content;max-width:min(360px,calc(100%-40px));min-width:260px">
+            <h2>Seleccionar grupo</h2>
+            <select id="assignGroupsGroupSelect" style="width:100%;padding:8px;margin-top:12px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:14px">
+                <option value="">Cargando...</option>
+            </select>
+            <div class="actions" style="margin-top:12px">
+                <button type="button" id="assignGroupsPickerConfirm" class="btn-primary">Aplicar</button>
+                <button type="button" id="assignGroupsPickerCancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tracking modal -->
+    <div id="trackingModal" class="modal" hidden>
+        <div class="modal-backdrop" id="trackingModalBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:fit-content;max-width:min(500px,calc(100%-40px));min-width:320px">
+            <h2>Seguir colección</h2>
+            <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Buscar colección</label>
+                    <input id="trackingSearchCol" type="text" placeholder="Código o nombre..." style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box">
+                    <div id="trackingColResults" style="max-height:200px;overflow-y:auto;margin-top:4px;border:1px solid var(--border);border-radius:4px;display:none"></div>
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Modo</label>
+                    <select id="trackingModalMode" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box">
+                        <option value="standard">Estándar</option>
+                        <option value="master">Master</option>
+                    </select>
+                </div>
+                <div class="actions" style="margin-top:4px">
+                    <button type="button" id="trackingModalConfirm" class="btn-primary">Seguir</button>
+                    <button type="button" id="trackingModalCancel">Cancelar</button>
+                </div>
+                <input type="hidden" id="trackingModalColId" value="">
+            </div>
+        </div>
+    </div>
 
     <!-- Product detail modal -->
     <div id="productModal" class="modal" hidden>
@@ -1408,5 +1519,6 @@
     <script src="static/js/statistics.js?v=3"></script>
     <script src="static/js/wishlist.js?v=3"></script>
     <script src="static/js/publications.js?v=5"></script>
+    <script src="static/js/collection_tracking.js?v=1"></script>
 </body>
 </html>

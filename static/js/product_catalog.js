@@ -1028,6 +1028,9 @@ async function loadProductDetails(productId) {
                 <label class="checkbox-label" style="overflow:hidden"><strong>Forzar descarga:</strong> <input type="checkbox" class="force-download-check" data-product-id="${prod.id}" ${prod.force_download ? 'checked' : ''}></label>
                 <label class="checkbox-label" style="overflow:hidden"><strong>Verificado:</strong> <input type="checkbox" class="verified-check" data-product-id="${prod.id}" ${prod.is_verified ? 'checked' : ''}></label>
                 <label class="checkbox-label" style="overflow:hidden"><strong>Manual:</strong> <input type="checkbox" class="manual-check" data-product-id="${prod.id}" ${prod.is_manual ? 'checked' : ''}></label>
+                <select class="completion-group-select" data-product-id="${prod.id}" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;overflow:hidden">
+                  <option value="">Grupo...</option>
+                </select>
                 ${searchQ ? `<button type="button" class="btn-google-search" style="overflow:hidden" onclick="window.open('https://www.google.com/search?q=${searchQ}', '_blank', 'noopener')" title="Buscar en Google">Buscar en Google</button>` : `<span style="overflow:hidden"></span>`}
               </div>
             </div>`;
@@ -1159,6 +1162,35 @@ async function loadProductDetails(productId) {
             dh += '</div></div>';
             const form = document.getElementById('productForm');
             if (form) form.insertAdjacentHTML('afterend', dh);
+        })();
+
+        // Completion group select — populate + autosave
+        (async function() {
+            const select = modalDetail.querySelector('.completion-group-select');
+            if (!select) return;
+            try {
+                const resp = await apiFetch(apiUrl('types', {per_page: 50, type: 'completion_group'}));
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const items = data.items || [];
+                    select.innerHTML = '<option value="">Grupo...</option>' +
+                        items.map(t => {
+                            const selected = prod.completion_group && prod.completion_group.id === t.id ? 'selected' : '';
+                            return `<option value="${t.id}" ${selected}>${esc(t.name)}</option>`;
+                        }).join('');
+                }
+            } catch (e) { console.error(e); }
+
+            select.addEventListener('change', async function() {
+                const pid = this.dataset.productId;
+                const gid = parseInt(this.value);
+                if (!gid) return;
+                const resp = await apiFetch(apiUrl(`products/${pid}`), {
+                    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({completion_group_id: gid})
+                });
+                if (!resp.ok) { alert('Error al actualizar grupo'); loadProductDetails(pid); }
+            });
         })();
 
         // Checkboxes autoguardado

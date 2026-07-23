@@ -260,6 +260,7 @@ function loadTab(tab) {
     else if (tab === 'wishlist') loadWishlist({reset: true});
     else if (tab === 'publications') loadPublications({reset: true});
     else if (tab === 'tags') loadTags({reset: true});
+    else if (tab === 'tracking') loadTracking();
     else loadPurchases({reset: true});
 }
 
@@ -713,6 +714,13 @@ async function loadProductDetails(productId) {
                   </select>
                 </label>
               </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:center;margin-top:6px">
+                <label style="display:flex;align-items:center;gap:6px;overflow:hidden;font-size:13px"><strong>Grupo:</strong>
+                  <select class="completion-group-select" data-product-id="${prod.id}" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);flex:1;min-width:0">
+                    <option value="">Cargando...</option>
+                  </select>
+                </label>
+              </div>
             </div>`;
         if (hasRole('inventory_manage')) {
             var _colId = prod.collection ? prod.collection.id : '';
@@ -1026,6 +1034,38 @@ async function loadProductDetails(productId) {
                     body: JSON.stringify({product_format_id: fmtId})
                 });
                 if (!resp.ok) alert('Error al actualizar formato');
+            });
+        }
+
+        const compGroupSelect = modalDetail.querySelector('.completion-group-select');
+        if (compGroupSelect) {
+            (async () => {
+                try {
+                    const resp = await apiFetch(apiUrl('types', {per_page: 50}));
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        const groups = (data.items || []).filter(t => t.type === 'completion_group');
+                        compGroupSelect.innerHTML = '<option value="">(sin grupo)</option>';
+                        groups.forEach(g => {
+                            const opt = document.createElement('option');
+                            opt.value = g.id;
+                            opt.textContent = g.name;
+                            compGroupSelect.appendChild(opt);
+                        });
+                        const currentGroup = prod.completion_group ? prod.completion_group.id : '';
+                        if (currentGroup) compGroupSelect.value = currentGroup;
+                    }
+                } catch (e) { console.error(e); }
+            })();
+            compGroupSelect.addEventListener('change', async function () {
+                const pid = this.dataset.productId;
+                const gid = parseInt(this.value);
+                if (!gid) return;
+                const resp = await apiFetch(apiUrl(`products/${pid}`), {
+                    method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({completion_group_id: gid})
+                });
+                if (!resp.ok) alert('Error al actualizar grupo');
             });
         }
 
@@ -3303,11 +3343,15 @@ async function searchBulkCollections(q) {
         if (!items.length) { closeBulkColSuggestions(); return; }
         bulkColSuggestions.style.display = 'block';
         bulkColSuggestions.innerHTML = items.map(c =>
-            `<div class="suggestion-item" data-id="${c.id}" data-code="${esc(c.code)}" data-name="${esc(c.name || '')}" data-manual="${c.is_manual ? '1' : '0'}">${esc(c.code)}${c.name ? ' - ' + esc(c.name) : ''} ${manualIcon(c.is_manual)}</div>`
+            `<div class="suggestion-item" data-id="${c.id}" data-code="${esc(c.code)}" data-name="${esc(formatName(c.name, c.name_alter))}" data-manual="${c.is_manual ? '1' : '0'}">
+                <span class="suggestion-code">${esc(c.code)}</span>
+                ${c.name ? `<span class="suggestion-name">${formatName(c.name, c.name_alter)}</span>` : ''}
+                ${c.is_manual ? '<span class="suggestion-manual" title="Manual">M</span>' : ''}
+            </div>`
         ).join('');
         bulkColSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
             el.addEventListener('click', () => {
-                bulkColInput.value = el.dataset.code + ' - ' + el.dataset.name;
+                bulkColInput.value = el.dataset.code + (el.dataset.name ? ' - ' + el.dataset.name : '');
                 bulkColInput.dataset.collectionId = el.dataset.id;
                 bulkColInput.dataset.collectionCode = el.dataset.code;
                 bulkColInput.dataset.manual = el.dataset.manual;
