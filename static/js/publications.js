@@ -82,7 +82,7 @@ async function loadPublications(opts) {
 
     try {
         const resp = await apiFetch(apiUrl('publications', params));
-        if (!resp.ok) { pubBody.innerHTML = '<tr><td colspan="10" class="error-state">Error al cargar</td></tr>'; pubState.loading = false; return; }
+        if (!resp.ok) { pubBody.innerHTML = '<tr><td colspan="10" class="error-state">Error al cargar</td></tr>'; pubState.loading = false; pubState.hasNext = false; return; }
         const data = await resp.json();
         const items = data.items || [];
         const pag = data.pagination || {};
@@ -101,7 +101,7 @@ async function loadPublications(opts) {
         pubState.loaded += items.length;
         pubState.page++;
         pubSummary.textContent = pubState.total + ' publicaciones';
-    } catch (e) { console.error(e); pubBody.innerHTML = '<tr><td colspan="10" class="error-state">Error de conexi\u00f3n</td></tr>'; }
+    } catch (e) { console.error(e); pubBody.innerHTML = '<tr><td colspan="10" class="error-state">Error de conexi\u00f3n</td></tr>'; pubState.hasNext = false; }
     pubState.loading = false;
 }
 

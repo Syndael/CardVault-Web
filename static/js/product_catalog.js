@@ -606,6 +606,7 @@ async function loadProducts({reset = false} = {}) {
         }
         summary.textContent = "No se pudo cargar el catalogo";
         scrollStatus.textContent = "Error al cargar";
+        state.hasNext = false;
     } finally {
         state.loading = false;
         window.setTimeout(requestNextPage, 50);

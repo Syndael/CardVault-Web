@@ -251,9 +251,9 @@ const invSentinel = document.getElementById('invSentinel');
 
 let invViewMode = 'list';
 
-document.querySelectorAll('.view-btn').forEach(btn => {
+document.querySelectorAll('#tabInventory .view-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.view-btn').forEach(b => {
+        document.querySelectorAll('#tabInventory .view-btn').forEach(b => {
             b.style.background = 'transparent';
             b.classList.remove('active');
         });
@@ -378,6 +378,7 @@ async function loadInventory({reset = false} = {}) {
     } catch (e) {
         if (s.loaded === 0) { invBody.innerHTML = ''; invEmpty.hidden = false; }
         invSummary.textContent = 'Error al cargar';
+        s.hasNext = false;
     } finally {
         s.loading = false;
         setTimeout(checkInvScroll, 50);
@@ -1085,7 +1086,7 @@ function renderPurLoading() {
     purEmpty.hidden = true;
 }
 function renderPurRow(item) {
-    const itemsCount = (item.items || []).length;
+    const itemsCount = item.item_count != null ? item.item_count : (item.items || []).length;
     const total = parseFloat(item.total_amount) || 0;
     const ship = parseFloat(item.shipping_cost) || 0;
     const commission = parseFloat(item.commission) || 0;
@@ -1135,6 +1136,7 @@ async function loadPurchases({reset = false} = {}) {
     } catch (e) {
         if (s.loaded === 0) { purBody.innerHTML = ''; purEmpty.hidden = false; }
         purSummary.textContent = 'Error al cargar';
+        s.hasNext = false;
     } finally {
         s.loading = false;
         setTimeout(checkPurScroll, 50);
