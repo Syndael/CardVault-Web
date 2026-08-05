@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CardVault</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="stylesheet" href="static/css/app.css">
 </head>
 <body>
@@ -12,9 +13,8 @@
             <div>
                 <h1>CardVault</h1>
                 <p id="resultSummary"></p>
-                <div id="authPanel"></div>
             </div>
-
+            <div id="authPanel"></div>
         </header>
 
         <nav class="tabs" id="mainTabs">
@@ -103,6 +103,7 @@
             <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
                 <div class="density-note">
                     <span id="colSummary">Cargando...</span>
+                    <span class="scroll-note">Scroll para cargar más</span>
                 </div>
                 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
                     <label class="filter-check">
@@ -166,8 +167,8 @@
                     <tbody id="collectionsBody"></tbody>
                 </table>
                 <div class="empty-state" id="colEmpty" hidden>No hay colecciones.</div>
-            </div>
             <div class="load-sentinel" id="colSentinel"></div>
+            </div>
         </section>
 
         <!-- Inventory tab -->
@@ -175,6 +176,7 @@
             <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
                 <div class="density-note">
                     <span id="invSummary">Cargando...</span>
+                    <span class="scroll-note">Scroll para cargar más</span>
                 </div>
                 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
                     <label class="filter-check">
@@ -305,8 +307,8 @@
                 <span id="bulkActionCount">0 ítems seleccionados</span>
                 <button type="button" id="bulkTagBtn" class="btn-primary" style="background:#7c3aed">Etiquetar seleccionados</button>
                 <button type="button" id="bulkClearSelection" class="btn-secondary">Limpiar selección</button>
-            </div>
             <div class="load-sentinel" id="invSentinel"></div>
+            </div>
         </section>
 
         <!-- Purchases tab -->
@@ -314,6 +316,7 @@
             <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
                 <div class="density-note">
                     <span id="purSummary">Cargando...</span>
+                    <span class="scroll-note">Scroll para cargar más</span>
                 </div>
                 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
                     <label class="filter-check">Desde
@@ -365,13 +368,13 @@
                     <tbody id="purchasesBody"></tbody>
                 </table>
                 <div class="empty-state" id="purEmpty" hidden>No hay compras.</div>
-            </div>
             <div class="load-sentinel" id="purSentinel"></div>
+            </div>
         </section>
 
         <!-- Statistics tab -->
         <section class="tab-content" id="tabStatistics">
-            <div id="statsContainer"></div>
+            <div class="table-wrap"><div id="statsContainer"></div></div>
         </section>
 
         <!-- Wishlist tab -->
@@ -379,6 +382,7 @@
             <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
                 <div class="density-note">
                     <span id="wishlistSummary">Cargando...</span>
+                    <span class="scroll-note">Scroll para cargar más</span>
                 </div>
                 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
                     <label class="filter-check">
@@ -451,8 +455,8 @@
                     <tbody id="wishlistBody"></tbody>
                 </table>
                 <div class="empty-state" id="wishlistEmpty" hidden>No hay productos en la wishlist.</div>
-            </div>
             <div class="load-sentinel" id="wlSentinel"></div>
+            </div>
         </section>
 
         <!-- Scheduled Tasks tab (task executions) -->
@@ -460,6 +464,7 @@
             <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
                 <div class="density-note">
                     <span id="scheduledSummary">Cargando...</span>
+                    <span class="scroll-note">Scroll para cargar más</span>
                 </div>
                 <div style="display:flex;justify-content:flex-end">
                     <button id="addScheduledTaskBtn" class="btn-primary">+ Nueva ejecución</button>
@@ -481,8 +486,8 @@
                     <tbody id="scheduledTasksBody"></tbody>
                 </table>
                 <div class="empty-state" id="scheduledEmpty" hidden>No hay ejecuciones.</div>
-            </div>
             <div class="load-sentinel" id="scheduledSentinel"></div>
+            </div>
         </section>
 
         <!-- Tags tab -->
@@ -514,8 +519,8 @@
                     <tbody id="tagsBody"></tbody>
                 </table>
                 <div class="empty-state" id="tagEmpty" hidden>No hay etiquetas.</div>
-            </div>
             <div class="load-sentinel" id="tagSentinel"></div>
+            </div>
         </section>
 
         <!-- Tracking tab -->
@@ -553,6 +558,151 @@
                 <div class="empty-state" id="trackingEmpty" hidden>No estás siguiendo ninguna colección.</div>
             </div>
         </section>
+        <!-- Publications tab -->
+        <section class="tab-content" id="tabPublications">
+        <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
+        <div class="density-note">
+        <span id="publicationSummary"></span>
+        <span class="scroll-note">Scroll para cargar más</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <label class="filter-check">
+        C&oacute;digo colecci&oacute;n
+        <input id="pubFilterColCode" type="text" placeholder="swsh12..." style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+        </label>
+        <label class="filter-check">
+        N&uacute;mero producto
+        <input id="pubFilterNumber" type="text" placeholder="001..." style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+        </label>
+        <label class="filter-check">
+        Nombre
+        <input id="pubFilterName" type="text" placeholder="Nombre..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+        </label>
+        <label class="filter-check">
+        Estado
+        <select id="pubFilterStatus" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+        <option value="">Todos</option>
+        <option value="pending_review">Pendientes revisi&oacute;n</option>
+        <option value="pending_publish">Pendientes publicar</option>
+        <option value="processing">En proceso</option>
+        <option value="published">Publicados</option>
+        <option value="failed">Fallidos</option>
+        <option value="cancelled">Cancelados</option>
+        </select>
+        </label>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center">
+        <label class="filter-check" style="font-size:12px">
+        Ordenar
+        <select id="pubSortOrder" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:12px;cursor:pointer">
+        <option value="recent">Recientes</option>
+        <option value="oldest">Antiguos</option>
+        <option value="scheduled">Programados</option>
+        </select>
+        </label>
+        <div class="view-toggle" style="display:flex;gap:2px;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+        <button type="button" class="view-btn active" data-view="list" title="Vista lista" style="padding:4px 8px;border:none;background:var(--card-bg);cursor:pointer;font-size:13px">☰</button>
+        <button type="button" class="view-btn" data-view="cards-sm" title="Vista tarjetas pequeñas" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▦</button>
+        <button type="button" class="view-btn" data-view="cards-lg" title="Vista tarjetas grandes" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▣</button>
+        </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+        <button type="button" id="btnNewPublication" class="btn-primary">+ Nueva publicaci&oacute;n</button>
+        </div>
+        </div>
+        </div>
+        <div class="table-wrap">
+        <table>
+        <thead>
+        <tr>
+        <th class="inv-img-header">Foto</th>
+        <th>Colecci&oacute;n</th>
+        <th>N&ordm;</th>
+        <th>Nombre</th>
+        <th>Texto</th>
+        <th>Fotos</th>
+        <th>Programado</th>
+        <th>Publicado</th>
+        <th>Estado</th>
+        <th></th>
+        </tr>
+        </thead>
+        <tbody id="publicationBody"></tbody>
+        </table>
+        <div id="publicationEmpty" class="empty-state" hidden>No hay publicaciones</div>
+        </div>
+        <div id="publicationSentinel" class="load-sentinel"></div>
+        </section>
+
+        <!-- Publication modal (create + edit) -->
+        <div id="editPubModal" class="modal" hidden>
+        <div class="modal-backdrop" id="editPubBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:min(800px,calc(100%-40px))">
+        <h2 id="pubModalTitle">Nueva publicaci&oacute;n</h2>
+        <form id="editPubForm">
+        <input type="hidden" id="editPubId">
+        <div class="field">
+        <label for="editPubTitle">T&iacute;tulo</label>
+        <input id="editPubTitle" type="text" placeholder="Nombre para identificar la publicaci&oacute;n..." style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div class="field" style="flex:1;min-width:200px">
+        <label for="editPubScheduled">Programado</label>
+        <input id="editPubScheduled" type="datetime-local" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+        </div>
+        <div class="field" style="flex:1;min-width:150px">
+        <label for="editPubStatus">Estado</label>
+        <select id="editPubStatus" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+        <option value="pending_review">Pendiente revisi&oacute;n</option>
+        <option value="pending_publish">Pendiente publicar</option>
+        <option value="published">Publicado</option>
+        <option value="cancelled">Cancelado</option>
+        </select>
+        </div>
+        </div>
+        <div class="field">
+        <label>Inventarios asociados</label>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+        <input id="pubInvSearch" type="text" placeholder="Buscar inventario (nombre / c&oacute;digo)..." style="flex:1;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+        </div>
+        <div id="pubInvResults" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;background:var(--surface);display:none;margin-bottom:4px"></div>
+        <div id="pubInvSelected" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"></div>
+        </div>
+        <div class="field">
+        <label>Compras asociadas</label>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+        <input id="pubPurSearch" type="text" placeholder="Buscar compra (referencia / vendedor)..." style="flex:1;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+        </div>
+        <div id="pubPurResults" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;background:var(--surface);display:none;margin-bottom:4px"></div>
+        <div id="pubPurSelected" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"></div>
+        </div>
+        <div class="field">
+        <label for="editPubCaption">Descripci&oacute;n IG</label>
+        <textarea id="editPubCaption" rows="5" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;resize:vertical;font-family:inherit" placeholder="Texto de la publicaci&oacute;n..."></textarea>
+        </div>
+        <div class="field">
+        <label>Texto sugerido por IA</label>
+        <div style="display:flex;gap:8px;flex-direction:column">
+        <textarea id="editPubAiText" rows="6" readonly style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:12px;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Pulsa 'Generar' para obtener texto sugerido..."></textarea>
+        <button type="button" id="generateTextBtn" class="btn-secondary" style="align-self:flex-start">Generar texto + tags con IA</button>
+        </div>
+        </div>
+        <div class="field">
+        <label>Archivos multimedia</label>
+        <div id="pubFileDropzone" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;transition:border-color 0.2s">
+        Arrastra fotos/videos aquí o haz clic para subir
+        <input type="file" id="pubFileInput" multiple accept="image/*,video/*" style="display:none">
+        </div>
+        <div id="pubFilesPreview" class="file-grid" style="min-height:60px;padding:8px 0"></div>
+        </div>
+        <div class="actions">
+        <button type="submit">Guardar</button>
+        <button type="button" id="editPubCancel">Cancelar</button>
+        </div>
+        </form>
+        </div>
+        </div>
     </main>
 
     <!-- Assign groups modal -->
@@ -644,127 +794,6 @@
             </form>
         </div>
     </div>
-
-    <!-- Publications tab -->
-    <section class="tab-content" id="tabPublications">
-        <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
-            <div class="density-note">
-                <span id="publicationSummary"></span>
-            </div>
-            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                <label class="filter-check">
-                    C&oacute;digo colecci&oacute;n
-                    <input id="pubFilterColCode" type="text" placeholder="swsh12..." style="width:110px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                </label>
-                <label class="filter-check">
-                    N&uacute;mero producto
-                    <input id="pubFilterNumber" type="text" placeholder="001..." style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                </label>
-                <label class="filter-check">
-                    Nombre
-                    <input id="pubFilterName" type="text" placeholder="Nombre..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                </label>
-                <label class="filter-check">
-                    Estado
-                    <select id="pubFilterStatus" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                        <option value="">Todos</option>
-                        <option value="pending_review">Pendientes revisi&oacute;n</option>
-                        <option value="pending_publish">Pendientes publicar</option>
-                        <option value="processing">En proceso</option>
-                        <option value="published">Publicados</option>
-                        <option value="failed">Fallidos</option>
-                        <option value="cancelled">Cancelados</option>
-                    </select>
-                </label>
-            </div>
-            <div style="display:flex;align-items:center">
-                <div style="display:flex;gap:8px;align-items:center">
-                    <label class="filter-check" style="font-size:12px">
-                        Ordenar
-                        <select id="pubSortOrder" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:12px;cursor:pointer">
-                            <option value="recent">Recientes</option>
-                            <option value="oldest">Antiguos</option>
-                            <option value="scheduled">Programados</option>
-                        </select>
-                    </label>
-                    <div class="view-toggle" style="display:flex;gap:2px;border:1px solid var(--border);border-radius:4px;overflow:hidden">
-                        <button type="button" class="view-btn active" data-view="list" title="Vista lista" style="padding:4px 8px;border:none;background:var(--card-bg);cursor:pointer;font-size:13px">☰</button>
-                        <button type="button" class="view-btn" data-view="cards-sm" title="Vista tarjetas pequeñas" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▦</button>
-                        <button type="button" class="view-btn" data-view="cards-lg" title="Vista tarjetas grandes" style="padding:4px 8px;border:none;background:transparent;cursor:pointer;font-size:13px">▣</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="inv-img-header">Foto</th>
-                        <th>Colecci&oacute;n</th>
-                        <th>N&ordm;</th>
-                        <th>Nombre</th>
-                        <th>Texto</th>
-                        <th>Fotos</th>
-                        <th>Programado</th>
-                        <th>Publicado</th>
-                        <th>Estado</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="publicationBody"></tbody>
-            </table>
-            <div id="publicationEmpty" class="empty-state" hidden>No hay publicaciones</div>
-        </div>
-        <div id="publicationSentinel" class="load-sentinel"></div>
-    </section>
-
-    <!-- Edit publication modal -->
-    <div id="editPubModal" class="modal" hidden>
-        <div class="modal-backdrop" id="editPubBackdrop"></div>
-        <div class="modal-body" role="dialog" aria-modal="true" style="width:min(700px,calc(100%-40px))">
-            <h2>Editar publicaci&oacute;n</h2>
-            <form id="editPubForm">
-                <input type="hidden" id="editPubId">
-                <div style="display:flex;gap:12px;flex-wrap:wrap">
-                    <div class="field" style="flex:1;min-width:200px">
-                        <label for="editPubScheduled">Programado</label>
-                        <input id="editPubScheduled" type="datetime-local" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                    </div>
-                    <div class="field" style="flex:1;min-width:150px">
-                        <label for="editPubStatus">Estado</label>
-                        <select id="editPubStatus" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-                            <option value="pending_review">Pendiente revisi&oacute;n</option>
-                            <option value="pending_publish">Pendiente publicar</option>
-                            <option value="processing">En proceso</option>
-                            <option value="published">Publicado</option>
-                            <option value="failed">Fallido</option>
-                            <option value="cancelled">Cancelado</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="field">
-                    <label for="editPubCaption">Descripci&oacute;n IG</label>
-                    <textarea id="editPubCaption" rows="5" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;resize:vertical;font-family:inherit" placeholder="Texto de la publicaci&oacute;n..."></textarea>
-                </div>
-                <div class="field">
-                    <label>Texto sugerido por IA</label>
-                    <div style="display:flex;gap:8px;flex-direction:column">
-                        <textarea id="editPubAiText" rows="8" readonly style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:12px;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Pulsa 'Generar' para obtener texto sugerido..."></textarea>
-                        <button type="button" id="generateTextBtn" class="btn-secondary" style="align-self:flex-start">Generar texto + tags con IA</button>
-                    </div>
-                </div>
-                <div class="field">
-                    <label>Fotos (clic para ampliar | orden IG: editable, se guarda autom&aacute;ticamente)</label>
-                    <div id="editPubPhotos" class="file-grid" style="min-height:80px;padding:8px;border:1px dashed var(--border);border-radius:6px"></div>
-                </div>
-                <div class="actions">
-                    <button type="submit">Guardar</button>
-                    <button type="button" id="editPubCancel">Cancelar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- Create product modal -->
     <div id="createProductModal" class="modal" hidden>
         <div class="modal-backdrop" id="createBackdrop"></div>

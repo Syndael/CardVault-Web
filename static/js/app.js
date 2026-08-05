@@ -75,7 +75,7 @@ async function loadCurrentUser() {
         }
         const user = await resp.json();
         currentUserRoles = user.roles || [];
-        el.innerHTML = `<span id="userDisplay">${esc(user.display_name || user.username)}</span> <button id="profileButton" title="Configuraci\u00f3n"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button> <button id="logoutButton">Cerrar sesi\u00f3n</button>`;
+        el.innerHTML = `<button id="logoutButton">Cerrar sesi\u00f3n</button><span class="auth-user-row"><span id="userDisplay">${esc(user.display_name || user.username)}</span> <button id="profileButton" title="Configuraci\u00f3n"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></span>`;
         document.getElementById('logoutButton').addEventListener('click', logout);
         document.getElementById('profileButton').addEventListener('click', showUserProfile);
         appStarted = true;
@@ -1463,7 +1463,7 @@ if (createSearchBtn) {
 
 async function searchCollections(q) {
     try {
-        const resp = await apiFetch(apiUrl('collections', {q, per_page: 10}));
+        const resp = await apiFetch(apiUrl('collections', {q, per_page: 50}));
         if (!resp.ok) return;
         const data = await resp.json();
         const items = data.items || [];
@@ -1576,6 +1576,7 @@ const purState = {
 const invBody = document.getElementById('inventoryBody');
 const invEmpty = document.getElementById('invEmpty');
 const invSummary = document.getElementById('invSummary');
+const invSummaryScrollEl = document.querySelector('#tabInventory .scroll-note');
 const invSentinel = document.getElementById('invSentinel');
 
 let invViewMode = 'list';
@@ -1675,6 +1676,7 @@ function appendInv(items) {
 function updateInvProgress() {
     const f = invState.loaded ? 1 : 0;
     invSummary.textContent = `${f}-${invState.loaded} de ${invState.total}`;
+            if (invSummaryScrollEl) invSummaryScrollEl.textContent = invState.hasNext ? 'Scroll para cargar más' : 'No hay más';
 }
 
 async function loadInventory({reset = false} = {}) {
@@ -1718,7 +1720,7 @@ async function loadInventory({reset = false} = {}) {
         setTimeout(checkInvScroll, 50);
     } catch (e) {
         if (s.loaded === 0) { invBody.innerHTML = ''; invEmpty.hidden = false; }
-        invSummary.textContent = 'Error al cargar';
+        invSummary.textContent = 'Error al cargar'; if (invSummaryScrollEl) invSummaryScrollEl.textContent = 'Error al cargar';
         s.hasNext = false;
     } finally {
         s.loading = false;
@@ -2312,7 +2314,24 @@ document.getElementById('entryForm').addEventListener('submit', async (ev) => {
         });
         if (!resp.ok) { const t = await resp.text().catch(()=>null); alert('Error: ' + resp.status + ' ' + (t||'')); return; }
         entryModal.hidden = true; document.body.style.overflow = '';
-        loadInventory({reset: true});
+        try {
+            const freshened = await apiFetch(apiUrl(`inventory/${invId}`));
+            if (freshened && freshened.ok) {
+                const item = await freshened.json();
+                const oldRow = document.querySelector(`tr[data-inv-id="${invId}"]`);
+                if (oldRow) {
+                    oldRow.insertAdjacentHTML('afterend', renderInvRow(item));
+                    oldRow.remove();
+                    loadImages(invBody);
+                } else {
+                    loadInventory({reset: true});
+                }
+            } else {
+                loadInventory({reset: true});
+            }
+        } catch (e) {
+            loadInventory({reset: true});
+        }
     } catch (e) { console.error(e); alert('Error al guardar'); }
     finally { btn.disabled = false; btn.textContent = 'Guardar'; }
 });
@@ -2582,10 +2601,11 @@ async function loadInventoryFiles(invId) {
             const star = f.is_primary ? '<span class="file-star" title="Foto principal">&#9733;</span>' : '';
             const sortBtns = `<button type="button" class="file-sort-up" data-file-id="${f.id}" data-dir="up" title="Mover arriba">&#9650;</button><button type="button" class="file-sort-down" data-file-id="${f.id}" data-dir="down" title="Mover abajo">&#9660;</button>`;
             const primaryBtn = f.is_primary ? '' : `<button type="button" class="file-set-primary" data-file-id="${f.id}" title="Establecer como principal">&#9734;</button>`;
+            const delBtn = `<button type="button" class="inv-file-delete" data-del-file-id="${f.id}" title="Eliminar archivo">&times;</button>`;
             const igVal = f.instagram_sort_order != null ? f.instagram_sort_order : '';
             return `<div class="file-thumb-wrap">
                 ${star}
-                <a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>
+                <div class="inv-file-preview"><a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>${delBtn}</div>
                 <div class="file-controls">${sortBtns}${primaryBtn}</div>
                 <div class="file-ig-order"><input type="number" class="ig-order-input" data-file-id="${f.id}" value="${igVal}" placeholder="-" min="0" step="1"></div>
             </div>`;
@@ -2605,6 +2625,30 @@ async function loadInventoryFiles(invId) {
         });
         container.querySelectorAll('.ig-order-input').forEach(inp => {
             inp.addEventListener('change', () => saveIgOrders(invId));
+        });
+        container.querySelectorAll('.inv-file-delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const fileId = parseInt(btn.dataset.delFileId);
+                if (!confirm('¿Eliminar este archivo del inventario?')) return;
+                btn.disabled = true;
+                try {
+                    const resp = await apiFetch(apiUrl(`files/${fileId}`), {method: 'DELETE'});
+                    if (resp.ok) {
+                        btn.closest('.file-thumb-wrap')?.remove();
+                        if (!container.querySelector('.file-thumb-wrap')) container.classList.remove('has-files');
+                        showToast('Archivo eliminado', 'success');
+                    } else {
+                        showToast('Error al eliminar', 'error');
+                        btn.disabled = false;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showToast('Error de conexión', 'error');
+                    btn.disabled = false;
+                }
+            });
         });
 
         let existingPub = null;
@@ -3604,6 +3648,7 @@ if (bulkInvForm) {
 const purBody = document.getElementById('purchasesBody');
 const purEmpty = document.getElementById('purEmpty');
 const purSummary = document.getElementById('purSummary');
+const purSummaryScrollEl = document.querySelector('#tabPurchases .scroll-note');
 const purSentinel = document.getElementById('purSentinel');
 let allEntities = [];
 
@@ -3645,6 +3690,7 @@ function appendPur(items) {
 function updatePurProgress() {
     const f = purState.loaded ? 1 : 0;
     purSummary.textContent = `${f}-${purState.loaded} de ${purState.total} compras`;
+            if (purSummaryScrollEl) purSummaryScrollEl.textContent = purState.hasNext ? 'Scroll para cargar más' : 'No hay más compras';
 }
 
 async function loadPurchases({reset = false} = {}) {
@@ -3671,7 +3717,7 @@ async function loadPurchases({reset = false} = {}) {
         setTimeout(checkPurScroll, 50);
     } catch (e) {
         if (s.loaded === 0) { purBody.innerHTML = ''; purEmpty.hidden = false; }
-        purSummary.textContent = 'Error al cargar';
+        purSummary.textContent = 'Error al cargar'; if (purSummaryScrollEl) purSummaryScrollEl.textContent = 'Error al cargar';
         s.hasNext = false;
     } finally {
         s.loading = false;
@@ -4125,6 +4171,7 @@ const scheduledState = {
 const scheduledBody = document.getElementById('scheduledTasksBody');
 const scheduledEmpty = document.getElementById('scheduledEmpty');
 const scheduledSummary = document.getElementById('scheduledSummary');
+const scheduledSummaryScrollEl = document.querySelector('#tabScheduledTasks .scroll-note');
 const scheduledSentinel = document.getElementById('scheduledSentinel');
 
 function renderScheduledLoading() {
@@ -4170,6 +4217,7 @@ function appendScheduled(items) {
 function updateScheduledProgress() {
     const f = scheduledState.loaded ? 1 : 0;
     scheduledSummary.textContent = `${f}-${scheduledState.loaded} de ${scheduledState.total} ejecuciones`;
+            if (scheduledSummaryScrollEl) scheduledSummaryScrollEl.textContent = scheduledState.hasNext ? 'Scroll para cargar más' : 'No hay más ejecuciones';
 }
 
 async function loadScheduledTasks({reset = false} = {}) {
@@ -4191,7 +4239,7 @@ async function loadScheduledTasks({reset = false} = {}) {
         setTimeout(checkScheduledScroll, 50);
     } catch (e) {
         if (s.loaded === 0) { scheduledBody.innerHTML = ''; scheduledEmpty.hidden = false; }
-        scheduledSummary.textContent = 'Error al cargar';
+        scheduledSummary.textContent = 'Error al cargar'; if (scheduledSummaryScrollEl) scheduledSummaryScrollEl.textContent = 'Error al cargar';
         s.hasNext = false;
     } finally {
         s.loading = false;
@@ -4281,6 +4329,7 @@ const colState = {
 const colBody = document.getElementById('collectionsBody');
 const colEmpty = document.getElementById('colEmpty');
 const colSummary = document.getElementById('colSummary');
+const colSummaryScrollEl = document.querySelector('#tabCollections .scroll-note');
 const colSentinel = document.getElementById('colSentinel');
 
 function renderColLoading() {
@@ -4315,6 +4364,7 @@ function appendCol(items) {
 function updateColProgress() {
     const f = colState.loaded ? 1 : 0;
     colSummary.textContent = `${f}-${colState.loaded} de ${colState.total} colecciones`;
+            if (colSummaryScrollEl) colSummaryScrollEl.textContent = colState.hasNext ? 'Scroll para cargar más' : 'No hay más colecciones';
 }
 
 async function loadCollections({reset = false} = {}) {
@@ -4344,7 +4394,7 @@ async function loadCollections({reset = false} = {}) {
         attachColListeners();
     } catch (e) {
         if (s.loaded === 0) { colBody.innerHTML = ''; colEmpty.hidden = false; }
-        colSummary.textContent = 'Error al cargar';
+        colSummary.textContent = 'Error al cargar'; if (colSummaryScrollEl) colSummaryScrollEl.textContent = 'Error al cargar';
         s.hasNext = false;
     } finally {
         s.loading = false;
@@ -4528,21 +4578,53 @@ document.getElementById('collectionForm').addEventListener('submit', async (ev) 
         // Sync translations
         const savedId = savedCol.id;
         const oldTransResp = await apiFetch(apiUrl('collection-translations', {page: 1, per_page: 200, collection_id: savedId}));
+        const deletePromises = [];
         if (oldTransResp.ok) {
             const oldData = await oldTransResp.json();
             for (const ot of (oldData.items || [])) {
-                await apiFetch(apiUrl(`collection-translations/${ot.id}`), {method: 'DELETE'});
+                deletePromises.push(apiFetch(apiUrl(`collection-translations/${ot.id}`), {method: 'DELETE'}));
             }
         }
-        for (const t of colTranslations) {
-            await apiFetch(apiUrl('collection-translations'), {
+        await Promise.all(deletePromises);
+        const createPromises = colTranslations.map(t =>
+            apiFetch(apiUrl('collection-translations'), {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({collection_id: savedId, language_id: t.language_id, name: t.name})
-            });
-        }
+            })
+        );
+        await Promise.all(createPromises);
 
         closeColModal();
-        loadCollections({reset: true});
+
+        const firstTrans = colTranslations.length > 0 ? colTranslations[0] : null;
+        let cardTypeName = '', cardTypeShort = '';
+        const cardTypeSel = document.getElementById('colCardType');
+        if (cardTypeSel && cardTypeSel.selectedOptions[0]) {
+            const txt = cardTypeSel.selectedOptions[0].textContent;
+            const pm = txt.match(/^(.+?)(?:\s*\((.+?)\))?$/);
+            if (pm) { cardTypeName = pm[1] || ''; cardTypeShort = pm[2] || ''; }
+        }
+        const enrichedItem = {
+            ...savedCol,
+            id: savedId,
+            name: firstTrans ? firstTrans.name : '',
+            name_alter: '',
+            card_type: (savedCol.card_type && savedCol.card_type.name) ? savedCol.card_type : { name: cardTypeName, short_name: cardTypeShort }
+        };
+
+        if (collectionId) {
+            const oldRow = document.querySelector(`tr[data-col-id="${savedId}"]`);
+            if (oldRow) {
+                oldRow.insertAdjacentHTML('afterend', renderColRow(enrichedItem));
+                oldRow.remove();
+            } else {
+                loadCollections({reset: true});
+            }
+        } else {
+            colBody.insertAdjacentHTML('afterbegin', renderColRow(enrichedItem));
+            colState.total += 1; colState.loaded += 1;
+            updateColProgress();
+        }
     } catch (e) { console.error(e); alert('Error al guardar'); }
     finally { btn.disabled = false; btn.textContent = 'Guardar'; }
 });

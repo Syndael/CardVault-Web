@@ -1536,7 +1536,7 @@ newColCode.addEventListener('blur', () => {
 
 async function searchCollections(q) {
     try {
-        const resp = await apiFetch(apiUrl('collections', {q, per_page: 10}));
+        const resp = await apiFetch(apiUrl('collections', {q, per_page: 50}));
         if (!resp.ok) return;
         const data = await resp.json();
         const items = data.items || [];

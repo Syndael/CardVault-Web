@@ -9,6 +9,7 @@ const wlState = {
 const wlBody = document.getElementById('wishlistBody');
 const wlEmpty = document.getElementById('wishlistEmpty');
 const wlSummary = document.getElementById('wishlistSummary');
+const wlSummaryScrollEl = document.querySelector('#tabWishlist .scroll-note');
 const wlSentinel = document.getElementById('wlSentinel');
 
 let wlViewMode = 'list';
@@ -97,6 +98,7 @@ function appendWishlist(items) {
 function updateWishlistProgress() {
     const f = wlState.loaded ? 1 : 0;
     wlSummary.textContent = `${f}-${wlState.loaded} de ${wlState.total} productos`;
+    if (wlSummaryScrollEl) wlSummaryScrollEl.textContent = wlState.hasNext ? 'Scroll para cargar más' : 'No hay más';
 }
 
 async function loadWishlist({reset = false} = {}) {

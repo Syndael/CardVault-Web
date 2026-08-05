@@ -54,15 +54,19 @@ async function loadTracking() {
 }
 
 function renderTrackingRow(item) {
-    const pct = item.percent || 0;
+    const pct = typeof item.percent === 'number' ? item.percent : 0;
+    const pctDisplay = pct % 1 === 0 ? pct : Math.round(pct * 10) / 10;
+    const barW = pct > 0 ? Math.max(pct, 2) : 0;
     const barColor = pct >= 100 ? 'var(--green)' : pct >= 50 ? 'var(--orange)' : 'var(--red)';
     const modeLabel = item.tracking_mode === 'master' ? 'Master' : 'Estándar';
 
     let groupsHtml = '';
     if (item.groups) {
-        groupsHtml = Object.entries(item.groups).map(([key, g]) => {
-            const gpct = g.total ? Math.round((g.owned / g.total) * 100) : 0;
-            return `<span title="${g.name}: ${g.owned}/${g.total}" style="display:inline-block;margin:1px 2px;padding:1px 5px;border-radius:3px;font-size:11px;background:var(--surface-hover);white-space:nowrap">${g.short_name || g.name}&nbsp;${g.owned}/${g.total}</span>`;
+        groupsHtml = Object.entries(item.groups)
+            .filter(([key, g]) => g.total > 0)
+            .map(([key, g]) => {
+                const gpct = g.total ? Math.round((g.owned / g.total) * 100) : 0;
+                return `<span title="${g.name}: ${g.owned}/${g.total}" style="display:inline-block;margin:1px 2px;padding:1px 5px;border-radius:3px;font-size:11px;background:var(--surface-hover);white-space:nowrap">${g.short_name || g.name}&nbsp;${g.owned}/${g.total}</span>`;
         }).join('');
     }
 
@@ -78,9 +82,9 @@ function renderTrackingRow(item) {
             <td style="min-width:200px">
                 <div style="display:flex;align-items:center;gap:8px">
                     <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden">
-                        <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width 0.3s"></div>
+                        <div style="height:100%;width:${barW}%;background:${barColor};border-radius:4px;transition:width 0.3s"></div>
                     </div>
-                    <span style="font-size:12px;white-space:nowrap">${item.owned}/${item.target_total} (${pct}%)</span>
+                    <span style="font-size:12px;white-space:nowrap">${item.owned}/${item.target_total} (${pctDisplay}%)</span>
                 </div>
                 ${item.missing > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">Faltan ${item.missing}</div>` : ''}
             </td>
