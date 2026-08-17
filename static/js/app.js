@@ -1717,7 +1717,7 @@ async function loadInventory({reset = false} = {}) {
         s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
         s.loaded += data.items.length; s.page += 1;
         updateInvProgress();
-        setTimeout(checkInvScroll, 50);
+        setTimeout(checkInvScroll, 300);
     } catch (e) {
         if (s.loaded === 0) { invBody.innerHTML = ''; invEmpty.hidden = false; }
         invSummary.textContent = 'Error al cargar'; if (invSummaryScrollEl) invSummaryScrollEl.textContent = 'Error al cargar';
@@ -1730,13 +1730,13 @@ async function loadInventory({reset = false} = {}) {
 function checkInvScroll() {
     if (invState.loading || !invState.hasNext) return;
     const r = invSentinel.getBoundingClientRect();
-    if (r.top <= window.innerHeight + 700) loadInventory();
+    if (r.top <= window.innerHeight + 200) loadInventory();
 }
 
 const invObs = new IntersectionObserver(entries => {
     if (!appStarted) return;
     if (entries.some(e => e.isIntersecting)) loadInventory();
-}, {rootMargin: '640px 0px'});
+}, {rootMargin: '200px 0px'});
 if (invSentinel) invObs.observe(invSentinel);
 
 function updateBulkActionBar() {

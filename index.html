@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CardVault</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link rel="stylesheet" href="static/css/app.css">
+    <link rel="stylesheet" href="static/css/app.css?v=9">
 </head>
 <body>
     <main class="app-shell">
@@ -608,6 +608,7 @@
         </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
+        <button type="button" id="btnPubCalendar" class="btn-secondary">Calendario</button>
         <button type="button" id="btnNewPublication" class="btn-primary">+ Nueva publicaci&oacute;n</button>
         </div>
         </div>
@@ -704,6 +705,29 @@
         </div>
         </div>
     </main>
+
+    <!-- Publications calendar panel (floating, non-blocking) -->
+    <div id="pubCalendarPanel" class="pub-cal-panel" hidden>
+        <div class="pub-cal-head">
+            <div class="pub-cal-title">
+                <button type="button" id="pubCalPrev" title="Mes anterior">&larr;</button>
+                <select id="pubCalMonth" title="Mes"></select>
+                <select id="pubCalYear" title="A&ntilde;o"></select>
+                <button type="button" id="pubCalNext" title="Mes siguiente">&rarr;</button>
+            </div>
+            <button type="button" id="pubCalendarClose" class="pub-cal-close" title="Cerrar">&times;</button>
+        </div>
+        <div class="pub-cal-legend">
+            <span><span class="pub-cal-dot pub-cal-dot-scheduled"></span> Por publicar</span>
+            <span><span class="pub-cal-dot pub-cal-dot-published"></span> Publicado</span>
+        </div>
+        <div class="pub-cal-weekdays">
+            <span>Lun</span><span>Mar</span><span>Mi&eacute;</span><span>Jue</span><span>Vie</span><span>S&aacute;b</span><span>Dom</span>
+        </div>
+        <div id="pubCalDays" class="pub-cal-grid"></div>
+        <div id="pubCalDetail" class="pub-cal-detail" hidden></div>
+        <button type="button" id="pubCalNewPub" class="btn-primary pub-cal-new">+ Nueva publicaci&oacute;n</button>
+    </div>
 
     <!-- Assign groups modal -->
     <div id="assignGroupsModal" class="modal" hidden>
@@ -1547,7 +1571,7 @@
     <script src="static/js/app.js?v=5"></script>
     <script src="static/js/statistics.js?v=3"></script>
     <script src="static/js/wishlist.js?v=3"></script>
-    <script src="static/js/publications.js?v=5"></script>
+    <script src="static/js/publications.js?v=10"></script>
     <script src="static/js/collection_tracking.js?v=1"></script>
 </body>
 </html>

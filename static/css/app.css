@@ -1207,6 +1207,165 @@ tr:hover td { background: var(--surface-soft); }
 /* Publications tab */
 #tabPublications .table-wrap { }
 
+/* Publication calendar panel (floating, non-blocking) */
+.pub-cal-panel {
+    position: fixed;
+    top: 76px;
+    right: 16px;
+    z-index: 1205;
+    width: 336px;
+    background: var(--surface-strong);
+    border: 1px solid var(--cyan-strong);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    padding: 12px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+}
+.pub-cal-panel[hidden] { display: none; }
+.pub-cal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.pub-cal-title {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex: 1;
+}
+.pub-cal-title button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--cyan);
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.pub-cal-title button:hover { border-color: var(--cyan); background: var(--cyan-soft); }
+.pub-cal-title select {
+    padding: 3px 4px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    flex: 1;
+    min-width: 0;
+}
+.pub-cal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--text);
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+}
+.pub-cal-close:hover { background: var(--cyan-soft); color: var(--cyan); }
+.pub-cal-legend {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    align-items: center;
+}
+.pub-cal-legend > span { display: inline-flex; align-items: center; gap: 4px; }
+.pub-cal-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.pub-cal-dot-scheduled { background: var(--manual); }
+.pub-cal-dot-published { background: var(--green); }
+.pub-cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    margin-bottom: 4px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+}
+.pub-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+}
+.pub-cal-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    position: relative;
+    color: var(--text);
+    border: 1px solid transparent;
+    flex-direction: column;
+    gap: 1px;
+}
+.pub-cal-cell:hover { border-color: var(--border); }
+.pub-cal-cell.pub-cal-empty { background: transparent; border-color: transparent; cursor: default; pointer-events: none; }
+.pub-cal-cell.pub-cal-today { border-color: var(--cyan); }
+.pub-cal-cell.pub-cal-scheduled { background: rgba(255, 209, 102, 0.14); }
+.pub-cal-cell.pub-cal-published { background: rgba(76, 175, 80, 0.18); border-color: var(--green); }
+.pub-cal-daynum {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+}
+.pub-cal-count {
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 0 4px;
+    line-height: 12px;
+}
+.pub-cal-count-scheduled { background: var(--manual); color: #1a1a1a; }
+.pub-cal-count-published { background: var(--green); color: #fff; }
+.pub-cal-detail {
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    font-size: 12px;
+}
+.pub-cal-detail[hidden] { display: none; }
+.pub-cal-detail-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 2px;
+    border-bottom: 1px solid var(--border-soft);
+    cursor: pointer;
+}
+.pub-cal-detail-row:hover { background: var(--cyan-soft); border-radius: 4px; }
+.pub-cal-detail-row:last-child { border-bottom: none; }
+.pub-cal-new {
+    margin-top: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+@media (max-width: 480px) {
+    .pub-cal-panel { right: 8px; left: 8px; width: auto; top: 60px; max-height: calc(100vh - 80px); }
+}
+
 /* Schedule publication form */
 #schedulePubForm textarea {
     resize: vertical;

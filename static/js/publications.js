@@ -190,10 +190,20 @@ document.addEventListener('click', (e) => {
 
 // ============= MODAL =============
 const editPubModal = document.getElementById('editPubModal');
+const pubCalPanel = document.getElementById('pubCalendarPanel');
+
+function _syncPubOverflow() {
+    const anyOpen = ['editPubModal'].some(id => {
+        const el = document.getElementById(id);
+        return el && !el.hidden;
+    });
+    document.body.style.overflow = anyOpen ? 'hidden' : '';
+}
 
 function closeEditPub() {
     editPubModal.hidden = true;
-    document.body.style.overflow = '';
+    _syncPubOverflow();
+    if (pubCalPanel && !pubCalPanel.hidden) loadPubCalendar().then(renderPubCalendar);
 }
 
 document.getElementById('editPubCancel')?.addEventListener('click', closeEditPub);
@@ -224,7 +234,7 @@ function openNewPub() {
     _pubIsCreating = true;
     document.getElementById('pubModalTitle').textContent = 'Nueva publicaci\u00f3n';
     editPubModal.hidden = false;
-    document.body.style.overflow = 'hidden';
+    _syncPubOverflow();
     _bindAiButton();
 }
 
@@ -551,7 +561,7 @@ async function openEditPub(pubId) {
         }
 
         editPubModal.hidden = false;
-        document.body.style.overflow = 'hidden';
+        _syncPubOverflow();
 
         _bindAiButton();
     } catch (e) { console.error(e); showToast('Error de conexi\u00f3n', 'error'); }
@@ -707,3 +717,135 @@ if (pubSentinel) {
     }, {rootMargin: '400px'});
     pubObserver.observe(pubSentinel);
 }
+
+// ==================== PUBLICATION CALENDAR ====================
+const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const calState = { year: new Date().getFullYear(), month: new Date().getMonth(), data: {} };
+
+function openPubCalendar() {
+    calState.year = new Date().getFullYear();
+    calState.month = new Date().getMonth();
+    pubCalPanel.hidden = false;
+    renderPubCalendar();
+}
+
+function closePubCalendar() {
+    pubCalPanel.hidden = true;
+}
+
+function fillPubCalSelects() {
+    const m = document.getElementById('pubCalMonth');
+    m.innerHTML = MONTH_NAMES.map((n, i) => `<option value="${i}">${n}</option>`).join('');
+    m.value = calState.month;
+    const y = document.getElementById('pubCalYear');
+    y.innerHTML = '';
+    for (let i = calState.year - 5; i <= calState.year + 5; i++) {
+        y.insertAdjacentHTML('beforeend', `<option value="${i}">${i}</option>`);
+    }
+    y.value = calState.year;
+}
+
+async function loadPubCalendar() {
+    const startDate = new Date(calState.year, calState.month, 1);
+    const endDate = new Date(calState.year, calState.month + 1, 0);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+    const start = startDate.toISOString();
+    const end = endDate.toISOString();
+    try {
+        const resp = await apiFetch(apiUrl('publications/calendar', {start, end}));
+        if (!resp.ok) { calState.data = {}; return; }
+        const data = await resp.json();
+        calState.data = (data.days || {});
+    } catch (e) { console.error(e); calState.data = {}; }
+}
+
+function renderPubCalendar() {
+    fillPubCalSelects();
+    const detail = document.getElementById('pubCalDetail');
+    detail.hidden = true;
+    const grid = document.getElementById('pubCalDays');
+    grid.innerHTML = '';
+
+    const firstDay = new Date(calState.year, calState.month, 1).getDay();
+    const offset = (firstDay + 6) % 7; // Monday first
+    const daysInMonth = new Date(calState.year, calState.month + 1, 0).getDate();
+    const today = new Date();
+
+    for (let i = 0; i < offset; i++) {
+        grid.insertAdjacentHTML('beforeend', '<div class="pub-cal-cell pub-cal-empty"></div>');
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const key = `${calState.year}-${String(calState.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const info = calState.data[key];
+        const scheduled = info ? info.scheduled : 0;
+        const published = info ? info.published : 0;
+
+        let classes = 'pub-cal-cell';
+        if (today.getFullYear() === calState.year && today.getMonth() === calState.month && today.getDate() === day) classes += ' pub-cal-today';
+        if (scheduled > 0) classes += ' pub-cal-scheduled';
+        if (published > 0) classes += ' pub-cal-published';
+
+        let badges = '';
+        if (scheduled > 0) badges += `<span class="pub-cal-count pub-cal-count-scheduled" title="${scheduled} por publicar">${scheduled}</span>`;
+        if (published > 0) badges += `<span class="pub-cal-count pub-cal-count-published" title="${published} publicadas">${published}</span>`;
+
+        grid.insertAdjacentHTML('beforeend', `<div class="${classes}" data-day="${key}"><span class="pub-cal-daynum">${day}</span>${badges}</div>`);
+    }
+
+    document.querySelectorAll('#pubCalDays [data-day]').forEach(cell => {
+        cell.addEventListener('click', () => showPubCalDay(cell.dataset.day));
+    });
+}
+
+function showPubCalDay(key) {
+    const info = calState.data[key] || {items: []};
+    const detail = document.getElementById('pubCalDetail');
+    if (!info.items || !info.items.length) { detail.hidden = true; return; }
+    const rows = info.items.map(it => {
+        const st = it.status === 'published' ? 'Publicado' : 'Por publicar';
+        const code = it.collection_code ? `${it.collection_code} ${it.product_number || ''}`.trim() : '';
+        const name = it.title || code || `#${it.id}`;
+        return `<div class="pub-cal-detail-row" data-pub-id="${it.id}" title="Editar">
+            <span class="${it.status === 'published' ? 'status-ok' : 'status-warn'}">${st}</span>
+            <span>${esc(name)}</span>
+            <span style="color:var(--muted);font-size:12px">${it.scheduled_at || it.published_at || ''}</span>
+            <span style="color:var(--cyan);font-size:12px">Editar</span>
+        </div>`;
+    }).join('');
+    detail.innerHTML = `<div style="font-weight:600;margin-bottom:6px;font-size:13px">Publicaciones del ${key} (clic para editar)</div>${rows}`;
+    detail.hidden = false;
+}
+
+document.getElementById('btnPubCalendar')?.addEventListener('click', () => {
+    if (!pubCalPanel.hidden) {
+        closePubCalendar();
+    } else {
+        openPubCalendar();
+        loadPubCalendar().then(renderPubCalendar);
+    }
+});
+
+document.getElementById('pubCalNewPub')?.addEventListener('click', openNewPub);
+
+document.getElementById('pubCalendarClose')?.addEventListener('click', closePubCalendar);
+
+document.getElementById('pubCalPrev')?.addEventListener('click', () => {
+    calState.month--;
+    if (calState.month < 0) { calState.month = 11; calState.year--; }
+    loadPubCalendar().then(renderPubCalendar);
+});
+document.getElementById('pubCalNext')?.addEventListener('click', () => {
+    calState.month++;
+    if (calState.month > 11) { calState.month = 0; calState.year++; }
+    loadPubCalendar().then(renderPubCalendar);
+});
+document.getElementById('pubCalMonth')?.addEventListener('change', (e) => {
+    calState.month = parseInt(e.target.value);
+    loadPubCalendar().then(renderPubCalendar);
+});
+document.getElementById('pubCalYear')?.addEventListener('change', (e) => {
+    calState.year = parseInt(e.target.value);
+    loadPubCalendar().then(renderPubCalendar);
+});
