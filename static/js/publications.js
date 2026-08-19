@@ -712,9 +712,15 @@ async function savePubIgOrders(pubId) {
 
 // Infinite scroll
 if (pubSentinel) {
+    let pubLoadDebounce = false;
     const pubObserver = new IntersectionObserver(entries => {
-        if (entries[0].isIntersecting && pubState.hasNext && !pubState.loading) loadPublications({});
-    }, {rootMargin: '400px'});
+        if (pubLoadDebounce) return;
+        if (entries[0].isIntersecting && pubState.hasNext && !pubState.loading) {
+            pubLoadDebounce = true;
+            loadPublications({});
+            setTimeout(() => { pubLoadDebounce = false; }, 300);
+        }
+    }, {rootMargin: '200px'});
     pubObserver.observe(pubSentinel);
 }
 

@@ -302,12 +302,12 @@
                     <tbody id="inventoryBody"></tbody>
                 </table>
                 <div class="empty-state" id="invEmpty" hidden>No hay productos en inventario.</div>
+                <div class="load-sentinel" id="invSentinel"></div>
             </div>
             <div id="bulkActionBar" class="bulk-action-bar" style="display:none">
                 <span id="bulkActionCount">0 ítems seleccionados</span>
                 <button type="button" id="bulkTagBtn" class="btn-primary" style="background:#7c3aed">Etiquetar seleccionados</button>
                 <button type="button" id="bulkClearSelection" class="btn-secondary">Limpiar selección</button>
-            <div class="load-sentinel" id="invSentinel"></div>
             </div>
         </section>
 
@@ -632,8 +632,8 @@
         <tbody id="publicationBody"></tbody>
         </table>
         <div id="publicationEmpty" class="empty-state" hidden>No hay publicaciones</div>
-        </div>
         <div id="publicationSentinel" class="load-sentinel"></div>
+        </div>
         </section>
 
         <!-- Publication modal (create + edit) -->

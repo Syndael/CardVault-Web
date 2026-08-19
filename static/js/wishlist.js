@@ -123,7 +123,6 @@ async function loadWishlist({reset = false} = {}) {
         s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
         s.loaded += data.items.length; s.page += 1;
         updateWishlistProgress();
-        setTimeout(checkWlScroll, 50);
     } catch (e) {
         if (s.loaded === 0) { wlBody.innerHTML = ''; wlEmpty.hidden = false; }
         wlSummary.textContent = 'Error al cargar';
@@ -136,12 +135,18 @@ async function loadWishlist({reset = false} = {}) {
 function checkWlScroll() {
     if (wlState.loading || !wlState.hasNext) return;
     const r = wlSentinel.getBoundingClientRect();
-    if (r.top <= window.innerHeight + 700) loadWishlist();
+    if (r.top <= window.innerHeight + 200) loadWishlist();
 }
 
+let wlLoadDebounce = false;
 const wlObs = new IntersectionObserver(entries => {
-    if (entries.some(e => e.isIntersecting)) loadWishlist();
-}, {rootMargin: '640px 0px'});
+    if (wlLoadDebounce) return;
+    if (entries.some(e => e.isIntersecting)) {
+        wlLoadDebounce = true;
+        loadWishlist();
+        setTimeout(() => { wlLoadDebounce = false; }, 300);
+    }
+}, {rootMargin: '200px 0px'});
 if (wlSentinel) wlObs.observe(wlSentinel);
 
 // Wishlist filters

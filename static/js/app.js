@@ -1717,7 +1717,6 @@ async function loadInventory({reset = false} = {}) {
         s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
         s.loaded += data.items.length; s.page += 1;
         updateInvProgress();
-        setTimeout(checkInvScroll, 300);
     } catch (e) {
         if (s.loaded === 0) { invBody.innerHTML = ''; invEmpty.hidden = false; }
         invSummary.textContent = 'Error al cargar'; if (invSummaryScrollEl) invSummaryScrollEl.textContent = 'Error al cargar';
@@ -1733,9 +1732,14 @@ function checkInvScroll() {
     if (r.top <= window.innerHeight + 200) loadInventory();
 }
 
+let invLoadDebounce = false;
 const invObs = new IntersectionObserver(entries => {
-    if (!appStarted) return;
-    if (entries.some(e => e.isIntersecting)) loadInventory();
+    if (!appStarted || invLoadDebounce) return;
+    if (entries.some(e => e.isIntersecting)) {
+        invLoadDebounce = true;
+        loadInventory();
+        setTimeout(() => { invLoadDebounce = false; }, 300);
+    }
 }, {rootMargin: '200px 0px'});
 if (invSentinel) invObs.observe(invSentinel);
 
@@ -3714,7 +3718,6 @@ async function loadPurchases({reset = false} = {}) {
         s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
         s.loaded += data.items.length; s.page += 1;
         updatePurProgress();
-        setTimeout(checkPurScroll, 50);
     } catch (e) {
         if (s.loaded === 0) { purBody.innerHTML = ''; purEmpty.hidden = false; }
         purSummary.textContent = 'Error al cargar'; if (purSummaryScrollEl) purSummaryScrollEl.textContent = 'Error al cargar';
@@ -3727,13 +3730,18 @@ async function loadPurchases({reset = false} = {}) {
 function checkPurScroll() {
     if (purState.loading || !purState.hasNext) return;
     const r = purSentinel.getBoundingClientRect();
-    if (r.top <= window.innerHeight + 700) loadPurchases();
+    if (r.top <= window.innerHeight + 200) loadPurchases();
 }
 
+let purLoadDebounce = false;
 const purObs = new IntersectionObserver(entries => {
-    if (!appStarted) return;
-    if (entries.some(e => e.isIntersecting)) loadPurchases();
-}, {rootMargin: '640px 0px'});
+    if (!appStarted || purLoadDebounce) return;
+    if (entries.some(e => e.isIntersecting)) {
+        purLoadDebounce = true;
+        loadPurchases();
+        setTimeout(() => { purLoadDebounce = false; }, 300);
+    }
+}, {rootMargin: '200px 0px'});
 if (purSentinel) purObs.observe(purSentinel);
 
 // Purchase modal
@@ -4236,7 +4244,6 @@ async function loadScheduledTasks({reset = false} = {}) {
         s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
         s.loaded += (data.items || []).length; s.page += 1;
         updateScheduledProgress();
-        setTimeout(checkScheduledScroll, 50);
     } catch (e) {
         if (s.loaded === 0) { scheduledBody.innerHTML = ''; scheduledEmpty.hidden = false; }
         scheduledSummary.textContent = 'Error al cargar'; if (scheduledSummaryScrollEl) scheduledSummaryScrollEl.textContent = 'Error al cargar';
@@ -4249,13 +4256,18 @@ async function loadScheduledTasks({reset = false} = {}) {
 function checkScheduledScroll() {
     if (scheduledState.loading || !scheduledState.hasNext) return;
     const r = scheduledSentinel.getBoundingClientRect();
-    if (r.top <= window.innerHeight + 700) loadScheduledTasks();
+    if (r.top <= window.innerHeight + 200) loadScheduledTasks();
 }
 
+let scheduledLoadDebounce = false;
 const scheduledObs = new IntersectionObserver(entries => {
-    if (!appStarted) return;
-    if (entries.some(e => e.isIntersecting)) loadScheduledTasks();
-}, {rootMargin: '640px 0px'});
+    if (!appStarted || scheduledLoadDebounce) return;
+    if (entries.some(e => e.isIntersecting)) {
+        scheduledLoadDebounce = true;
+        loadScheduledTasks();
+        setTimeout(() => { scheduledLoadDebounce = false; }, 300);
+    }
+}, {rootMargin: '200px 0px'});
 if (scheduledSentinel) scheduledObs.observe(scheduledSentinel);
 
 // Scheduled Task Execution modal
@@ -4390,7 +4402,6 @@ async function loadCollections({reset = false} = {}) {
         s.pages = data.pagination.pages; s.total = data.pagination.total; s.hasNext = data.pagination.has_next;
         s.loaded += data.items.length; s.page += 1;
         updateColProgress();
-        setTimeout(checkColScroll, 50);
         attachColListeners();
     } catch (e) {
         if (s.loaded === 0) { colBody.innerHTML = ''; colEmpty.hidden = false; }
@@ -4407,13 +4418,18 @@ function attachColListeners() {
 function checkColScroll() {
     if (colState.loading || !colState.hasNext) return;
     const r = colSentinel.getBoundingClientRect();
-    if (r.top <= window.innerHeight + 700) loadCollections();
+    if (r.top <= window.innerHeight + 200) loadCollections();
 }
 
+let colLoadDebounce = false;
 const colObs = new IntersectionObserver(entries => {
-    if (!appStarted) return;
-    if (entries.some(e => e.isIntersecting)) loadCollections();
-}, {rootMargin: '640px 0px'});
+    if (!appStarted || colLoadDebounce) return;
+    if (entries.some(e => e.isIntersecting)) {
+        colLoadDebounce = true;
+        loadCollections();
+        setTimeout(() => { colLoadDebounce = false; }, 300);
+    }
+}, {rootMargin: '200px 0px'});
 if (colSentinel) colObs.observe(colSentinel);
 
 // Collection modal
@@ -4822,13 +4838,18 @@ if (tagFilterInput) {
 function checkTagScroll() {
     if (tagState.loading || !tagState.hasNext) return;
     const r = tagSentinel.getBoundingClientRect();
-    if (r.top <= window.innerHeight + 700) loadTags();
+    if (r.top <= window.innerHeight + 200) loadTags();
 }
 
+let tagLoadDebounce = false;
 const tagObs = new IntersectionObserver(entries => {
-    if (!appStarted) return;
-    if (entries.some(e => e.isIntersecting)) loadTags();
-}, {rootMargin: '640px 0px'});
+    if (!appStarted || tagLoadDebounce) return;
+    if (entries.some(e => e.isIntersecting)) {
+        tagLoadDebounce = true;
+        loadTags();
+        setTimeout(() => { tagLoadDebounce = false; }, 300);
+    }
+}, {rootMargin: '200px 0px'});
 if (tagSentinel) tagObs.observe(tagSentinel);
 
 // Tag modal
@@ -5109,13 +5130,18 @@ document.getElementById('tabPurchases').addEventListener('click', async (e) => {
 function checkProdScroll() {
     if (prodState.loading || !prodState.hasNext) return;
     const r = loadSentinel.getBoundingClientRect();
-    if (r.top <= window.innerHeight + 700) loadProducts();
+    if (r.top <= window.innerHeight + 200) loadProducts();
 }
 
+let prodLoadDebounce = false;
 const prodObserver = new IntersectionObserver((entries) => {
-    if (!appStarted) return;
-    if (entries.some((entry) => entry.isIntersecting)) loadProducts();
-}, {rootMargin: "640px 0px"});
+    if (!appStarted || prodLoadDebounce) return;
+    if (entries.some((entry) => entry.isIntersecting)) {
+        prodLoadDebounce = true;
+        loadProducts();
+        setTimeout(() => { prodLoadDebounce = false; }, 300);
+    }
+}, {rootMargin: "200px 0px"});
 if (loadSentinel) prodObserver.observe(loadSentinel);
 
 
