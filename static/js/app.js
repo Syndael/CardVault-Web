@@ -4335,7 +4335,7 @@ if (document.getElementById('execOutputClose')) document.getElementById('execOut
 
 const colState = {
     page: 1, perPage: 50, q: '', pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
-    code: '', name: '', card_type_id: '', is_manual: '', force_download: '', sort: 'code'
+    code: '', alternative_code: '', name: '', card_type_id: '', is_manual: '', force_download: '', sort: 'code'
 };
 
 const colBody = document.getElementById('collectionsBody');
@@ -4389,6 +4389,7 @@ async function loadCollections({reset = false} = {}) {
         const params = {page: s.page, per_page: s.perPage};
         if (s.q) params.q = s.q;
         if (s.code) params.code = s.code;
+        if (s.alternative_code) params.alternative_code = s.alternative_code;
         if (s.name) params.name = s.name;
         if (s.card_type_id) params.card_type_id = s.card_type_id;
         if (s.is_manual !== null && s.is_manual !== '') params.is_manual = s.is_manual;
@@ -4442,6 +4443,7 @@ function closeColModal() { colModal.hidden = true; document.body.style.overflow 
 document.getElementById('addCollectionBtn').addEventListener('click', () => openCollectionModal(null));
 
 let colTranslations = [];
+let colAlternativeCodes = [];
 
 async function openCollectionModal(collectionId) {
     document.getElementById('modalCollectionId').value = collectionId || '';
@@ -4452,7 +4454,9 @@ async function openCollectionModal(collectionId) {
     document.getElementById('colForceUrl').value = '';
     document.getElementById('colForceDownload').checked = false;
     colTranslations = [];
+    colAlternativeCodes = [];
     renderColTranslations();
+    renderColAlternativeCodes();
 
     try {
         const [typesResp, langsResp] = await Promise.all([
@@ -4511,6 +4515,16 @@ async function openCollectionModal(collectionId) {
                 }));
                 renderColTranslations();
             }
+            // load alternative codes
+            const altCodesResp = await apiFetch(apiUrl('collection-alternative-codes', {page: 1, per_page: 200, collection_id: collectionId}));
+            if (altCodesResp.ok) {
+                const altCodesData = await altCodesResp.json();
+                colAlternativeCodes = (altCodesData.items || []).map(ac => ({
+                    id: ac.id,
+                    code: ac.code
+                }));
+                renderColAlternativeCodes();
+            }
         } catch (e) { console.error('Error loading collection', e); }
     }
     colModal.hidden = false;
@@ -4542,6 +4556,29 @@ function renderColTranslations() {
     });
 }
 
+function renderColAlternativeCodes() {
+    const container = document.getElementById('colAltCodesList');
+    if (colAlternativeCodes.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:8px;font-size:13px">Sin códigos alternativos</div>';
+        return;
+    }
+    container.innerHTML = colAlternativeCodes.map((ac, i) =>
+        `<div class="trans-item" data-alt-code-index="${i}">
+            <span class="trans-name">${esc(ac.code)}</span>
+            <button type="button" class="btn-delete-trans" data-alt-code-index="${i}" title="Eliminar código alternativo">
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
+        </div>`
+    ).join('');
+    container.querySelectorAll('.btn-delete-trans').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.altCodeIndex);
+            colAlternativeCodes.splice(idx, 1);
+            renderColAlternativeCodes();
+        });
+    });
+}
+
 document.getElementById('addColTransBtn').addEventListener('click', () => {
     const langId = document.getElementById('colTransLang').value;
     const name = document.getElementById('colTransName').value.trim();
@@ -4550,6 +4587,14 @@ document.getElementById('addColTransBtn').addEventListener('click', () => {
     colTranslations.push({language_id: parseInt(langId), language_name: langName, name: name});
     document.getElementById('colTransName').value = '';
     renderColTranslations();
+});
+
+document.getElementById('addColAltCodeBtn').addEventListener('click', () => {
+    const code = document.getElementById('colAltCode').value.trim();
+    if (!code) { alert('Escribe un código alternativo'); return; }
+    colAlternativeCodes.push({code: code});
+    document.getElementById('colAltCode').value = '';
+    renderColAlternativeCodes();
 });
 
 document.getElementById('collectionForm').addEventListener('submit', async (ev) => {
@@ -4610,6 +4655,24 @@ document.getElementById('collectionForm').addEventListener('submit', async (ev) 
         );
         await Promise.all(createPromises);
 
+        // Sync alternative codes
+        const oldAltCodesResp = await apiFetch(apiUrl('collection-alternative-codes', {page: 1, per_page: 200, collection_id: savedId}));
+        const deleteAltCodePromises = [];
+        if (oldAltCodesResp.ok) {
+            const oldAltCodesData = await oldAltCodesResp.json();
+            for (const oac of (oldAltCodesData.items || [])) {
+                deleteAltCodePromises.push(apiFetch(apiUrl(`collection-alternative-codes/${oac.id}`), {method: 'DELETE'}));
+            }
+        }
+        await Promise.all(deleteAltCodePromises);
+        const createAltCodePromises = colAlternativeCodes.map(ac =>
+            apiFetch(apiUrl('collection-alternative-codes'), {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({collection_id: savedId, code: ac.code})
+            })
+        );
+        await Promise.all(createAltCodePromises);
+
         closeColModal();
 
         const firstTrans = colTranslations.length > 0 ? colTranslations[0] : null;
@@ -4659,6 +4722,16 @@ function setupColFilters() {
             clearTimeout(colFilterTimers.code);
             colFilterTimers.code = setTimeout(() => {
                 colState.code = codeInput.value.trim();
+                loadCollections({reset: true});
+            }, 300);
+        });
+    }
+    const altCodeInput = document.getElementById('colFilterAltCode');
+    if (altCodeInput) {
+        altCodeInput.addEventListener('input', () => {
+            clearTimeout(colFilterTimers.alternative_code);
+            colFilterTimers.alternative_code = setTimeout(() => {
+                colState.alternative_code = altCodeInput.value.trim();
                 loadCollections({reset: true});
             }, 300);
         });

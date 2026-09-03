@@ -111,6 +111,10 @@
                         <input id="colFilterCode" type="text" placeholder="Filtrar código..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
                     </label>
                     <label class="filter-check">
+                        Código alt.
+                        <input id="colFilterAltCode" type="text" placeholder="Filtrar código alt..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </label>
+                    <label class="filter-check">
                         Nombre
                         <input id="colFilterName" type="text" placeholder="Filtrar nombre..." style="width:140px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
                     </label>
@@ -1254,7 +1258,7 @@
     <!-- Collection modal -->
     <div id="collectionModal" class="modal" hidden>
         <div class="modal-backdrop" id="colBackdrop"></div>
-        <div class="modal-body" role="dialog" aria-modal="true" style="width:fit-content;max-width:min(400px,calc(100%-40px));min-width:280px">
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:900px;max-width:calc(100%-60px);padding:24px">
             <h2 id="colModalTitle">Nueva colección</h2>
             <form id="collectionForm">
                 <input type="hidden" id="modalCollectionId">
@@ -1297,24 +1301,40 @@
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="field">
-                        <label for="colTransLang">Idioma</label>
-                        <select id="colTransLang">
-                            <option value="">Seleccionar...</option>
-                        </select>
-                    </div>
-                    <div class="field" style="grid-column:span 2">
-                        <label for="colTransName">Nombre</label>
-                        <div class="input-group">
-                            <input id="colTransName" type="text" placeholder="Nombre">
-                            <button type="button" id="addColTransBtn" class="btn-secondary">+</button>
+                <div class="col-trans-alt-container">
+                    <div class="col-trans-column">
+                        <div class="form-row col-lang-row">
+                            <div class="field col-lang-field">
+                                <label for="colTransLang">Idioma</label>
+                                <select id="colTransLang">
+                                    <option value="">Seleccionar...</option>
+                                </select>
+                            </div>
+                            <div class="field col-name-field">
+                                <label for="colTransName">Nombre</label>
+                                <div class="input-group">
+                                    <input id="colTransName" type="text" placeholder="Nombre">
+                                    <button type="button" id="addColTransBtn" class="btn-secondary">+</button>
+                                </div>
+                            </div>
                         </div>
+                        <h3>Traducciones</h3>
+                        <div id="colTransList"></div>
+                    </div>
+                    <div class="col-alt-column">
+                        <div class="form-row">
+                            <div class="field">
+                                <label for="colAltCode">Código alternativo</label>
+                                <div class="input-group">
+                                    <input id="colAltCode" type="text" placeholder="Código alternativo">
+                                    <button type="button" id="addColAltCodeBtn" class="btn-secondary">+</button>
+                                </div>
+                            </div>
+                        </div>
+                        <h3>Códigos alternativos</h3>
+                        <div id="colAltCodesList"></div>
                     </div>
                 </div>
-
-                <h3>Traducciones</h3>
-                <div id="colTransList"></div>
 
                 <div class="actions">
                     <button type="submit">Guardar</button>
