@@ -261,6 +261,7 @@ function loadTab(tab) {
     else if (tab === 'publications') loadPublications({reset: true});
     else if (tab === 'tags') loadTags({reset: true});
     else if (tab === 'tracking') loadTracking();
+    else if (tab === 'settings') loadSettings();
     else loadPurchases({reset: true});
 }
 
@@ -2595,125 +2596,143 @@ async function loadInventoryFiles(invId) {
     container.classList.remove('has-files');
     try {
         const resp = await apiFetch(apiUrl(`files/by-inventory/${invId}`));
-        if (!resp.ok) { container.innerHTML = ''; return; }
-        const files = await resp.json();
-        if (!files.length) { container.innerHTML = ''; return; }
-        const token = window.localStorage.getItem(TOKEN_KEY) || '';
-        const qs = token ? `?token=${encodeURIComponent(token)}` : '';
-        container.innerHTML = files.map(f => {
-            const url = apiUrl(`product-catalog/files/${f.id}/content`) + qs;
-            const star = f.is_primary ? '<span class="file-star" title="Foto principal">&#9733;</span>' : '';
-            const sortBtns = `<button type="button" class="file-sort-up" data-file-id="${f.id}" data-dir="up" title="Mover arriba">&#9650;</button><button type="button" class="file-sort-down" data-file-id="${f.id}" data-dir="down" title="Mover abajo">&#9660;</button>`;
-            const primaryBtn = f.is_primary ? '' : `<button type="button" class="file-set-primary" data-file-id="${f.id}" title="Establecer como principal">&#9734;</button>`;
-            const delBtn = `<button type="button" class="inv-file-delete" data-del-file-id="${f.id}" title="Eliminar archivo">&times;</button>`;
-            const igVal = f.instagram_sort_order != null ? f.instagram_sort_order : '';
-            return `<div class="file-thumb-wrap">
-                ${star}
-                <div class="inv-file-preview"><a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>${delBtn}</div>
-                <div class="file-controls">${sortBtns}${primaryBtn}</div>
-                <div class="file-ig-order"><input type="number" class="ig-order-input" data-file-id="${f.id}" value="${igVal}" placeholder="-" min="0" step="1"></div>
-            </div>`;
-        }).join('');
-        container.classList.add('has-files');
-        container.querySelectorAll('.file-sort-up, .file-sort-down').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await reorderInventoryFile(invId, parseInt(btn.dataset.fileId), btn.dataset.dir);
-            });
-        });
-        container.querySelectorAll('.file-set-primary').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await setPrimaryInventoryFile(invId, parseInt(btn.dataset.fileId));
-            });
-        });
-        container.querySelectorAll('.ig-order-input').forEach(inp => {
-            inp.addEventListener('change', () => saveIgOrders(invId));
-        });
-        container.querySelectorAll('.inv-file-delete').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const fileId = parseInt(btn.dataset.delFileId);
-                if (!confirm('¿Eliminar este archivo del inventario?')) return;
-                btn.disabled = true;
-                try {
-                    const resp = await apiFetch(apiUrl(`files/${fileId}`), {method: 'DELETE'});
-                    if (resp.ok) {
-                        btn.closest('.file-thumb-wrap')?.remove();
-                        if (!container.querySelector('.file-thumb-wrap')) container.classList.remove('has-files');
-                        showToast('Archivo eliminado', 'success');
-                    } else {
-                        showToast('Error al eliminar', 'error');
-                        btn.disabled = false;
-                    }
-                } catch (e) {
-                    console.error(e);
-                    showToast('Error de conexión', 'error');
-                    btn.disabled = false;
-                }
-            });
-        });
-
-        let existingPub = null;
-        try {
-            const resp = await apiFetch(apiUrl('publications') + `?inventory_id=${invId}&per_page=1`);
-            if (resp.ok) {
-                const data = await resp.json();
-                const items = data.items || data;
-                if (Array.isArray(items) && items.length > 0) existingPub = items[0];
-            }
-        } catch (e) {}
-
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'btn-secondary create-ig-pub-btn';
-        btn.textContent = 'Crear publicación IG';
-        btn.dataset.invId = invId;
-        btn.style.marginLeft = '4px';
-        btn.addEventListener('click', async (e) => {
-            const id = e.currentTarget.dataset.invId;
-            btn.disabled = true; btn.textContent = 'Creando...';
-            try {
-                const resp = await apiFetch(apiUrl('publications/create-from-inventory'), {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({inventory_id: Number(id)})
+        if (!resp.ok) { container.innerHTML = ''; }
+        else {
+            const files = await resp.json();
+            if (files.length) {
+                const token = window.localStorage.getItem(TOKEN_KEY) || '';
+                const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+                container.innerHTML = files.map(f => {
+                    const url = apiUrl(`product-catalog/files/${f.id}/content`) + qs;
+                    const star = f.is_primary ? '<span class="file-star" title="Foto principal">&#9733;</span>' : '';
+                    const sortBtns = `<button type="button" class="file-sort-up" data-file-id="${f.id}" data-dir="up" title="Mover arriba">&#9650;</button><button type="button" class="file-sort-down" data-file-id="${f.id}" data-dir="down" title="Mover abajo">&#9660;</button>`;
+                    const primaryBtn = f.is_primary ? '' : `<button type="button" class="file-set-primary" data-file-id="${f.id}" title="Establecer como principal">&#9734;</button>`;
+                    const delBtn = `<button type="button" class="inv-file-delete" data-del-file-id="${f.id}" title="Eliminar archivo">&times;</button>`;
+                    return `<div class="file-thumb-wrap">
+                        ${star}
+                        <div class="inv-file-preview"><a href="${url}" target="_blank" rel="noopener"><img class="file-thumb" src="${url}" alt="${esc(f.original_name)}"></a>${delBtn}</div>
+                        <div class="file-controls">${sortBtns}${primaryBtn}</div>
+                    </div>`;
+                }).join('');
+                container.classList.add('has-files');
+                container.querySelectorAll('.file-sort-up, .file-sort-down').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        await reorderInventoryFile(invId, parseInt(btn.dataset.fileId), btn.dataset.dir);
+                    });
                 });
-                if (!resp.ok) { const t = await resp.text().catch(()=>null); showToast('Error: ' + (t || resp.status), 'error'); return; }
-                showToast('Publicación creada en revisión. Ve a la pestaña Publications para revisarla.', 'success');
-            } catch (e) { console.error(e); showToast('Error de conexión', 'error'); }
-            finally { btn.disabled = false; btn.textContent = 'Crear publicación IG'; }
-        });
-        container.parentElement?.appendChild(btn);
-
-        if (existingPub) {
-            const statusLabels = {
-                published: 'Publicado',
-                pending_review: 'Revisión',
-                pending_publish: 'Pendiente',
-                processing: 'En proceso',
-                failed: 'Fallido',
-                cancelled: 'Cancelado'
-            };
-            const statusClasses = {
-                published: 'status-ok',
-                pending_review: 'status-warn',
-                pending_publish: 'status-warn',
-                processing: 'status-warn',
-                failed: 'status-err',
-                cancelled: ''
-            };
-            const st = existingPub.status || '';
-            const badge = document.createElement('button');
-            badge.type = 'button';
-            badge.disabled = true;
-            badge.className = `btn-secondary pub-status-badge ${statusClasses[st] || ''}`;
-            badge.textContent = `IG: ${statusLabels[st] || st}`;
-            badge.style.cssText = 'cursor:default;margin-left:4px;';
-            container.parentElement?.appendChild(badge);
+                container.querySelectorAll('.file-set-primary').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        await setPrimaryInventoryFile(invId, parseInt(btn.dataset.fileId));
+                    });
+                });
+                container.querySelectorAll('.inv-file-delete').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const fileId = parseInt(btn.dataset.delFileId);
+                        if (!confirm('¿Eliminar este archivo del inventario?')) return;
+                        btn.disabled = true;
+                        try {
+                            const resp = await apiFetch(apiUrl(`files/${fileId}`), {method: 'DELETE'});
+                            if (resp.ok) {
+                                btn.closest('.file-thumb-wrap')?.remove();
+                                if (!container.querySelector('.file-thumb-wrap')) container.classList.remove('has-files');
+                                showToast('Archivo eliminado', 'success');
+                            } else {
+                                showToast('Error al eliminar', 'error');
+                                btn.disabled = false;
+                            }
+                        } catch (e) {
+                            console.error(e);
+                            showToast('Error de conexión', 'error');
+                            btn.disabled = false;
+                        }
+                    });
+                });
+            } else {
+                container.innerHTML = '';
+            }
         }
-    } catch (e) { console.error(e); container.innerHTML = ''; container.classList.remove('has-files'); }
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = '';
+    }
+
+    let existingPubs = [];
+    try {
+        const resp = await apiFetch(apiUrl('publications') + `?inventory_id=${invId}&per_page=100`);
+        if (resp.ok) {
+            const data = await resp.json();
+            const items = data.items || data;
+            if (Array.isArray(items) && items.length > 0) {
+                existingPubs = items;
+                console.log('Existing publications found:', existingPubs.length);
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching existing publications:', e);
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-secondary create-ig-pub-btn';
+    btn.textContent = 'Crear publicación IG';
+    btn.dataset.invId = invId;
+    btn.style.marginLeft = '4px';
+    btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.dataset.invId;
+        btn.disabled = true; btn.textContent = 'Creando...';
+        try {
+            const resp = await apiFetch(apiUrl('publications/create-from-inventory'), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({inventory_id: Number(id)})
+            });
+            if (!resp.ok) { const t = await resp.text().catch(()=>null); showToast('Error: ' + (t || resp.status), 'error'); return; }
+            showToast('Publicación creada en revisión. Ve a la pestaña Publications para revisarla.', 'success');
+        } catch (e) { console.error(e); showToast('Error de conexión', 'error'); }
+        finally { btn.disabled = false; btn.textContent = 'Crear publicación IG'; }
+    });
+    container.parentElement?.appendChild(btn);
+
+    existingPubs.forEach((existingPub, index) => {
+        console.log(`Creating badge for publication ${index + 1}:`, existingPub);
+        const igDetail = (existingPub.details || []).find(d => d.platform === 'instagram');
+        console.log('Instagram detail:', igDetail);
+        
+        let badgeText = '';
+        let badgeClass = '';
+        
+        if (igDetail?.published_at) {
+            const date = new Date(igDetail.published_at);
+            badgeText = `IG: ${date.toLocaleDateString('es-ES')} ${date.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'})}`;
+            badgeClass = 'status-ok';
+        } else if (igDetail?.scheduled_at) {
+            const date = new Date(igDetail.scheduled_at);
+            badgeText = `IG: ${date.toLocaleDateString('es-ES')} ${date.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'})}`;
+            badgeClass = 'status-warn';
+        } else if (existingPub.scheduled_at) {
+            const date = new Date(existingPub.scheduled_at);
+            badgeText = `Pub: ${date.toLocaleDateString('es-ES')} ${date.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'})}`;
+            badgeClass = 'status-warn';
+        } else {
+            badgeText = 'En revisión';
+            badgeClass = 'status-warn';
+        }
+        
+        console.log('Badge text:', badgeText, 'class:', badgeClass);
+        
+        const badge = document.createElement('button');
+        badge.type = 'button';
+        badge.disabled = true;
+        badge.className = `btn-secondary pub-status-badge ${badgeClass}`;
+        badge.textContent = badgeText;
+        badge.style.cssText = 'cursor:default;margin-left:4px;';
+        container.parentElement?.appendChild(badge);
+        console.log('Badge appended to DOM');
+    });
 }
 
 async function loadPurchaseFiles(purId) {
@@ -2772,44 +2791,14 @@ async function reorderInventoryFile(invId, fileId, direction) {
         return;
     }
     const primaryFileId = container.querySelector('.file-star')?.closest('.file-thumb-wrap')?.querySelector('[data-file-id]')?.dataset.fileId;
-    const igOrders = {};
-    container.querySelectorAll('.ig-order-input').forEach(inp => {
-        const fid = parseInt(inp.dataset.fileId);
-        const val = inp.value.trim();
-        igOrders[`ig_order_${fid}`] = val !== '' ? parseInt(val) : null;
-    });
     try {
         const resp = await apiFetch(apiUrl(`files/by-inventory/${invId}/reorder`), {
             method: 'PATCH',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({file_ids: fileIds, primary_id: primaryFileId ? parseInt(primaryFileId) : null, ...igOrders})
+            body: JSON.stringify({file_ids: fileIds, primary_id: primaryFileId ? parseInt(primaryFileId) : null})
         });
         if (!resp.ok) { const t = await resp.text().catch(()=>null); console.error('Reorder error:', t); return; }
         loadInventoryFiles(invId);
-    } catch (e) { console.error(e); }
-}
-
-async function saveIgOrders(invId) {
-    const container = document.getElementById('entryPhotos');
-    if (!container) return;
-    const thumbWraps = container.querySelectorAll('.file-thumb-wrap');
-    const fileIds = Array.from(thumbWraps).map(w => parseInt(w.querySelector('[data-file-id]')?.dataset.fileId || '0')).filter(id => id > 0);
-    const primaryFileId = container.querySelector('.file-star')?.closest('.file-thumb-wrap')?.querySelector('[data-file-id]')?.dataset.fileId;
-    const igOrders = {};
-    let hasIg = false;
-    container.querySelectorAll('.ig-order-input').forEach(inp => {
-        const fid = parseInt(inp.dataset.fileId);
-        const val = inp.value.trim();
-        igOrders[`ig_order_${fid}`] = val !== '' ? parseInt(val) : null;
-        if (val !== '') hasIg = true;
-    });
-    try {
-        const resp = await apiFetch(apiUrl(`files/by-inventory/${invId}/reorder`), {
-            method: 'PATCH',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({file_ids: fileIds, primary_id: primaryFileId ? parseInt(primaryFileId) : null, ...igOrders})
-        });
-        if (!resp.ok) { const t = await resp.text().catch(()=>null); console.error('Save IG error:', t); }
     } catch (e) { console.error(e); }
 }
 

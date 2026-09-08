@@ -28,6 +28,7 @@
             <button class="tab" data-tab="publications">Publicaciones</button>
             <button class="tab" data-tab="scheduledTasks">Tareas</button>
             <button class="tab" data-tab="tags">Etiquetas</button>
+            <button class="tab" data-tab="settings">Settings</button>
         </nav>
 
         <!-- Products tab -->
@@ -582,18 +583,6 @@
         Nombre
         <input id="pubFilterName" type="text" placeholder="Nombre..." style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
         </label>
-        <label class="filter-check">
-        Estado
-        <select id="pubFilterStatus" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-        <option value="">Todos</option>
-        <option value="pending_review">Pendientes revisi&oacute;n</option>
-        <option value="pending_publish">Pendientes publicar</option>
-        <option value="processing">En proceso</option>
-        <option value="published">Publicados</option>
-        <option value="failed">Fallidos</option>
-        <option value="cancelled">Cancelados</option>
-        </select>
-        </label>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="display:flex;gap:8px;align-items:center">
@@ -628,8 +617,7 @@
         <th>Texto</th>
         <th>Fotos</th>
         <th>Programado</th>
-        <th>Publicado</th>
-        <th>Estado</th>
+        <th>Plataformas</th>
         <th></th>
         </tr>
         </thead>
@@ -643,30 +631,33 @@
         <!-- Publication modal (create + edit) -->
         <div id="editPubModal" class="modal" hidden>
         <div class="modal-backdrop" id="editPubBackdrop"></div>
-        <div class="modal-body" role="dialog" aria-modal="true" style="width:min(800px,calc(100%-40px))">
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:min(1600px,calc(100%-40px))">
         <h2 id="pubModalTitle">Nueva publicaci&oacute;n</h2>
         <form id="editPubForm">
         <input type="hidden" id="editPubId">
-        <div class="field">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div class="field" style="margin-bottom:0">
         <label for="editPubTitle">T&iacute;tulo</label>
         <input id="editPubTitle" type="text" placeholder="Nombre para identificar la publicaci&oacute;n..." style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
         </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <div class="field" style="flex:1;min-width:200px">
+        <div class="field" style="margin-bottom:0">
         <label for="editPubScheduled">Programado</label>
         <input id="editPubScheduled" type="datetime-local" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
         </div>
-        <div class="field" style="flex:1;min-width:150px">
-        <label for="editPubStatus">Estado</label>
-        <select id="editPubStatus" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
-        <option value="pending_review">Pendiente revisi&oacute;n</option>
-        <option value="pending_publish">Pendiente publicar</option>
-        <option value="published">Publicado</option>
-        <option value="cancelled">Cancelado</option>
-        </select>
-        </div>
         </div>
         <div class="field">
+        <label for="editPubCaption">Texto global</label>
+        <textarea id="editPubCaption" rows="4" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;resize:vertical;font-family:inherit" placeholder="Texto base de la publicaci&oacute;n (se usar&aacute; si una plataforma no tiene su propio texto)..."></textarea>
+        </div>
+        <div class="field">
+        <label>Texto sugerido por IA</label>
+        <div style="display:flex;gap:8px;flex-direction:column">
+        <textarea id="editPubAiText" rows="5" readonly style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:12px;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Pulsa 'Generar' para obtener texto sugerido..."></textarea>
+        <button type="button" id="generateTextBtn" class="btn-secondary" style="align-self:flex-start">Generar texto + tags con IA</button>
+        </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div class="field" style="margin-bottom:0">
         <label>Inventarios asociados</label>
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
         <input id="pubInvSearch" type="text" placeholder="Buscar inventario (nombre / c&oacute;digo)..." style="flex:1;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
@@ -674,7 +665,7 @@
         <div id="pubInvResults" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;background:var(--surface);display:none;margin-bottom:4px"></div>
         <div id="pubInvSelected" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"></div>
         </div>
-        <div class="field">
+        <div class="field" style="margin-bottom:0">
         <label>Compras asociadas</label>
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
         <input id="pubPurSearch" type="text" placeholder="Buscar compra (referencia / vendedor)..." style="flex:1;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
@@ -682,16 +673,30 @@
         <div id="pubPurResults" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;background:var(--surface);display:none;margin-bottom:4px"></div>
         <div id="pubPurSelected" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"></div>
         </div>
-        <div class="field">
-        <label for="editPubCaption">Descripci&oacute;n IG</label>
-        <textarea id="editPubCaption" rows="5" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;resize:vertical;font-family:inherit" placeholder="Texto de la publicaci&oacute;n..."></textarea>
         </div>
         <div class="field">
-        <label>Texto sugerido por IA</label>
-        <div style="display:flex;gap:8px;flex-direction:column">
-        <textarea id="editPubAiText" rows="6" readonly style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:12px;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Pulsa 'Generar' para obtener texto sugerido..."></textarea>
-        <button type="button" id="generateTextBtn" class="btn-secondary" style="align-self:flex-start">Generar texto + tags con IA</button>
+        <label>Plataformas</label>
+        <div id="pubPlatformsSelector" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px">
+                <input type="checkbox" class="pub-platform-cb" value="instagram" data-label="Instagram"> Instagram
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px">
+                <input type="checkbox" class="pub-platform-cb" value="twitter" data-label="Twitter/X"> Twitter/X
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px">
+                <input type="checkbox" class="pub-platform-cb" value="tiktok" data-label="TikTok"> TikTok
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px">
+                <input type="checkbox" class="pub-platform-cb" value="threads" data-label="Threads"> Threads
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px">
+                <input type="checkbox" class="pub-platform-cb" value="bluesky" data-label="BlueSky"> BlueSky
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px">
+                <input type="checkbox" class="pub-platform-cb" value="telegram" data-label="Telegram"> Telegram
+            </label>
         </div>
+        <div id="pubPlatformDetails" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
         <div class="field">
         <label>Archivos multimedia</label>
@@ -708,6 +713,41 @@
         </form>
         </div>
         </div>
+
+        <!-- Settings tab -->
+        <section class="tab-content" id="tabSettings">
+            <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:8px">
+                <div class="density-note">
+                    <span id="settingsSummary">Cargando...</span>
+                    <span class="scroll-note">Scroll para cargar más</span>
+                </div>
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                    <label class="filter-check">
+                        Key
+                        <input id="settingsFilterKey" type="text" placeholder="Filtrar key..." style="width:200px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </label>
+                    <label class="filter-check">
+                        Valor
+                        <input id="settingsFilterValue" type="text" placeholder="Filtrar valor..." style="width:200px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px">
+                    </label>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Valor</th>
+                            <th>Descripción</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="settingsBody"></tbody>
+                </table>
+                <div class="empty-state" id="settingsEmpty" hidden>No hay settings.</div>
+                <div class="load-sentinel" id="settingsSentinel"></div>
+            </div>
+        </section>
     </main>
 
     <!-- Publications calendar panel (floating, non-blocking) -->
@@ -1344,6 +1384,36 @@
         </div>
     </div>
 
+    <!-- Setting modal -->
+    <div id="settingModal" class="modal" hidden>
+        <div class="modal-backdrop" id="settingBackdrop"></div>
+        <div class="modal-body" role="dialog" aria-modal="true" style="width:750px;max-width:calc(100%-60px);padding:24px">
+            <h2 id="settingModalTitle">Editar setting</h2>
+            <form id="settingForm">
+                <input type="hidden" id="modalSettingId">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="field">
+                        <label>Key</label>
+                        <input id="settingKeyDisplay" type="text" readonly style="font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:4px;width:100%;box-sizing:border-box">
+                        <input type="hidden" id="settingKey">
+                    </div>
+                    <div class="field">
+                        <label for="settingDesc">Descripción</label>
+                        <input id="settingDesc" type="text" placeholder="Descripción opcional" style="font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:4px;width:100%;box-sizing:border-box">
+                    </div>
+                </div>
+                <div class="field" style="margin-bottom:10px">
+                    <label for="settingValue">Valor</label>
+                    <input id="settingValue" type="text" placeholder="Valor del setting" style="font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:4px;width:100%;box-sizing:border-box">
+                </div>
+                <div class="actions">
+                    <button type="submit">Guardar</button>
+                    <button type="button" id="settingCancel">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Scheduled Task Execution modal -->
     <div id="scheduledTaskModal" class="modal" hidden>
         <div class="modal-backdrop" id="scheduledBackdrop"></div>
@@ -1588,10 +1658,11 @@
     <button class="scroll-to-top" id="scrollToTopBtn" title="Volver arriba" aria-label="Volver arriba">↑</button>
 
     <script src="static/js/api-config.js?v=3"></script>
-    <script src="static/js/app.js?v=5"></script>
+    <script src="static/js/app.js?v=6"></script>
     <script src="static/js/statistics.js?v=3"></script>
     <script src="static/js/wishlist.js?v=3"></script>
-    <script src="static/js/publications.js?v=10"></script>
+    <script src="static/js/publications.js?v=11"></script>
     <script src="static/js/collection_tracking.js?v=1"></script>
+    <script src="static/js/settings.js?v=2"></script>
 </body>
 </html>

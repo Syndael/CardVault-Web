@@ -521,6 +521,10 @@ tr:hover td { background: var(--surface-soft); }
     overflow-y: auto;
 }
 
+#editPubModal .modal-body {
+    width: min(1600px, calc(100% - 40px));
+}
+
 .modal-body h2 { margin: 0 0 12px 0; color: var(--cyan); }
 .modal-body h3 { margin: 16px 0 8px; color: var(--cyan); font-size: 16px; }
 .modal-body .field { margin-bottom: 10px; }

@@ -2,7 +2,7 @@
 
 const pubState = {
     page: 1, perPage: 50, pages: 0, total: 0, loaded: 0, loading: false, hasNext: true,
-    status: '', collection_code: '', product_number: '', product_name: '', sort: 'recent'
+    collection_code: '', product_number: '', product_name: '', sort: 'recent'
 };
 
 let pubViewMode = 'list';
@@ -10,6 +10,69 @@ let _pubSelectedInventories = [];
 let _pubSelectedPurchases = [];
 let _pubUploadedFiles = [];
 let _pubIsCreating = false;
+let _pubSelectedPlatforms = [];
+let _pubPlatformDetails = {};
+let _platformsData = {};
+
+const _PLATFORM_LABELS = {
+    instagram: 'Instagram',
+    twitter: 'Twitter/X',
+    tiktok: 'TikTok',
+    threads: 'Threads',
+    bluesky: 'BlueSky',
+    telegram: 'Telegram',
+};
+
+const _PLATFORM_ORDER = {
+    instagram: 10,
+    twitter: 20,
+    tiktok: 30,
+    threads: 40,
+    bluesky: 50,
+    telegram: 99,
+};
+
+const _PLATFORM_CHAR_LIMITS = {
+    instagram: 2200,
+    twitter: 280,
+    tiktok: 150,
+    threads: 500,
+    bluesky: 300,
+    telegram: 1024,
+};
+
+function getPlatformLabel(platform) {
+    return _platformsData[platform]?.name || _PLATFORM_LABELS[platform] || platform;
+}
+
+function getPlatformColor(platform) {
+    return _platformsData[platform]?.color || '#666666';
+}
+
+async function loadPlatforms() {
+    try {
+        const resp = await apiFetch(apiUrl('types', {per_page: 200, type: 'platform'}));
+        if (resp.ok) {
+            const data = await resp.json();
+            const platforms = data.items || data;
+            platforms.forEach(p => {
+                _platformsData[p.name] = p;
+            });
+        }
+    } catch (e) {
+        console.error('Error loading platforms:', e);
+    }
+}
+
+loadPlatforms();
+
+const _PUB_STATUSES = [
+    {value: 'pending_review', label: 'En revisión'},
+    {value: 'pending_publish', label: 'Pendiente de publicar'},
+    {value: 'published', label: 'Publicado'},
+    {value: 'failed', label: 'Fallido'},
+    {value: 'cancelled', label: 'Cancelado'},
+];
 
 const pubBody = document.getElementById('publicationBody');
 const pubEmpty = document.getElementById('publicationEmpty');
@@ -18,7 +81,7 @@ const pubSummaryScrollEl = document.querySelector('#tabPublications .scroll-note
 const pubSentinel = document.getElementById('publicationSentinel');
 
 // Filter events
-['pubFilterStatus', 'pubFilterColCode', 'pubFilterNumber', 'pubFilterName', 'pubSortOrder'].forEach(id => {
+['pubFilterColCode', 'pubFilterNumber', 'pubFilterName', 'pubSortOrder'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', () => loadPublications({reset: true}));
     if (el && el.tagName === 'INPUT') el.addEventListener('input', debounce(() => loadPublications({reset: true}), 300));
@@ -60,14 +123,12 @@ async function loadPublications(opts) {
     if (pubState.loading || !pubState.hasNext) return;
     pubState.loading = true;
 
-    pubState.status = document.getElementById('pubFilterStatus')?.value || '';
     pubState.collection_code = document.getElementById('pubFilterColCode')?.value || '';
     pubState.product_number = document.getElementById('pubFilterNumber')?.value || '';
     pubState.product_name = document.getElementById('pubFilterName')?.value || '';
     pubState.sort = document.getElementById('pubSortOrder')?.value || 'recent';
 
     const params = {page: pubState.page, per_page: pubState.perPage, sort: pubState.sort};
-    if (pubState.status) params.status = pubState.status;
     if (pubState.collection_code) params.collection_code = pubState.collection_code;
     if (pubState.product_number) params.product_number = pubState.product_number;
     if (pubState.product_name) params.product_name = pubState.product_name;
@@ -122,7 +183,6 @@ function buildPubRow(item) {
     const captionDisplay = captionPreview ? esc(captionPreview) + (item.caption?.length > 80 ? '...' : '') : '<span style="color:var(--muted)">auto</span>';
 
     const scheduledDate = item.scheduled_at ? item.scheduled_at.slice(0, 16).replace('T', ' ') : '-';
-    const publishedDate = item.published_at ? item.published_at.slice(0, 16).replace('T', ' ') : '-';
 
     const photoCount = item.photo_count || 0;
 
@@ -141,14 +201,17 @@ function buildPubRow(item) {
         inventoryBadges = `<span style="font-size:11px;color:var(--muted)">+${inventories.length - 1} m&aacute;s</span>`;
     }
 
-    let statusClass = '';
-    let statusLabel = item.status || '';
-    if (item.status === 'published') { statusClass = 'status-ok'; statusLabel = 'Publicado'; }
-    else if (item.status === 'pending_review') { statusClass = 'status-warn'; statusLabel = 'Revisi\u00f3n'; }
-    else if (item.status === 'pending_publish') { statusClass = 'status-warn'; statusLabel = 'Pendiente'; }
-    else if (item.status === 'processing') { statusClass = 'status-warn'; statusLabel = 'En proceso'; }
-    else if (item.status === 'failed') { statusClass = 'status-err'; statusLabel = 'Fallido'; }
-    else if (item.status === 'cancelled') { statusClass = ''; statusLabel = 'Cancelado'; }
+    const details = item.details || [];
+    const platformBadges = details.map(d => {
+        const label = (getPlatformLabel(d.platform)).substring(0, 2).toUpperCase();
+        const color = getPlatformColor(d.platform);
+        const st = d.status || '';
+        let cls = '';
+        if (st === 'published') cls = 'status-ok';
+        else if (st === 'failed') cls = 'status-err';
+        else cls = 'status-warn';
+        return `<span class="${cls}" style="font-size:10px;padding:1px 4px;margin-right:2px;color:${color};font-weight:bold" title="${esc(getPlatformLabel(d.platform))}: ${st}">${label}</span>`;
+    }).join('');
 
     const deleteBtn = `<button type="button" class="btn-delete-pub" data-pub-id="${item.id}" title="Eliminar" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px">&times;</button>`;
 
@@ -160,8 +223,7 @@ function buildPubRow(item) {
         <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.caption || '')}">${captionDisplay}</td>
         <td style="text-align:center">${photoCount > 0 ? photoCount : '<span style="color:var(--red)">0</span>'}</td>
         <td style="font-size:12px">${scheduledDate}</td>
-        <td style="font-size:12px">${publishedDate}</td>
-        <td><span class="${statusClass}">${statusLabel}</span></td>
+        <td>${platformBadges || '<span style="color:var(--muted)">-</span>'}</td>
         <td style="text-align:center;white-space:nowrap">${deleteBtn}</td>
     </tr>`;
 }
@@ -213,7 +275,6 @@ function _resetPubModal() {
     document.getElementById('editPubId').value = '';
     document.getElementById('editPubTitle').value = '';
     document.getElementById('editPubScheduled').value = '';
-    document.getElementById('editPubStatus').value = 'pending_review';
     document.getElementById('editPubCaption').value = '';
     document.getElementById('editPubAiText').value = '';
     document.getElementById('pubInvSearch').value = '';
@@ -227,7 +288,157 @@ function _resetPubModal() {
     _pubSelectedPurchases = [];
     _pubUploadedFiles = [];
     _pubIsCreating = false;
+    _pubSelectedPlatforms = [];
+    _pubPlatformDetails = {};
+    document.querySelectorAll('.pub-platform-cb').forEach(cb => cb.checked = false);
+    document.getElementById('pubPlatformDetails').innerHTML = '';
 }
+
+function _renderPlatformDetails() {
+    const container = document.getElementById('pubPlatformDetails');
+    const globalScheduled = document.getElementById('editPubScheduled')?.value || '';
+    const sorted = [..._pubSelectedPlatforms].sort((a, b) => (_PLATFORM_ORDER[a] || 50) - (_PLATFORM_ORDER[b] || 50));
+    const broadcastPlatforms = ['twitter', 'threads', 'bluesky', 'telegram'];
+    const statusOptions = _PUB_STATUSES.map(s => `<option value="${s.value}">${s.label}</option>`).join('');
+
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = '1fr 1fr';
+    container.style.gap = '8px';
+
+    container.innerHTML = sorted.map(platform => {
+        const label = getPlatformLabel(platform);
+        const color = getPlatformColor(platform);
+        const detail = _pubPlatformDetails[platform] || {};
+        const caption = detail.caption || '';
+        const scheduled = detail.scheduled_at ? detail.scheduled_at.slice(0, 16) : globalScheduled;
+        const publishedAt = detail.published_at ? detail.published_at.slice(0, 16).replace('T', ' ') : '';
+        const permalink = detail.permalink || '';
+        const errorMessage = detail.error_message || '';
+        const status = detail.status || 'pending_review';
+        const charLimit = _PLATFORM_CHAR_LIMITS[platform] || 9999;
+        const isBroadcast = broadcastPlatforms.includes(platform);
+        const tagHelp = isBroadcast ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">Tags: <code>&lt;TITULO&gt;</code> <code>&lt;URL_IG&gt;</code> <code>&lt;URL_TIKTOK&gt;</code></div>` : '';
+        const errorRow = errorMessage ? `<div style="font-size:11px;color:var(--red);padding:4px;background:rgba(255,0,0,0.05);border-radius:3px;margin-bottom:4px">${esc(errorMessage)}</div>` : '';
+        const permalinkDisplay = permalink
+            ? `<a href="${esc(permalink)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--cyan);word-break:break-all">${esc(permalink)}</a>`
+            : `<span style="font-size:11px;color:var(--muted)">-</span>`;
+        const broadcastCheck = isBroadcast
+            ? `<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;margin-bottom:4px"><input type="checkbox" class="pub-platform-broadcast" data-platform="${platform}" ${detail.is_broadcast ? 'checked' : ''}> Texto difusión (autogenerado)</label>`
+            : '';
+
+        return `<div class="pub-platform-section" data-platform="${platform}" style="border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--surface)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <strong style="font-size:12px;color:${color}">${esc(label)}</strong>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px">
+                <div class="field" style="margin-bottom:0">
+                    <label style="font-size:11px">Estado</label>
+                    <select class="pub-platform-status" data-platform="${platform}" style="width:100%;padding:3px;border:1px solid var(--border);border-radius:3px;background:var(--surface-strong);color:var(--text);font-size:11px">${statusOptions.replace(`value="${status}"`, `value="${status}" selected`)}</select>
+                </div>
+                <div class="field" style="margin-bottom:0">
+                    <label style="font-size:11px">Programado</label>
+                    <input type="datetime-local" class="pub-platform-scheduled" data-platform="${platform}" value="${esc(scheduled)}" style="width:100%;padding:3px;border:1px solid var(--border);border-radius:3px;background:var(--surface-strong);color:var(--text);font-size:11px">
+                </div>
+                <div class="field" style="margin-bottom:0">
+                    <label style="font-size:11px">Publicado</label>
+                    <input type="text" value="${esc(publishedAt)}" readonly style="width:100%;padding:3px;border:1px solid var(--border);border-radius:3px;background:var(--surface-strong);color:var(--muted);font-size:11px" placeholder="-">
+                </div>
+            </div>
+            <div class="field" style="margin-bottom:4px">
+                <label style="font-size:11px">Enlace</label>
+                <div style="padding:3px">${permalinkDisplay}</div>
+            </div>
+            ${errorRow}
+            ${broadcastCheck}
+            <div class="field" style="margin-bottom:0">
+                <label style="font-size:11px">Caption <span style="color:var(--muted)">(vacío = global)</span></label>
+                <textarea class="pub-platform-caption" data-platform="${platform}" rows="3" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:3px;background:var(--surface-strong);color:var(--text);font-size:11px;resize:vertical;font-family:inherit" placeholder="(usa texto global)">${esc(caption)}</textarea>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
+                    ${tagHelp}
+                    <span class="pub-platform-chars" data-platform="${platform}" style="font-size:10px;color:var(--muted)">${caption.length}/${charLimit}</span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.pub-platform-caption').forEach(ta => {
+        ta.addEventListener('input', () => {
+            const p = ta.dataset.platform;
+            _pubPlatformDetails[p] = _pubPlatformDetails[p] || {};
+            _pubPlatformDetails[p].caption = ta.value;
+            const charLimit = _PLATFORM_CHAR_LIMITS[p] || 9999;
+            const counter = container.querySelector(`.pub-platform-chars[data-platform="${p}"]`);
+            if (counter) {
+                counter.textContent = `${ta.value.length}/${charLimit}`;
+                counter.style.color = ta.value.length > charLimit ? 'var(--red)' : 'var(--muted)';
+            }
+        });
+    });
+    container.querySelectorAll('.pub-platform-scheduled').forEach(inp => {
+        inp.addEventListener('change', () => {
+            const p = inp.dataset.platform;
+            _pubPlatformDetails[p] = _pubPlatformDetails[p] || {};
+            _pubPlatformDetails[p].scheduled_at = inp.value ? inp.value + ':00' : null;
+        });
+    });
+    container.querySelectorAll('.pub-platform-status').forEach(sel => {
+        sel.addEventListener('change', () => {
+            const p = sel.dataset.platform;
+            _pubPlatformDetails[p] = _pubPlatformDetails[p] || {};
+            _pubPlatformDetails[p].status = sel.value;
+        });
+    });
+    container.querySelectorAll('.pub-platform-broadcast').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const p = cb.dataset.platform;
+            _pubPlatformDetails[p] = _pubPlatformDetails[p] || {};
+            _pubPlatformDetails[p].is_broadcast = cb.checked;
+            if (cb.checked) {
+                const broadcastText = _generateBroadcastText(p);
+                _pubPlatformDetails[p].caption = broadcastText;
+                const textarea = container.querySelector(`.pub-platform-caption[data-platform="${p}"]`);
+                if (textarea) {
+                    textarea.value = broadcastText;
+                    const charLimit = _PLATFORM_CHAR_LIMITS[p] || 9999;
+                    const counter = container.querySelector(`.pub-platform-chars[data-platform="${p}"]`);
+                    if (counter) counter.textContent = `${broadcastText.length}/${charLimit}`;
+                }
+            }
+        });
+    });
+}
+
+function _generateBroadcastText(platform) {
+    const title = document.getElementById('editPubTitle')?.value || '';
+    const contentPlatforms = {instagram: 'URL_IG', tiktok: 'URL_TIKTOK'};
+    const lines = ['¡Nueva publicación! <TITULO>', 'Disponible en:'];
+    for (const [cp, tag] of Object.entries(contentPlatforms)) {
+        if (_pubSelectedPlatforms.includes(cp)) {
+            const label = cp === 'instagram' ? 'Instagram' : 'TikTok';
+            lines.push(`${label}: <${tag}>`);
+        }
+    }
+    return lines.join('\n');
+}
+
+document.addEventListener('change', (e) => {
+    if (e.target.classList.contains('pub-platform-cb')) {
+        const platform = e.target.value;
+        if (e.target.checked) {
+            if (!_pubSelectedPlatforms.includes(platform)) {
+                _pubSelectedPlatforms.push(platform);
+                const globalScheduled = document.getElementById('editPubScheduled')?.value || '';
+                _pubPlatformDetails[platform] = _pubPlatformDetails[platform] || {
+                    scheduled_at: globalScheduled
+                };
+            }
+        } else {
+            _pubSelectedPlatforms = _pubSelectedPlatforms.filter(p => p !== platform);
+            delete _pubPlatformDetails[platform];
+        }
+        _renderPlatformDetails();
+    }
+});
 
 function openNewPub() {
     _resetPubModal();
@@ -420,6 +631,7 @@ function _renderFilePreviews() {
     const container = document.getElementById('pubFilesPreview');
     const token = localStorage.getItem(TOKEN_KEY) || '';
     container.querySelectorAll('[data-remove-pub-file]').forEach(el => el.closest('.file-thumb-wrap')?.remove());
+    const platforms = _pubSelectedPlatforms;
     _pubUploadedFiles.forEach((file, idx) => {
         const isImg = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp|svg|ico|tiff|avif)$/i.test(file.name);
         const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|avi|mkv|m4v|ogg|ogv|wmv|flv|3gp|3g2)$/i.test(file.name);
@@ -431,20 +643,142 @@ function _renderFilePreviews() {
             ? `<video src="${blobUrl}" preload="auto" playsinline controls class="pub-video-thumb"></video>`
             : `<div class="pub-other-thumb">${esc(file.name.split('.').pop().toUpperCase())}</div>`;
         const wrapClass = isVideo ? 'file-thumb-wrap pub-video-wrap' : 'file-thumb-wrap';
-        container.innerHTML += `<div class="${wrapClass}" style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        const orderInputs = platforms.map(p => {
+            const label = getPlatformLabel(p);
+            const color = getPlatformColor(p);
+            const shortLabel = label.substring(0, 2).toUpperCase();
+            return `<label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:3px;justify-content:space-between" title="${label}"><span style="color:${color};font-weight:bold">${shortLabel}</span><input type="number" class="pub-platform-order" data-file-idx="${idx}" data-platform="${p}" placeholder="-" min="0" step="1" style="width:50px;padding:3px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px;text-align:center"></label>`;
+        }).join('');
+        container.innerHTML += `<div class="${wrapClass}" style="display:flex;flex-direction:column;align-items:center;gap:3px">
             ${preview}
-            <input type="number" class="pub-ig-order" data-file-idx="${idx}" placeholder="IG" min="0" step="1" style="width:50px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:11px;text-align:center">
+            <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center">${orderInputs}</div>
             <button type="button" data-remove-pub-file="${idx}" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--red);padding:0" title="Eliminar">&times;</button>
         </div>`;
     });
 
-    container.querySelectorAll('.pub-ig-order').forEach(inp => {
+    container.querySelectorAll('.pub-platform-order').forEach(inp => {
         inp.addEventListener('change', () => {
             const idx = parseInt(inp.dataset.fileIdx);
+            const platform = inp.dataset.platform;
             const val = inp.value.trim();
-            _pubUploadedFiles[idx]._igOrder = val ? parseInt(val) : null;
+            if (!_pubUploadedFiles[idx]._platformOrders) _pubUploadedFiles[idx]._platformOrders = {};
+            _pubUploadedFiles[idx]._platformOrders[platform] = val ? parseInt(val) : null;
         });
     });
+}
+
+function _renderPubFilesPreview(pubId, allFiles, qs) {
+    const container = document.getElementById('pubFilesPreview');
+    const platforms = _pubSelectedPlatforms;
+
+    if (!allFiles.length) {
+        container.innerHTML = '<span style="color:var(--muted);font-size:13px">Sin archivos directos</span>';
+        return;
+    }
+
+    container.innerHTML = allFiles.map(f => {
+        const fileUrl = apiUrl(`product-catalog/files/${f.id}/content`) + qs;
+        const typeName = f.file_type?.name || '';
+        const origName = (f.original_name || '');
+        const isVideo = typeName.startsWith('video') || /\.(mp4|mov|webm|avi|mkv|m4v|ogg|ogv|wmv|flv|3gp|3g2)$/i.test(origName);
+        const isLinked = !!(f.inventory || f.purchase);
+        const delBtn = !isLinked
+            ? `<button type="button" class="pub-file-delete" data-del-file-id="${f.id}" title="Eliminar archivo">&times;</button>`
+            : '';
+        const linkedBadge = isLinked
+            ? `<span class="pub-file-linked" title="Archivo vinculado desde ${f.inventory ? 'inventario' : 'compra'}, no se puede eliminar aquí">&#128279;</span>`
+            : '';
+        const preview = isVideo
+            ? `<video src="${esc(fileUrl)}" preload="metadata" playsinline controls class="pub-video-thumb"></video>`
+            : `<img class="file-thumb pub-img-thumb" src="${esc(fileUrl)}" alt="${esc(f.original_name || '')}">`;
+        const wrapClass = isVideo ? 'file-thumb-wrap pub-video-wrap' : 'file-thumb-wrap';
+
+        const orderInputs = platforms.map(p => {
+            const label = getPlatformLabel(p);
+            const color = getPlatformColor(p);
+            const shortLabel = label.substring(0, 2).toUpperCase();
+            const detail = _pubPlatformDetails[p] || {};
+            const detailFiles = detail.files || [];
+            const fileEntry = detailFiles.find(df => df.file_id === f.id);
+            const val = fileEntry ? fileEntry.sort_order : '';
+            return `<label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:3px;justify-content:space-between" title="${label}"><span style="color:${color};font-weight:bold">${shortLabel}</span><input type="number" class="pub-detail-order-input" data-file-id="${f.id}" data-platform="${p}" value="${val}" placeholder="-" min="0" step="1" style="width:50px;padding:3px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px;text-align:center"></label>`;
+        }).join('');
+
+        return `<div class="${wrapClass}" data-file-id="${f.id}">
+            <div class="pub-file-preview">${linkedBadge}${delBtn}${isVideo ? preview : `<a href="${esc(fileUrl)}" target="_blank" rel="noopener">${preview}</a>`}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;padding:3px 0">${orderInputs}</div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.pub-detail-order-input').forEach(inp => {
+        inp.addEventListener('change', () => savePubDetailOrders(pubId));
+    });
+    container.querySelectorAll('.pub-file-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const fileId = parseInt(btn.dataset.delFileId);
+            if (!confirm('¿Eliminar este archivo de la publicación?')) return;
+            btn.disabled = true;
+            try {
+                const resp = await apiFetch(apiUrl(`files/${fileId}`), {method: 'DELETE'});
+                if (resp.ok) {
+                    btn.closest('.file-thumb-wrap')?.remove();
+                    showToast('Archivo eliminado', 'success');
+                } else {
+                    showToast('Error al eliminar', 'error');
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Error de conexión', 'error');
+                btn.disabled = false;
+            }
+        });
+    });
+}
+
+async function savePubDetailOrders(pubId) {
+    const container = document.getElementById('pubFilesPreview');
+    if (!container) return;
+
+    const platformFileIds = {};
+    container.querySelectorAll('.pub-detail-order-input').forEach(inp => {
+        const fid = parseInt(inp.dataset.fileId);
+        const platform = inp.dataset.platform;
+        const val = inp.value.trim();
+        if (val !== '') {
+            if (!platformFileIds[platform]) platformFileIds[platform] = [];
+            platformFileIds[platform].push({fileId: fid, order: parseInt(val, 10)});
+        }
+    });
+
+    console.log('Saving orders:', platformFileIds);
+
+    for (const platform of Object.keys(platformFileIds)) {
+        const detail = _pubPlatformDetails[platform] || {};
+        if (!detail.id) {
+            console.warn(`No detail ID for platform ${platform}`);
+            continue;
+        }
+        const entries = platformFileIds[platform].sort((a, b) => a.order - b.order);
+        const fileIds = entries.map(e => e.fileId);
+        console.log(`PUT publication-details/${detail.id}/files`, {file_ids: fileIds});
+        try {
+            const resp = await apiFetch(apiUrl(`publication-details/${detail.id}/files`), {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({file_ids: fileIds})
+            });
+            if (!resp.ok) {
+                const err = await resp.text();
+                console.error(`Error saving order for ${platform}:`, err);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    showToast('Orden actualizado', 'success');
 }
 
 document.addEventListener('click', (e) => {
@@ -474,8 +808,6 @@ async function openEditPub(pubId) {
         const schedInput = document.getElementById('editPubScheduled');
         schedInput.value = item.scheduled_at ? item.scheduled_at.slice(0, 16) : '';
 
-        document.getElementById('editPubStatus').value = item.status || 'pending_review';
-
         _pubSelectedInventories = (item.inventories || []).map(inv => ({
             id: inv.id,
             product_name: inv.product_name || '',
@@ -492,6 +824,28 @@ async function openEditPub(pubId) {
         }));
         _renderPurBadges();
 
+        const details = item.details || [];
+        _pubSelectedPlatforms = details.map(d => d.platform);
+        _pubPlatformDetails = {};
+        details.forEach(d => {
+            _pubPlatformDetails[d.platform] = {
+                id: d.id,
+                caption: d.caption || '',
+                scheduled_at: d.scheduled_at || item.scheduled_at || '',
+                published_at: d.published_at || '',
+                permalink: d.permalink || '',
+                error_message: d.error_message || '',
+                status: d.status || 'pending_review',
+                files: d.files || [],
+                is_broadcast: d.is_broadcast || false,
+            };
+        });
+        _pubSelectedPlatforms.forEach(p => {
+            const cb = document.querySelector(`.pub-platform-cb[value="${p}"]`);
+            if (cb) cb.checked = true;
+        });
+        _renderPlatformDetails();
+
         // Load publication files
         const token = localStorage.getItem(TOKEN_KEY) || '';
         const qs = token ? `?token=${encodeURIComponent(token)}` : '';
@@ -502,63 +856,7 @@ async function openEditPub(pubId) {
             if (fr.ok) allFiles = await fr.json();
         } catch (_) {}
 
-        const container = document.getElementById('pubFilesPreview');
-        if (allFiles.length) {
-            container.innerHTML = allFiles.map(f => {
-                const fileUrl = apiUrl(`product-catalog/files/${f.id}/content`) + qs;
-                const igOrder = f.instagram_sort_order;
-                const igVal = igOrder != null ? igOrder : '';
-                const typeName = f.file_type?.name || '';
-                const origName = (f.original_name || '');
-                const isVideo = typeName.startsWith('video') || /\.(mp4|mov|webm|avi|mkv|m4v|ogg|ogv|wmv|flv|3gp|3g2)$/i.test(origName);
-                const isLinked = !!(f.inventory || f.purchase);
-                const delBtn = !isLinked
-                    ? `<button type="button" class="pub-file-delete" data-del-file-id="${f.id}" title="Eliminar archivo">&times;</button>`
-                    : '';
-                const linkedBadge = isLinked
-                    ? `<span class="pub-file-linked" title="Archivo vinculado desde ${f.inventory ? 'inventario' : 'compra'}, no se puede eliminar aquí">&#128279;</span>`
-                    : '';
-                const preview = isVideo
-                    ? `<video src="${esc(fileUrl)}" preload="metadata" playsinline controls class="pub-video-thumb"></video>`
-                    : `<img class="file-thumb pub-img-thumb" src="${esc(fileUrl)}" alt="${esc(f.original_name || '')}">`;
-                const wrapClass = isVideo ? 'file-thumb-wrap pub-video-wrap' : 'file-thumb-wrap';
-                return `<div class="${wrapClass}" data-file-id="${f.id}">
-                    <div class="pub-file-preview">${linkedBadge}${delBtn}${isVideo ? preview : `<a href="${esc(fileUrl)}" target="_blank" rel="noopener">${preview}</a>`}</div>
-                    <div class="file-ig-order">
-                        <input type="number" class="ig-order-input" value="${igVal}" placeholder="-" min="0" step="1" data-file-id="${f.id}">
-                    </div>
-                </div>`;
-            }).join('');
-
-            container.querySelectorAll('.ig-order-input').forEach(inp => {
-                inp.addEventListener('change', () => savePubIgOrders(pubId));
-            });
-            container.querySelectorAll('.pub-file-delete').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const fileId = parseInt(btn.dataset.delFileId);
-                    if (!confirm('¿Eliminar este archivo de la publicación?')) return;
-                    btn.disabled = true;
-                    try {
-                        const resp = await apiFetch(apiUrl(`files/${fileId}`), {method: 'DELETE'});
-                        if (resp.ok) {
-                            btn.closest('.file-thumb-wrap')?.remove();
-                            showToast('Archivo eliminado', 'success');
-                        } else {
-                            showToast('Error al eliminar', 'error');
-                            btn.disabled = false;
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        showToast('Error de conexión', 'error');
-                        btn.disabled = false;
-                    }
-                });
-            });
-        } else {
-            container.innerHTML = '<span style="color:var(--muted);font-size:13px">Sin archivos directos</span>';
-        }
+        _renderPubFilesPreview(pubId, allFiles, qs);
 
         editPubModal.hidden = false;
         _syncPubOverflow();
@@ -603,14 +901,18 @@ document.getElementById('editPubForm')?.addEventListener('submit', async (e) => 
     const caption = document.getElementById('editPubCaption').value;
     const title = document.getElementById('editPubTitle').value;
     const scheduledVal = document.getElementById('editPubScheduled').value;
-    const status = document.getElementById('editPubStatus').value;
 
     if (_pubIsCreating) {
         // Create new publication
-        const body = {title, caption, status: status || 'pending_review'};
+        if (_pubSelectedPlatforms.length === 0) {
+            showToast('Selecciona al menos una plataforma', 'error');
+            return;
+        }
+        const body = {title, caption};
         if (scheduledVal) body.scheduled_at = scheduledVal;
         body.inventory_ids = _pubSelectedInventories.map(i => i.id);
         body.purchase_ids = _pubSelectedPurchases.map(p => p.id);
+        body.platforms = _pubSelectedPlatforms;
 
         try {
             const resp = await apiFetch(apiUrl('publications'), {
@@ -622,31 +924,55 @@ document.getElementById('editPubForm')?.addEventListener('submit', async (e) => 
             const created = await resp.json();
             const newPubId = created.id;
 
+            // Update platform details with specific fields
+            const createdDetails = created.details || [];
+            for (const detail of createdDetails) {
+                const platform = detail.platform;
+                const platformDetail = _pubPlatformDetails[platform] || {};
+                const patchBody = {};
+                if (platformDetail.caption) patchBody.caption = platformDetail.caption;
+                if (platformDetail.scheduled_at) patchBody.scheduled_at = platformDetail.scheduled_at;
+                if (platformDetail.status) patchBody.status = platformDetail.status;
+                if (platformDetail.permalink) patchBody.permalink = platformDetail.permalink;
+                if (platformDetail.is_broadcast !== undefined) patchBody.is_broadcast = platformDetail.is_broadcast;
+                if (Object.keys(patchBody).length) {
+                    await apiFetch(apiUrl(`publication-details/${detail.id}`), {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(patchBody)
+                    });
+                }
+            }
+
             // Upload files if any
             if (_pubUploadedFiles.length) {
                 const fd = new FormData();
                 _pubUploadedFiles.forEach(f => fd.append('files', f));
                 const upResp = await apiFetch(apiUrl(`publications/${newPubId}/files`), {method: 'POST', body: fd});
                 if (upResp.ok) {
-                    // Apply IG sort order
-                    const igOrders = {};
-                    _pubUploadedFiles.forEach((f, idx) => {
-                        if (f._igOrder) igOrders[`ig_order_${idx}`] = f._igOrder;
-                    });
-                    if (Object.keys(igOrders).length) {
-                        // Get file IDs from uploaded files response
-                        const uploadedData = await upResp.json();
-                        const reorderBody = {file_ids: uploadedData.files.map(uf => uf.id)};
-                        for (let i = 0; i < uploadedData.files.length; i++) {
-                            const igKey = `ig_order_${uploadedData.files[i].id}`;
-                            if (_pubUploadedFiles[i]?._igOrder) {
-                                reorderBody[igKey] = _pubUploadedFiles[i]._igOrder;
+                    const uploadedData = await upResp.json();
+                    const uploadedFiles = uploadedData.files || [];
+
+                    // Apply platform orders
+                    const platformOrders = {};
+                    uploadedFiles.forEach((uf, idx) => {
+                        const orders = _pubUploadedFiles[idx]?._platformOrders || {};
+                        for (const [platform, order] of Object.entries(orders)) {
+                            if (order != null) {
+                                if (!platformOrders[platform]) platformOrders[platform] = [];
+                                platformOrders[platform].push({fileId: uf.id, order});
                             }
                         }
-                        await apiFetch(apiUrl(`publications/${newPubId}/files/reorder`), {
-                            method: 'PATCH',
+                    });
+
+                    for (const [platform, entries] of Object.entries(platformOrders)) {
+                        const detail = createdDetails.find(d => d.platform === platform);
+                        if (!detail) continue;
+                        entries.sort((a, b) => a.order - b.order);
+                        await apiFetch(apiUrl(`publication-details/${detail.id}/files`), {
+                            method: 'PUT',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify(reorderBody)
+                            body: JSON.stringify({file_ids: entries.map(e => e.fileId)})
                         });
                     }
                 }
@@ -662,7 +988,6 @@ document.getElementById('editPubForm')?.addEventListener('submit', async (e) => 
     // Update existing publication
     const body = {title, caption};
     if (scheduledVal) body.scheduled_at = scheduledVal;
-    body.status = status;
     body.inventory_ids = _pubSelectedInventories.map(i => i.id);
     body.purchase_ids = _pubSelectedPurchases.map(p => p.id);
 
@@ -673,42 +998,92 @@ document.getElementById('editPubForm')?.addEventListener('submit', async (e) => 
             body: JSON.stringify(body)
         });
         if (!resp.ok) { const t = await resp.text().catch(()=>null); showToast('Error: ' + (t || resp.status), 'error'); return; }
+
+        // Sync platforms: add new ones, remove unselected ones
+        for (const platform of _pubSelectedPlatforms) {
+            const detail = _pubPlatformDetails[platform] || {};
+            if (!detail.id) {
+                const created = await apiFetch(apiUrl(`publications/${pubId}/platforms`), {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        platform,
+                        status: detail.status || 'pending_review',
+                        caption: detail.caption || null,
+                        scheduled_at: detail.scheduled_at || null,
+                        is_broadcast: detail.is_broadcast || false,
+                    })
+                });
+                if (created.ok) {
+                    const newDetail = await created.json();
+                    _pubPlatformDetails[platform] = { ...detail, id: newDetail.id };
+                }
+            } else {
+                const patchBody = {};
+                if (detail.caption !== undefined) patchBody.caption = detail.caption || null;
+                if (detail.scheduled_at !== undefined) patchBody.scheduled_at = detail.scheduled_at || null;
+                if (detail.status !== undefined) patchBody.status = detail.status;
+                if (detail.permalink !== undefined) patchBody.permalink = detail.permalink || null;
+                if (detail.is_broadcast !== undefined) patchBody.is_broadcast = detail.is_broadcast;
+                if (Object.keys(patchBody).length) {
+                    await apiFetch(apiUrl(`publication-details/${detail.id}`), {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(patchBody)
+                    });
+                }
+            }
+        }
+        for (const platform of Object.keys(_pubPlatformDetails)) {
+            if (!_pubSelectedPlatforms.includes(platform)) {
+                const detail = _pubPlatformDetails[platform] || {};
+                if (detail.id) {
+                    await apiFetch(apiUrl(`publication-details/${detail.id}`), {
+                        method: 'DELETE'
+                    });
+                }
+            }
+        }
+
         showToast('Publicaci\u00f3n actualizada', 'success');
 
         // Upload new files if any
         if (_pubUploadedFiles.length) {
             const fd = new FormData();
             _pubUploadedFiles.forEach(f => fd.append('files', f));
-            await apiFetch(apiUrl(`publications/${pubId}/files`), {method: 'POST', body: fd});
+            const upResp = await apiFetch(apiUrl(`publications/${pubId}/files`), {method: 'POST', body: fd});
+            if (upResp.ok) {
+                const uploadedData = await upResp.json();
+                const uploadedFiles = uploadedData.files || [];
+
+                const platformOrders = {};
+                uploadedFiles.forEach((uf, idx) => {
+                    const orders = _pubUploadedFiles[idx]?._platformOrders || {};
+                    for (const [platform, order] of Object.entries(orders)) {
+                        if (order != null) {
+                            if (!platformOrders[platform]) platformOrders[platform] = [];
+                            platformOrders[platform].push({fileId: uf.id, order});
+                        }
+                    }
+                });
+
+                for (const [platform, entries] of Object.entries(platformOrders)) {
+                    const detail = _pubPlatformDetails[platform] || {};
+                    if (!detail.id) continue;
+                    entries.sort((a, b) => a.order - b.order);
+                    await apiFetch(apiUrl(`publication-details/${detail.id}/files`), {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({file_ids: entries.map(e => e.fileId)})
+                    });
+                }
+            }
         }
 
         closeEditPub();
         loadPublications({reset: true});
     } catch (err) { console.error(err); showToast('Error de conexi\u00f3n', 'error'); }
 });
-
-// Auto-save IG order
-async function savePubIgOrders(pubId) {
-    const container = document.getElementById('pubFilesPreview');
-    if (!container) return;
-    const thumbWraps = container.querySelectorAll('.file-thumb-wrap');
-    const fileIds = Array.from(thumbWraps).map(w => parseInt(w.dataset.fileId)).filter(id => id > 0);
-    const igOrders = {};
-    container.querySelectorAll('.ig-order-input').forEach(inp => {
-        const fid = parseInt(inp.dataset.fileId);
-        const val = inp.value.trim();
-        igOrders[`ig_order_${fid}`] = val !== '' ? parseInt(val, 10) : null;
-    });
-    try {
-        const resp = await apiFetch(apiUrl(`publications/${pubId}/files/reorder`), {
-            method: 'PATCH',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({file_ids: fileIds, ...igOrders})
-        });
-        if (!resp.ok) { const t = await resp.text().catch(()=>null); console.error('Save IG error:', t); return; }
-        showToast('Orden IG actualizado', 'success');
-    } catch (e) { console.error(e); }
-}
 
 // Infinite scroll
 if (pubSentinel) {
@@ -810,13 +1185,22 @@ function showPubCalDay(key) {
     const detail = document.getElementById('pubCalDetail');
     if (!info.items || !info.items.length) { detail.hidden = true; return; }
     const rows = info.items.map(it => {
-        const st = it.status === 'published' ? 'Publicado' : 'Por publicar';
+        const platformStatuses = it.platform_statuses || {};
+        const allPublished = Object.keys(platformStatuses).length > 0 && Object.values(platformStatuses).every(s => s === 'published');
+        const st = allPublished ? 'Publicado' : 'Por publicar';
         const code = it.collection_code ? `${it.collection_code} ${it.product_number || ''}`.trim() : '';
         const name = it.title || code || `#${it.id}`;
+        const platformBadges = Object.entries(platformStatuses).map(([p, s]) => {
+            const label = (getPlatformLabel(p)).substring(0, 2).toUpperCase();
+            const color = getPlatformColor(p);
+            const cls = s === 'published' ? 'status-ok' : 'status-warn';
+            return `<span class="${cls}" style="font-size:10px;padding:1px 3px;color:${color};font-weight:bold" title="${p}: ${s}">${label}</span>`;
+        }).join(' ');
         return `<div class="pub-cal-detail-row" data-pub-id="${it.id}" title="Editar">
-            <span class="${it.status === 'published' ? 'status-ok' : 'status-warn'}">${st}</span>
+            <span class="${allPublished ? 'status-ok' : 'status-warn'}">${st}</span>
             <span>${esc(name)}</span>
-            <span style="color:var(--muted);font-size:12px">${it.scheduled_at || it.published_at || ''}</span>
+            <span style="color:var(--muted);font-size:12px">${it.scheduled_at || ''}</span>
+            <span>${platformBadges}</span>
             <span style="color:var(--cyan);font-size:12px">Editar</span>
         </div>`;
     }).join('');
