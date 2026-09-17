@@ -13,6 +13,9 @@ let _pubIsCreating = false;
 let _pubSelectedPlatforms = [];
 let _pubPlatformDetails = {};
 let _platformsData = {};
+let _pubCurrentPubId = null;
+let _pubCurrentFiles = [];
+let _pubCurrentQs = '';
 
 const _PLATFORM_LABELS = {
     instagram: 'Instagram',
@@ -290,6 +293,9 @@ function _resetPubModal() {
     _pubIsCreating = false;
     _pubSelectedPlatforms = [];
     _pubPlatformDetails = {};
+    _pubCurrentPubId = null;
+    _pubCurrentFiles = [];
+    _pubCurrentQs = '';
     document.querySelectorAll('.pub-platform-cb').forEach(cb => cb.checked = false);
     document.getElementById('pubPlatformDetails').innerHTML = '';
 }
@@ -429,7 +435,7 @@ document.addEventListener('change', (e) => {
                 _pubSelectedPlatforms.push(platform);
                 const globalScheduled = document.getElementById('editPubScheduled')?.value || '';
                 _pubPlatformDetails[platform] = _pubPlatformDetails[platform] || {
-                    scheduled_at: globalScheduled
+                    scheduled_at: globalScheduled ? globalScheduled + ':00' : ''
                 };
             }
         } else {
@@ -437,6 +443,9 @@ document.addEventListener('change', (e) => {
             delete _pubPlatformDetails[platform];
         }
         _renderPlatformDetails();
+        if (_pubCurrentPubId) {
+            _renderPubFilesPreview(_pubCurrentPubId, _pubCurrentFiles, _pubCurrentQs);
+        }
     }
 });
 
@@ -856,6 +865,9 @@ async function openEditPub(pubId) {
             if (fr.ok) allFiles = await fr.json();
         } catch (_) {}
 
+        _pubCurrentPubId = pubId;
+        _pubCurrentFiles = allFiles;
+        _pubCurrentQs = qs;
         _renderPubFilesPreview(pubId, allFiles, qs);
 
         editPubModal.hidden = false;
@@ -1042,6 +1054,32 @@ document.getElementById('editPubForm')?.addEventListener('submit', async (e) => 
                         method: 'DELETE'
                     });
                 }
+            }
+        }
+
+        // Save file orders for all platforms (including newly created ones)
+        const filesContainer = document.getElementById('pubFilesPreview');
+        if (filesContainer) {
+            const platformFileIds = {};
+            filesContainer.querySelectorAll('.pub-detail-order-input').forEach(inp => {
+                const fid = parseInt(inp.dataset.fileId);
+                const platform = inp.dataset.platform;
+                const val = inp.value.trim();
+                if (val !== '') {
+                    if (!platformFileIds[platform]) platformFileIds[platform] = [];
+                    platformFileIds[platform].push({fileId: fid, order: parseInt(val, 10)});
+                }
+            });
+            for (const platform of Object.keys(platformFileIds)) {
+                const detail = _pubPlatformDetails[platform] || {};
+                if (!detail.id) continue;
+                const entries = platformFileIds[platform].sort((a, b) => a.order - b.order);
+                const fileIds = entries.map(e => e.fileId);
+                await apiFetch(apiUrl(`publication-details/${detail.id}/files`), {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({file_ids: fileIds})
+                });
             }
         }
 
