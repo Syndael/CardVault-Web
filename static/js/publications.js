@@ -417,12 +417,18 @@ function _renderPlatformDetails() {
 function _generateBroadcastText(platform) {
     const title = document.getElementById('editPubTitle')?.value || '';
     const contentPlatforms = {instagram: 'URL_IG', tiktok: 'URL_TIKTOK'};
-    const lines = ['¡Nueva publicación! <TITULO>', 'Disponible en:'];
+    const titleText = title || '<TITULO>';
+    const lines = [`¡Nueva publicación! ${titleText}`];
+    const availableLines = [];
     for (const [cp, tag] of Object.entries(contentPlatforms)) {
         if (_pubSelectedPlatforms.includes(cp)) {
             const label = cp === 'instagram' ? 'Instagram' : 'TikTok';
-            lines.push(`${label}: <${tag}>`);
+            availableLines.push(`${label}: <${tag}>`);
         }
+    }
+    if (availableLines.length > 0) {
+        lines.push('Disponible en:');
+        lines.push(...availableLines);
     }
     return lines.join('\n');
 }
@@ -434,8 +440,13 @@ document.addEventListener('change', (e) => {
             if (!_pubSelectedPlatforms.includes(platform)) {
                 _pubSelectedPlatforms.push(platform);
                 const globalScheduled = document.getElementById('editPubScheduled')?.value || '';
+                const broadcastPlatforms = ['twitter', 'threads', 'bluesky', 'telegram'];
+                const isBroadcast = broadcastPlatforms.includes(platform);
                 _pubPlatformDetails[platform] = _pubPlatformDetails[platform] || {
-                    scheduled_at: globalScheduled ? globalScheduled + ':00' : ''
+                    scheduled_at: globalScheduled ? globalScheduled + ':00' : '',
+                    status: 'pending_publish',
+                    is_broadcast: isBroadcast,
+                    caption: isBroadcast ? _generateBroadcastText(platform) : ''
                 };
             }
         } else {
